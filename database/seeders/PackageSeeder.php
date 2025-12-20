@@ -19,6 +19,7 @@ class PackageSeeder extends Seeder
         foreach ($categories as $category) {
             if (str_contains($category->name, 'Race Competitive')) {
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Early Bird',
                     'description' => 'Paket early bird dengan harga spesial.',
@@ -28,6 +29,7 @@ class PackageSeeder extends Seeder
                 ]);
 
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Regular',
                     'description' => 'Paket regular dengan harga normal.',
@@ -37,6 +39,7 @@ class PackageSeeder extends Seeder
                 ]);
             } elseif (str_contains($category->name, 'Fun Ride')) {
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Standard',
                     'description' => 'Paket standar untuk fun ride.',
@@ -46,6 +49,7 @@ class PackageSeeder extends Seeder
                 ]);
 
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Premium',
                     'description' => 'Paket premium dengan kaos dan merchandise.',
@@ -55,6 +59,7 @@ class PackageSeeder extends Seeder
                 ]);
             } elseif (str_contains($category->name, 'Kids')) {
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Kids Package',
                     'description' => 'Paket khusus untuk anak-anak dengan harga terjangkau.',
@@ -64,6 +69,7 @@ class PackageSeeder extends Seeder
                 ]);
             } elseif (str_contains($category->name, 'Family')) {
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Family Package (2-3 orang)',
                     'description' => 'Paket keluarga untuk 2-3 orang dengan harga spesial.',
@@ -73,6 +79,7 @@ class PackageSeeder extends Seeder
                 ]);
             } else {
                 Package::create([
+                    'event_id' => $category->event_id,
                     'category_id' => $category->id,
                     'name' => 'Individual Package',
                     'description' => 'Paket untuk individu.',
