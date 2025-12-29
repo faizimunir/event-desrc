@@ -60,7 +60,13 @@ class PaymentProofs extends Component
             'payments.payment_date',
             'payments.created_at'
         )
-        ->with(['participant.package.event', 'participant.category.event']);
+        ->with([
+            'participant' => function ($query) {
+                $query->select('id', 'package_id', 'category_id', 'name', 'email', 'unique_code');
+            },
+            'participant.package.event',
+            'participant.category.event'
+        ]);
 
         // Filter by admin access
         if (!$admin->isSuperAdmin()) {
@@ -87,7 +93,13 @@ class PaymentProofs extends Component
 
     public function viewProof($paymentId)
     {
-        $this->selectedPayment = Payment::with(['participant.package.event', 'participant.category.event'])->findOrFail($paymentId);
+        $this->selectedPayment = Payment::with([
+            'participant' => function ($query) {
+                $query->select('id', 'package_id', 'category_id', 'name', 'email', 'unique_code');
+            },
+            'participant.package.event',
+            'participant.category.event'
+        ])->findOrFail($paymentId);
         $this->showModal = true;
     }
 
@@ -99,10 +111,12 @@ class PaymentProofs extends Component
 
     public function verify($paymentId)
     {
+        $admin = Auth::guard('admin')->user();
         $payment = Payment::with('participant')->findOrFail($paymentId);
         $payment->update([
             'status' => 'verified',
             'payment_date' => now(),
+            'verified_by' => $admin->id,
         ]);
         
         $participant = $payment->participant;

@@ -208,6 +208,13 @@
                                     {{ ucfirst($participant->payment->status) }}
                                 </span>
                             </div>
+                            @if($participant->payment->status === 'verified' && $participant->payment->verifiedBy)
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Verifikasi By</label>
+                                    <p class="text-gray-900 dark:text-white font-medium">{{ $participant->payment->verifiedBy->name }}</p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ $participant->payment->payment_date ? $participant->payment->payment_date->format('d M Y H:i') : '-' }}</p>
+                                </div>
+                            @endif
                             @if($participant->payment->payment_proof)
                                 <div>
                                     <label class="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Bukti Pembayaran</label>

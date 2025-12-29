@@ -16,6 +16,7 @@ class Payment extends Model
         'transaction_id',
         'notes',
         'status',
+        'verified_by',
     ];
 
     protected $casts = [
@@ -26,5 +27,10 @@ class Payment extends Model
     public function participant(): BelongsTo
     {
         return $this->belongsTo(Participant::class);
+    }
+
+    public function verifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(Admin::class, 'verified_by');
     }
 }

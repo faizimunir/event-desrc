@@ -8,6 +8,7 @@ use App\Jobs\SendConfirmNotificationJob;
 use App\Jobs\SendCancelNotificationJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class PaymentController extends Controller
 {
@@ -122,9 +123,12 @@ class PaymentController extends Controller
             return response()->json(['message' => 'Payment must be paid before verification'], 400);
         }
 
+        $admin = Auth::guard('admin')->user();
+        
         $paymentModel->update([
             'status' => 'verified',
             'payment_date' => now(),
+            'verified_by' => $admin ? $admin->id : null,
         ]);
 
         // Update participant status

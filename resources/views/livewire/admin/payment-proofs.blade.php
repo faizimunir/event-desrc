@@ -40,6 +40,7 @@
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Peserta</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kode Unik</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
@@ -56,6 +57,9 @@
                             </td>
                             <td class="px-6 py-4">
                                 <div class="text-sm text-gray-900">{{ $payment->participant->package->category->event->name ?? '-' }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-blue-600">{{ $payment->participant->unique_code ?? '-' }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm font-medium text-gray-900">Rp {{ number_format($payment->amount, 0, ',', '.') }}</div>
@@ -92,7 +96,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-6 py-4 text-center text-gray-500">Tidak ada data pembayaran</td>
+                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">Tidak ada data pembayaran</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -114,6 +118,11 @@
                         <p class="text-sm font-medium text-gray-700">Peserta:</p>
                         <p class="text-gray-900">{{ $selectedPayment->participant->name }}</p>
                         <p class="text-sm text-gray-500">{{ $selectedPayment->participant->email }}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Kode Unik:</p>
+                        <p class="text-gray-900 font-semibold text-blue-600">{{ $selectedPayment->participant->unique_code ?? '-' }}</p>
                     </div>
 
                     <div>

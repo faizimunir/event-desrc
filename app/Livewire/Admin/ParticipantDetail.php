@@ -96,7 +96,7 @@ class ParticipantDetail extends Component
                 'participants.created_at',
                 'participants.updated_at'
             )
-        ->with(['package.event', 'category.event', 'payment']);
+        ->with(['package.event', 'category.event', 'payment.verifiedBy']);
 
         // Check admin access
         if (!$admin->isSuperAdmin()) {
