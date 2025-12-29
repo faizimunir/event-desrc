@@ -46,9 +46,9 @@ class PackageManagement extends Component
         if ($admin->isSuperAdmin()) {
             $this->events = Event::select('id', 'name')->orderBy('name')->get();
         } else {
+            $accessibleEventIds = $admin->getAccessibleEventIds();
             $this->events = Event::select('id', 'name')
-                ->where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
+                ->whereIn('id', $accessibleEventIds)
                 ->orderBy('name')
                 ->get();
         }
@@ -81,10 +81,8 @@ class PackageManagement extends Component
 
         // Filter by admin access
         if (!$admin->isSuperAdmin()) {
-            $query->whereHas('event', function ($q) use ($admin) {
-                $q->where('created_by', $admin->id)
-                  ->orWhere('id', $admin->event_id);
-            });
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->whereIn('packages.event_id', $accessibleEventIds);
         }
 
         // Filter by event

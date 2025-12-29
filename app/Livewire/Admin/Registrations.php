@@ -34,9 +34,9 @@ class Registrations extends Component
         if ($admin->isSuperAdmin()) {
             $this->events = Event::select('id', 'name')->orderBy('name')->get();
         } else {
+            $accessibleEventIds = $admin->getAccessibleEventIds();
             $this->events = Event::select('id', 'name')
-                ->where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
+                ->whereIn('id', $accessibleEventIds)
                 ->orderBy('name')
                 ->get();
         }
@@ -87,14 +87,13 @@ class Registrations extends Component
 
         // Filter by admin access
         if (!$admin->isSuperAdmin()) {
-            $query->where(function($q) use ($admin) {
-                $q->whereHas('category.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->where(function($q) use ($accessibleEventIds) {
+                $q->whereHas('category.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 })
-                ->orWhereHas('package.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+                ->orWhereHas('package.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 });
             });
         }

@@ -55,10 +55,8 @@ class FormBuilder extends Component
         $query = Package::with(['event']);
 
         if (!$admin->isSuperAdmin()) {
-            $query->whereHas('event', function ($q) use ($admin) {
-                $q->where('created_by', $admin->id)
-                  ->orWhere('id', $admin->event_id);
-            });
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->whereIn('packages.event_id', $accessibleEventIds);
         }
 
         $this->packages = $query->orderBy('packages.name')->get();

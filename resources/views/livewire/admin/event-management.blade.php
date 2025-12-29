@@ -1,12 +1,14 @@
 <div>
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Kelola Event</h1>
-        <button 
-            wire:click="openModal"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
-        >
-            + Event Baru
-        </button>
+        @if(auth('admin')->user()->isSuperAdmin() || auth('admin')->user()->isAdminEvent())
+            <button 
+                wire:click="openModal"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md"
+            >
+                + Event Baru
+            </button>
+        @endif
     </div>
 
     @if(session()->has('success'))
@@ -57,9 +59,13 @@
                             </button>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                            <a href="{{ route('admin.live-result-categories.index', $event->id) }}" class="text-green-600 hover:text-green-900">Live Result</a>
-                            <button wire:click="openModal({{ $event->id }})" class="text-blue-600 hover:text-blue-900">Edit</button>
-                            <button wire:click="delete({{ $event->id }})" wire:confirm="Apakah Anda yakin ingin menghapus event ini?" class="text-red-600 hover:text-red-900">Hapus</button>
+                            @if(auth('admin')->user()->isSuperAdmin())
+                                <a href="{{ route('admin.live-result-categories.index', $event->id) }}" class="text-green-600 hover:text-green-900">Live Result</a>
+                            @endif
+                            @if(auth('admin')->user()->isSuperAdmin() || auth('admin')->user()->isAdminEvent())
+                                <button wire:click="openModal({{ $event->id }})" class="text-blue-600 hover:text-blue-900">Edit</button>
+                                <button wire:click="delete({{ $event->id }})" wire:confirm="Apakah Anda yakin ingin menghapus event ini?" class="text-red-600 hover:text-red-900">Hapus</button>
+                            @endif
                         </td>
                     </tr>
                 @empty

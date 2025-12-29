@@ -58,9 +58,11 @@ class EventManagement extends Component
                 ->orderBy('created_at', 'desc')
                 ->get();
         } else {
+            // Get accessible event IDs (created events, event_id, or from pivot table)
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            
             $this->events = Event::select('id', 'name', 'start_date', 'location', 'status', 'registration_open', 'created_at')
-                ->where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
+                ->whereIn('id', $accessibleEventIds)
                 ->orderBy('created_at', 'desc')
                 ->get();
         }
@@ -120,6 +122,14 @@ class EventManagement extends Component
 
     public function save()
     {
+        $admin = Auth::guard('admin')->user();
+        
+        // Restrict Co Admin Event from creating/editing events
+        if ($admin->isCoAdminEvent()) {
+            session()->flash('error', 'Co Admin Event tidak dapat membuat atau mengedit event.');
+            return;
+        }
+        
         $this->validate();
 
         // Store editingId before any operations
@@ -187,7 +197,22 @@ class EventManagement extends Component
 
     public function delete($id)
     {
+        $admin = Auth::guard('admin')->user();
+        
+        // Restrict Co Admin Event from deleting events
+        if ($admin->isCoAdminEvent()) {
+            session()->flash('error', 'Co Admin Event tidak dapat menghapus event.');
+            return;
+        }
+        
         $event = Event::findOrFail($id);
+        
+        // Check if admin has access to this event
+        if (!$admin->canAccessEvent($id)) {
+            session()->flash('error', 'Anda tidak memiliki akses untuk menghapus event ini.');
+            return;
+        }
+        
         if ($event->image) {
             Storage::disk('public')->delete($event->image);
         }

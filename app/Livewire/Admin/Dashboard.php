@@ -24,41 +24,38 @@ class Dashboard extends Component
                 ->limit(5)
                 ->get();
         } else {
-            $events = Event::where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
-                ->count();
-            $participants = Participant::where(function($q) use ($admin) {
-                $q->whereHas('category.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            
+            $events = Event::whereIn('id', $accessibleEventIds)->count();
+            
+            $participants = Participant::where(function($q) use ($admin, $accessibleEventIds) {
+                $q->whereHas('category.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 })
-                ->orWhereHas('package.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+                ->orWhereHas('package.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 });
             })->count();
-            $payments = Payment::where(function($q) use ($admin) {
-                $q->whereHas('participant.category.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+            
+            $payments = Payment::where(function($q) use ($accessibleEventIds) {
+                $q->whereHas('participant.category.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 })
-                ->orWhereHas('participant.package.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+                ->orWhereHas('participant.package.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 });
             })->where('status', 'paid')->count();
-            $pendingPayments = Payment::where(function($q) use ($admin) {
-                $q->whereHas('participant.category.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+            
+            $pendingPayments = Payment::where(function($q) use ($accessibleEventIds) {
+                $q->whereHas('participant.category.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 })
-                ->orWhereHas('participant.package.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+                ->orWhereHas('participant.package.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 });
             })->where('status', 'pending')->count();
-            $recentEvents = Event::where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
+            
+            $recentEvents = Event::whereIn('id', $accessibleEventIds)
                 ->select('id', 'name', 'start_date', 'status', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)

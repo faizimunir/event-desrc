@@ -100,14 +100,13 @@ class ParticipantDetail extends Component
 
         // Check admin access
         if (!$admin->isSuperAdmin()) {
-            $query->where(function($q) use ($admin) {
-                $q->whereHas('category.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->where(function($q) use ($accessibleEventIds) {
+                $q->whereHas('category.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 })
-                ->orWhereHas('package.event', function ($query) use ($admin) {
-                    $query->where('created_by', $admin->id)
-                          ->orWhere('id', $admin->event_id);
+                ->orWhereHas('package.event', function ($query) use ($accessibleEventIds) {
+                    $query->whereIn('id', $accessibleEventIds);
                 });
             });
         }

@@ -14,22 +14,24 @@
     @endif
 
     <!-- Tabs -->
-    <div class="border-b border-gray-200 mb-6">
-        <nav class="-mb-px flex space-x-8">
-            <button 
-                wire:click="$set('activeTab', 'admins')"
-                class="{{ $activeTab === 'admins' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-            >
-                Kelola Admin
-            </button>
-            <button 
-                wire:click="$set('activeTab', 'fees')"
-                class="{{ $activeTab === 'fees' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
-            >
-                Biaya Admin per Event
-            </button>
-        </nav>
-    </div>
+    @if(auth('admin')->user()->isSuperAdmin())
+        <div class="border-b border-gray-200 mb-6">
+            <nav class="-mb-px flex space-x-8">
+                <button 
+                    wire:click="$set('activeTab', 'admins')"
+                    class="{{ $activeTab === 'admins' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    Kelola Admin
+                </button>
+                <button 
+                    wire:click="$set('activeTab', 'fees')"
+                    class="{{ $activeTab === 'fees' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm"
+                >
+                    Biaya Admin per Event
+                </button>
+            </nav>
+        </div>
+    @endif
 
     <!-- Admin Management Tab -->
     @if($activeTab === 'admins')
@@ -64,12 +66,20 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                                        {{ $admin->role === 'super_admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800' }}">
+                                        {{ $admin->role === 'super_admin' ? 'bg-purple-100 text-purple-800' : ($admin->role === 'co_admin_event' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800') }}">
                                         {{ ucfirst(str_replace('_', ' ', $admin->role)) }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm text-gray-500">{{ $admin->event ? $admin->event->name : '-' }}</div>
+                                    <div class="text-sm text-gray-500">
+                                        @if($admin->eventAccess && $admin->eventAccess->count() > 0)
+                                            {{ $admin->eventAccess->pluck('name')->join(', ') }}
+                                        @elseif($admin->event)
+                                            {{ $admin->event->name }}
+                                        @else
+                                            -
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -96,7 +106,7 @@
     @endif
 
     <!-- Admin Fees Tab -->
-    @if($activeTab === 'fees')
+    @if($activeTab === 'fees' && auth('admin')->user()->isSuperAdmin())
         <div>
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-xl font-semibold text-gray-900">Biaya Admin per Event</h2>
@@ -186,21 +196,56 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Role</label>
-                            <select wire:model="adminRole" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                                <option value="super_admin">Super Admin</option>
-                                <option value="admin_event">Admin Event</option>
-                            </select>
+                            @if(auth('admin')->user()->isSuperAdmin())
+                                <select wire:model="adminRole" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                    <option value="super_admin">Super Admin</option>
+                                    <option value="admin_event">Admin Event</option>
+                                    <option value="co_admin_event">Co Admin Event</option>
+                                </select>
+                            @elseif(auth('admin')->user()->isAdminEvent())
+                                @if($editingAdminId)
+                                    <select wire:model="adminRole" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                        <option value="admin_event">Admin Event</option>
+                                        <option value="co_admin_event">Co Admin Event</option>
+                                    </select>
+                                @else
+                                    <select wire:model="adminRole" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-100" disabled>
+                                        <option value="co_admin_event">Co Admin Event</option>
+                                    </select>
+                                    <input type="hidden" wire:model="adminRole" value="co_admin_event">
+                                    <p class="text-xs text-gray-500 mt-1">Admin Event hanya dapat membuat Co Admin Event</p>
+                                @endif
+                            @else
+                                <select wire:model="adminRole" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                    <option value="co_admin_event">Co Admin Event</option>
+                                </select>
+                            @endif
                         </div>
 
-                        @if($adminRole === 'admin_event')
+                        @if(in_array($adminRole, ['admin_event', 'co_admin_event']))
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Event</label>
-                                <select wire:model="adminEventId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                                    <option value="">Pilih Event</option>
-                                    @foreach($events as $event)
-                                        <option value="{{ $event->id }}">{{ $event->name }}</option>
-                                    @endforeach
-                                </select>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Pilih Event (dapat memilih beberapa)</label>
+                                <div class="max-h-60 overflow-y-auto border border-gray-300 rounded-md p-3 space-y-2">
+                                    @forelse($events as $event)
+                                        <label class="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded">
+                                            <input 
+                                                type="checkbox" 
+                                                wire:model="adminSelectedEventIds" 
+                                                value="{{ $event->id }}"
+                                                class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                            >
+                                            <span class="text-sm text-gray-700">{{ $event->name }}</span>
+                                        </label>
+                                    @empty
+                                        <p class="text-sm text-gray-500">Tidak ada event yang tersedia</p>
+                                    @endforelse
+                                </div>
+                                @error('adminSelectedEventIds') 
+                                    <span class="text-red-500 text-xs">{{ $message }}</span> 
+                                @enderror
+                                @error('adminSelectedEventIds.*') 
+                                    <span class="text-red-500 text-xs">{{ $message }}</span> 
+                                @enderror
                             </div>
                         @endif
 

@@ -62,21 +62,40 @@
                     <a href="{{ route('admin.print-center') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.print-center*') ? 'bg-gray-700' : '' }}">
                         🖨️ Cetak Hasil
                     </a>
-                @else
+                @elseif(auth('admin')->user()->isAdminEvent())
                     <a href="{{ route('admin.events.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.events.*') ? 'bg-gray-700' : '' }}">
                         Event Saya
                     </a>
                     <a href="{{ route('admin.categories.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.categories.*') ? 'bg-gray-700' : '' }}">
                         Kelola Kategori
                     </a>
-                    <a href="{{ route('admin.registrations.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.registrations.*') ? 'bg-gray-700' : '' }}">
-                        Data Registrasi
+                    <a href="{{ route('admin.packages.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.packages.*') ? 'bg-gray-700' : '' }}">
+                        Kelola Paket
+                    </a>
+                    <a href="{{ route('admin.form-builder.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.form-builder.*') ? 'bg-gray-700' : '' }}">
+                        Form Builder
+                    </a>
+                    <a href="{{ route('admin.payment-settings.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.payment-settings.*') ? 'bg-gray-700' : '' }}">
+                        Pengaturan Pembayaran
                     </a>
                     <a href="{{ route('admin.payment-proofs.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.payment-proofs.*') ? 'bg-gray-700' : '' }}">
-                        Bukti Transfer
+                        Kelola Bukti Transfer
                     </a>
-                    <a href="{{ route('admin.print-center') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.print-center*') ? 'bg-gray-700' : '' }}">
-                        🖨️ Cetak Hasil
+                    <a href="{{ route('admin.registrations.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.registrations.*') ? 'bg-gray-700' : '' }}">
+                        Daftar Registrasi
+                    </a>
+                    <a href="{{ route('admin.system-management.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.system-management.*') ? 'bg-gray-700' : '' }}">
+                        Kelola Admin
+                    </a>
+                @elseif(auth('admin')->user()->isCoAdminEvent())
+                    <a href="{{ route('admin.events.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.events.*') ? 'bg-gray-700' : '' }}">
+                        Event Saya
+                    </a>
+                    <a href="{{ route('admin.payment-proofs.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.payment-proofs.*') ? 'bg-gray-700' : '' }}">
+                        Kelola Bukti Transfer
+                    </a>
+                    <a href="{{ route('admin.registrations.index') }}" class="block px-4 py-2 hover:bg-gray-700 {{ request()->routeIs('admin.registrations.*') ? 'bg-gray-700' : '' }}">
+                        Daftar Registrasi
                     </a>
                 @endif
             </nav>

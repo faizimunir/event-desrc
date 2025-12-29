@@ -57,11 +57,9 @@ class CategoryManagement extends Component
                 ->orderBy('name')
                 ->get();
         } else {
+            $accessibleEventIds = $admin->getAccessibleEventIds();
             $this->events = Event::select('id', 'name', 'status')
-                ->where(function($q) use ($admin) {
-                    $q->where('created_by', $admin->id)
-                      ->orWhere('id', $admin->event_id);
-                })
+                ->whereIn('id', $accessibleEventIds)
                 ->where('status', 'published')
                 ->orderBy('name')
                 ->get();
@@ -93,10 +91,8 @@ class CategoryManagement extends Component
 
         // Filter by admin access
         if (!$admin->isSuperAdmin()) {
-            $query->whereHas('event', function ($q) use ($admin) {
-                $q->where('created_by', $admin->id)
-                  ->orWhere('id', $admin->event_id);
-            });
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->whereIn('categories.event_id', $accessibleEventIds);
         }
 
         // Filter by event

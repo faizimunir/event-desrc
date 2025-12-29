@@ -23,6 +23,7 @@ class SystemManagement extends Component
     public $adminPassword = '';
     public $adminRole = 'admin_event';
     public $adminEventId = null;
+    public $adminSelectedEventIds = []; // Array for multiple event selection
     public $adminStatus = 'active';
 
     // Admin Fees Management
@@ -39,8 +40,10 @@ class SystemManagement extends Component
         'adminName' => 'required|string|max:255',
         'adminEmail' => 'required|email|max:255',
         'adminPassword' => 'required|string|min:8',
-        'adminRole' => 'required|in:super_admin,admin_event',
+        'adminRole' => 'required|in:super_admin,admin_event,co_admin_event',
         'adminEventId' => 'nullable|exists:events,id',
+        'adminSelectedEventIds' => 'nullable|array',
+        'adminSelectedEventIds.*' => 'exists:events,id',
         'adminStatus' => 'required|in:active,inactive',
         'feeEventId' => 'required|exists:events,id',
         'feeAmount' => 'required|numeric|min:0',
@@ -51,6 +54,13 @@ class SystemManagement extends Component
 
     public function mount()
     {
+        $currentAdmin = Auth::guard('admin')->user();
+        
+        // Admin Event can only access admins tab
+        if ($currentAdmin->isAdminEvent() || $currentAdmin->isCoAdminEvent()) {
+            $this->activeTab = 'admins';
+        }
+        
         $this->loadAdmins();
         $this->loadEvents();
         $this->loadAdminFees();
@@ -58,12 +68,34 @@ class SystemManagement extends Component
 
     public function loadAdmins()
     {
-        $this->admins = Admin::with('event')->orderBy('created_at', 'desc')->get();
+        $currentAdmin = Auth::guard('admin')->user();
+        
+        if ($currentAdmin->isSuperAdmin()) {
+            $this->admins = Admin::with(['event', 'eventAccess'])->orderBy('created_at', 'desc')->get();
+        } else {
+            // Admin Event can only see admins they created (for Co Admin Event)
+            $this->admins = Admin::with(['event', 'eventAccess'])
+                ->where('created_by', $currentAdmin->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+        }
     }
 
     public function loadEvents()
     {
-        $this->events = Event::select('id', 'name')->orderBy('name')->get();
+        $currentAdmin = Auth::guard('admin')->user();
+        
+        if ($currentAdmin->isSuperAdmin()) {
+            // Super admin can see all events
+            $this->events = Event::select('id', 'name')->orderBy('name')->get();
+        } else {
+            // Admin Event can only see events they created or have access to
+            $accessibleEventIds = $currentAdmin->getAccessibleEventIds();
+            $this->events = Event::select('id', 'name')
+                ->whereIn('id', $accessibleEventIds)
+                ->orderBy('name')
+                ->get();
+        }
     }
 
     public function loadAdminFees()
@@ -77,12 +109,13 @@ class SystemManagement extends Component
         $this->resetAdminForm();
         
         if ($id) {
-            $admin = Admin::findOrFail($id);
+            $admin = Admin::with('eventAccess')->findOrFail($id);
             $this->adminName = $admin->name;
             $this->adminEmail = $admin->email;
             $this->adminPassword = '';
             $this->adminRole = $admin->role;
             $this->adminEventId = $admin->event_id;
+            $this->adminSelectedEventIds = $admin->eventAccess->pluck('id')->toArray();
             $this->adminStatus = $admin->status;
         }
         
@@ -101,21 +134,50 @@ class SystemManagement extends Component
         $this->adminName = '';
         $this->adminEmail = '';
         $this->adminPassword = '';
-        $this->adminRole = 'admin_event';
+        
+        // Set default role based on current admin
+        $currentAdmin = Auth::guard('admin')->user();
+        if ($currentAdmin->isAdminEvent()) {
+            $this->adminRole = 'co_admin_event';
+        } else {
+            $this->adminRole = 'admin_event';
+        }
+        
         $this->adminEventId = null;
+        $this->adminSelectedEventIds = [];
         $this->adminStatus = 'active';
         $this->resetErrorBag();
     }
 
     public function saveAdmin()
     {
+        $currentAdmin = Auth::guard('admin')->user();
+        
+        // Validate that Admin Event can only create Co Admin Event
+        if ($currentAdmin->isAdminEvent() && !$this->editingAdminId) {
+            if ($this->adminRole !== 'co_admin_event') {
+                session()->flash('error', 'Admin Event hanya dapat membuat Co Admin Event.');
+                return;
+            }
+        }
+        
         $rules = [
             'adminName' => 'required|string|max:255',
             'adminEmail' => 'required|email|max:255',
-            'adminRole' => 'required|in:super_admin,admin_event',
+            'adminRole' => 'required|in:super_admin,admin_event,co_admin_event',
             'adminEventId' => 'nullable|exists:events,id',
+            'adminSelectedEventIds' => 'nullable|array',
+            'adminSelectedEventIds.*' => 'exists:events,id',
             'adminStatus' => 'required|in:active,inactive',
         ];
+
+        // Validate event selection for admin_event and co_admin_event roles
+        if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
+            if (empty($this->adminSelectedEventIds) || count($this->adminSelectedEventIds) === 0) {
+                $this->addError('adminSelectedEventIds', 'Pilih minimal satu event untuk role ini.');
+                return;
+            }
+        }
 
         if ($this->editingAdminId) {
             $rules['adminEmail'] = 'required|email|max:255|unique:admins,email,' . $this->editingAdminId;
@@ -130,7 +192,7 @@ class SystemManagement extends Component
             'name' => $this->adminName,
             'email' => $this->adminEmail,
             'role' => $this->adminRole,
-            'event_id' => $this->adminRole === 'admin_event' ? $this->adminEventId : null,
+            'event_id' => null, // We'll use pivot table for event access
             'status' => $this->adminStatus,
         ];
 
@@ -139,10 +201,26 @@ class SystemManagement extends Component
         }
 
         if ($this->editingAdminId) {
-            Admin::findOrFail($this->editingAdminId)->update($data);
+            $admin = Admin::findOrFail($this->editingAdminId);
+            $admin->update($data);
+            
+            // Sync event access via pivot table
+            if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
+                $admin->eventAccess()->sync($this->adminSelectedEventIds);
+            } else {
+                $admin->eventAccess()->detach();
+            }
+            
             session()->flash('success', 'Admin berhasil diupdate.');
         } else {
-            Admin::create($data);
+            $data['created_by'] = Auth::guard('admin')->id();
+            $admin = Admin::create($data);
+            
+            // Sync event access via pivot table
+            if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
+                $admin->eventAccess()->sync($this->adminSelectedEventIds);
+            }
+            
             session()->flash('success', 'Admin berhasil dibuat.');
         }
 

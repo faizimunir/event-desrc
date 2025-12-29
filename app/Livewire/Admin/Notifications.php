@@ -45,10 +45,11 @@ class Notifications extends Component
         $query = NotificationTemplate::with('event');
 
         if (!$admin->isSuperAdmin()) {
-            $query->whereHas('event', function ($q) use ($admin) {
-                $q->where('created_by', $admin->id)
-                  ->orWhere('id', $admin->event_id);
-            })->orWhereNull('event_id');
+            $accessibleEventIds = $admin->getAccessibleEventIds();
+            $query->where(function($q) use ($accessibleEventIds) {
+                $q->whereIn('event_id', $accessibleEventIds)
+                  ->orWhereNull('event_id');
+            });
         }
 
         $this->templates = $query->orderBy('is_default', 'desc')->orderBy('created_at', 'desc')->get();
@@ -61,9 +62,9 @@ class Notifications extends Component
         if ($admin->isSuperAdmin()) {
             $this->events = Event::select('id', 'name')->orderBy('name')->get();
         } else {
+            $accessibleEventIds = $admin->getAccessibleEventIds();
             $this->events = Event::select('id', 'name')
-                ->where('created_by', $admin->id)
-                ->orWhere('id', $admin->event_id)
+                ->whereIn('id', $accessibleEventIds)
                 ->orderBy('name')
                 ->get();
         }
