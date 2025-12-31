@@ -58,6 +58,8 @@ class PaymentProofs extends Component
             'payments.payment_proof',
             'payments.status',
             'payments.payment_date',
+            'payments.payment_reference',
+            'payments.payment_verified_at',
             'payments.created_at'
         )
         ->with([

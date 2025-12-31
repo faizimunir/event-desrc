@@ -44,6 +44,7 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Jumlah</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bukti</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Verifikasi</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tanggal</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                     </tr>
@@ -85,6 +86,28 @@
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
+                                @if($payment->payment_reference)
+                                    <div class="text-xs">
+                                        <div class="text-blue-600 font-medium mb-1">
+                                            <svg class="inline-block w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                            </svg>
+                                            Moota
+                                        </div>
+                                        <div class="text-gray-600 text-xs">
+                                            Ref: {{ substr($payment->payment_reference, 0, 15) }}...
+                                        </div>
+                                        @if($payment->payment_verified_at)
+                                            <div class="text-gray-500 text-xs mt-1">
+                                                {{ $payment->payment_verified_at->format('d M Y H:i') }}
+                                            </div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-gray-400 text-xs">-</span>
+                                @endif
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="text-sm text-gray-500">{{ $payment->created_at->format('d M Y H:i') }}</div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -96,7 +119,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" class="px-6 py-4 text-center text-gray-500">Tidak ada data pembayaran</td>
+                            <td colspan="9" class="px-6 py-4 text-center text-gray-500">Tidak ada data pembayaran</td>
                         </tr>
                     @endforelse
                 </tbody>
