@@ -32,6 +32,11 @@ class ProcessMootaWebhook implements ShouldQueue
      */
     public function handle(): void
     {
+        Log::info('Moota Webhook Job: Starting processing', [
+            'mutation_id' => $this->mutationData['id'] ?? $this->mutationData['mutation_id'] ?? null,
+            'amount' => $this->mutationData['amount'] ?? null,
+        ]);
+
         try {
             $mootaService = new MootaService();
             $verification = $mootaService->verifyPayment($this->mutationData);

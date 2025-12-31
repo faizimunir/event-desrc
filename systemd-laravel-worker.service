@@ -1,0 +1,15 @@
+[Unit]
+Description=Laravel Queue Worker
+After=network.target redis.service
+
+[Service]
+User=www-data
+Group=www-data
+Restart=always
+ExecStart=/usr/bin/php /path/to/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 --timeout=90
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+
