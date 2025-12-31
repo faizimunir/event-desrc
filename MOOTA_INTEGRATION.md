@@ -257,6 +257,11 @@ Jika Anda mendapatkan error `419 CSRF token mismatch` saat Moota mengirim webhoo
    ```
 3. Test webhook lagi dari dashboard Moota
 
+### Error 400 Bad Request saat Test URL
+Jika saat test/check URL di dashboard Moota muncul error `400 Bad Request` dengan pesan "Invalid request data":
+- **Ini normal dan sudah ditangani**: Webhook endpoint sekarang otomatis mendeteksi test request dari Moota (yang tidak memiliki payload lengkap) dan akan merespons dengan `200 OK` dan pesan "Webhook endpoint is active and ready to receive mutations"
+- Jika masih muncul error 400, pastikan kode terbaru sudah di-deploy ke server produksi
+
 ### Webhook tidak terdeteksi
 1. Pastikan webhook URL sudah benar di dashboard Moota
 2. Pastikan server dapat diakses dari internet

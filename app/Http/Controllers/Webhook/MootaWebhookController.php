@@ -30,7 +30,20 @@ class MootaWebhookController extends Controller
     public function handle(Request $request)
     {
         try {
-            // Validasi request
+            // Handle test request from Moota (when checking URL, Moota sends empty/minimal payload)
+            // If request is empty or missing required fields, treat it as a test/check request
+            if (empty($request->all()) || !$request->has('id') || !$request->has('bank_id')) {
+                Log::info('Moota Webhook: Test/Check request received', [
+                    'payload' => $request->all(),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Webhook endpoint is active and ready to receive mutations',
+                ], 200);
+            }
+
+            // Validasi request untuk real webhook
             $validator = Validator::make($request->all(), [
                 'id' => 'required|string',
                 'bank_id' => 'required|string',
