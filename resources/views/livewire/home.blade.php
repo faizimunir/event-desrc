@@ -11,23 +11,7 @@
             </div>
         @else
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" 
-                 x-data="{ visibleCount: 6 }"
-                 x-init="
-                    // Intersection Observer for lazy loading
-                    const observer = new IntersectionObserver((entries) => {
-                        entries.forEach(entry => {
-                            if (entry.isIntersecting) {
-                                const img = entry.target;
-                                if (img.dataset.src) {
-                                    img.src = img.dataset.src;
-                                    img.removeAttribute('data-src');
-                                    observer.unobserve(img);
-                                }
-                            }
-                        });
-                    });
-                    document.querySelectorAll('img[data-src]').forEach(img => observer.observe(img));
-                 ">
+                 x-data="{ visibleCount: 6 }">
                 @foreach($events as $index => $event)
                     <div x-show="{{ $index }} < visibleCount" 
                          x-transition:enter="transition ease-out duration-300"

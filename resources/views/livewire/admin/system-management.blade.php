@@ -188,11 +188,25 @@
                             @error('adminEmail') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
                         </div>
 
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700">Password {{ $editingAdminId ? '(kosongkan jika tidak diubah)' : '' }}</label>
-                            <input type="password" wire:model="adminPassword" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-                            @error('adminPassword') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
-                        </div>
+                        @if($editingAdminId)
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Password Lama (diperlukan jika ingin mengubah password)</label>
+                                <input type="password" wire:model="adminOldPassword" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('adminOldPassword') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Password Baru (kosongkan jika tidak ingin mengubah password)</label>
+                                <input type="password" wire:model="adminNewPassword" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('adminNewPassword') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                        @else
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Password</label>
+                                <input type="password" wire:model="adminPassword" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                @error('adminPassword') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            </div>
+                        @endif
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Role</label>

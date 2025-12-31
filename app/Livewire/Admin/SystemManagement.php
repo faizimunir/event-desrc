@@ -20,7 +20,9 @@ class SystemManagement extends Component
     public $editingAdminId = null;
     public $adminName = '';
     public $adminEmail = '';
-    public $adminPassword = '';
+    public $adminPassword = ''; // For create new admin
+    public $adminOldPassword = ''; // For edit: old password verification
+    public $adminNewPassword = ''; // For edit: new password
     public $adminRole = 'admin_event';
     public $adminEventId = null;
     public $adminSelectedEventIds = []; // Array for multiple event selection
@@ -105,14 +107,16 @@ class SystemManagement extends Component
 
     public function openAdminModal($id = null)
     {
-        $this->editingAdminId = $id;
         $this->resetAdminForm();
+        $this->editingAdminId = $id;
         
         if ($id) {
             $admin = Admin::with('eventAccess')->findOrFail($id);
             $this->adminName = $admin->name;
             $this->adminEmail = $admin->email;
             $this->adminPassword = '';
+            $this->adminOldPassword = '';
+            $this->adminNewPassword = '';
             $this->adminRole = $admin->role;
             $this->adminEventId = $admin->event_id;
             $this->adminSelectedEventIds = $admin->eventAccess->pluck('id')->toArray();
@@ -126,14 +130,16 @@ class SystemManagement extends Component
     {
         $this->showAdminModal = false;
         $this->resetAdminForm();
+        $this->editingAdminId = null;
     }
 
     public function resetAdminForm()
     {
-        $this->editingAdminId = null;
         $this->adminName = '';
         $this->adminEmail = '';
         $this->adminPassword = '';
+        $this->adminOldPassword = '';
+        $this->adminNewPassword = '';
         
         // Set default role based on current admin
         $currentAdmin = Auth::guard('admin')->user();
@@ -171,22 +177,33 @@ class SystemManagement extends Component
             'adminStatus' => 'required|in:active,inactive',
         ];
 
-        // Validate event selection for admin_event and co_admin_event roles
-        if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
-            if (empty($this->adminSelectedEventIds) || count($this->adminSelectedEventIds) === 0) {
-                $this->addError('adminSelectedEventIds', 'Pilih minimal satu event untuk role ini.');
-                return;
-            }
-        }
-
         if ($this->editingAdminId) {
             $rules['adminEmail'] = 'required|email|max:255|unique:admins,email,' . $this->editingAdminId;
-            $rules['adminPassword'] = 'nullable|string|min:8';
+            $rules['adminOldPassword'] = 'nullable|string';
+            $rules['adminNewPassword'] = 'nullable|string|min:8';
         } else {
             $rules['adminPassword'] = 'required|string|min:8';
         }
 
         $this->validate($rules);
+
+        // If editing, validate old password if new password is provided
+        if ($this->editingAdminId) {
+            $admin = Admin::findOrFail($this->editingAdminId);
+            
+            // If new password is provided, old password must be provided and correct
+            if (!empty($this->adminNewPassword)) {
+                if (empty($this->adminOldPassword)) {
+                    $this->addError('adminOldPassword', 'Password lama harus diisi untuk mengubah password.');
+                    return;
+                }
+                
+                if (!Hash::check($this->adminOldPassword, $admin->password)) {
+                    $this->addError('adminOldPassword', 'Password lama tidak benar.');
+                    return;
+                }
+            }
+        }
 
         $data = [
             'name' => $this->adminName,
@@ -196,17 +213,23 @@ class SystemManagement extends Component
             'status' => $this->adminStatus,
         ];
 
-        if ($this->adminPassword) {
+        if ($this->editingAdminId) {
+            // For edit: only update password if new password is provided
+            if (!empty($this->adminNewPassword)) {
+                $data['password'] = Hash::make($this->adminNewPassword);
+            }
+            // If new password is empty, password remains unchanged (not included in $data)
+        } else {
+            // For create: password is required
             $data['password'] = Hash::make($this->adminPassword);
         }
 
         if ($this->editingAdminId) {
-            $admin = Admin::findOrFail($this->editingAdminId);
             $admin->update($data);
             
             // Sync event access via pivot table
             if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
-                $admin->eventAccess()->sync($this->adminSelectedEventIds);
+                $admin->eventAccess()->sync($this->adminSelectedEventIds ?? []);
             } else {
                 $admin->eventAccess()->detach();
             }
@@ -218,7 +241,7 @@ class SystemManagement extends Component
             
             // Sync event access via pivot table
             if (in_array($this->adminRole, ['admin_event', 'co_admin_event'])) {
-                $admin->eventAccess()->sync($this->adminSelectedEventIds);
+                $admin->eventAccess()->sync($this->adminSelectedEventIds ?? []);
             }
             
             session()->flash('success', 'Admin berhasil dibuat.');

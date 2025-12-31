@@ -242,6 +242,21 @@ Sistem mencocokkan transaksi dengan pembayaran berdasarkan:
 
 ## Troubleshooting
 
+### Error CSRF Token Mismatch (419)
+Jika Anda mendapatkan error `419 CSRF token mismatch` saat Moota mengirim webhook:
+1. Pastikan route webhook sudah dikecualikan dari CSRF verification di `bootstrap/app.php`:
+   ```php
+   $middleware->validateCsrfTokens(except: [
+       'webhook/moota',
+   ]);
+   ```
+2. Setelah mengubah `bootstrap/app.php`, clear cache:
+   ```bash
+   php artisan config:clear
+   php artisan cache:clear
+   ```
+3. Test webhook lagi dari dashboard Moota
+
 ### Webhook tidak terdeteksi
 1. Pastikan webhook URL sudah benar di dashboard Moota
 2. Pastikan server dapat diakses dari internet

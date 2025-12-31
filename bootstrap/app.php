@@ -15,6 +15,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.access' => \App\Http\Middleware\AdminAccess::class,
             'admin.role' => \App\Http\Middleware\AdminRole::class,
         ]);
+        
+        // Exclude webhook routes from CSRF verification
+        $middleware->validateCsrfTokens(except: [
+            'webhook/moota',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

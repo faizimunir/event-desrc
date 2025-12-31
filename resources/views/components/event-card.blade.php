@@ -10,11 +10,11 @@
     <div class="relative h-48 bg-gray-200 dark:bg-gray-700 overflow-hidden">
         @if($event->image)
             <img 
-                data-src="{{ asset('storage/' . $event->image) }}" 
-                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23f3f4f6' width='400' height='300'/%3E%3C/svg%3E"
+                src="{{ asset('storage/' . $event->image) }}" 
                 alt="{{ $event->name }}" 
                 class="w-full h-full object-cover"
                 loading="lazy"
+                onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\'w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500\'><span class=\'text-white text-4xl font-bold\'>{{ substr($event->name, 0, 1) }}</span></div>'"
             >
         @else
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
