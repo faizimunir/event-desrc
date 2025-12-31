@@ -26,6 +26,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Lokasi</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pendaftaran</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Metode Pembayaran</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Aksi</th>
                 </tr>
             </thead>
@@ -58,6 +59,12 @@
                                 {{ $event->registration_open ? 'Terbuka' : 'Tertutup' }}
                             </button>
                         </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                                {{ ($event->payment_method ?? 'manual') === 'moota' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800' }}">
+                                {{ ($event->payment_method ?? 'manual') === 'moota' ? 'Otomatis Verifikasi' : 'Manual Verifikasi' }}
+                            </span>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                             @if(auth('admin')->user()->isSuperAdmin())
                                 <a href="{{ route('admin.live-result-categories.index', $event->id) }}" class="text-green-600 hover:text-green-900">Live Result</a>
@@ -70,7 +77,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500">Belum ada event</td>
+                        <td colspan="7" class="px-6 py-4 text-center text-gray-500">Belum ada event</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -174,6 +181,20 @@
                                 <option value="closed">Closed</option>
                                 <option value="cancelled">Cancelled</option>
                             </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Metode Pembayaran</label>
+                            <select wire:model="payment_method" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                                <option value="manual">Manual Verifikasi</option>
+                                <option value="moota">Otomatis Verifikasi</option>
+                            </select>
+                            @error('payment_method') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            @if($payment_method === 'moota')
+                                <p class="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                                    <strong>Info:</strong> Pembayaran akan diverifikasi otomatis berdasarkan mutasi rekening dari Moota. Pastikan MOOTA_API_KEY sudah dikonfigurasi di .env.
+                                </p>
+                            @endif
                         </div>
                     </div>
 

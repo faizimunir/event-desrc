@@ -30,6 +30,7 @@ class EventManagement extends Component
     public $logo;
     public $logoPreview = null;
     public $status = 'draft';
+    public $payment_method = 'manual';
 
     protected $rules = [
         'name' => 'required|string|max:255',
@@ -42,6 +43,7 @@ class EventManagement extends Component
         'image' => 'nullable|image|max:2048',
         'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
         'status' => 'required|in:draft,published,closed,cancelled',
+        'payment_method' => 'required|in:manual,moota',
     ];
 
     public function mount()
@@ -54,14 +56,14 @@ class EventManagement extends Component
         $admin = Auth::guard('admin')->user();
         
         if ($admin->isSuperAdmin()) {
-            $this->events = Event::select('id', 'name', 'start_date', 'location', 'status', 'registration_open', 'created_at')
+            $this->events = Event::select('id', 'name', 'start_date', 'location', 'status', 'registration_open', 'payment_method', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->get();
         } else {
             // Get accessible event IDs (created events, event_id, or from pivot table)
             $accessibleEventIds = $admin->getAccessibleEventIds();
             
-            $this->events = Event::select('id', 'name', 'start_date', 'location', 'status', 'registration_open', 'created_at')
+            $this->events = Event::select('id', 'name', 'start_date', 'location', 'status', 'registration_open', 'payment_method', 'created_at')
                 ->whereIn('id', $accessibleEventIds)
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -85,6 +87,7 @@ class EventManagement extends Component
             $this->registration_open = $event->registration_open ?? false;
             $this->location = $event->location;
             $this->status = $event->status;
+            $this->payment_method = $event->payment_method ?? 'manual';
             // Set logo preview if logo exists
             if ($event->logo_url) {
                 $this->logoPreview = asset('storage/' . $event->logo_url);
@@ -117,6 +120,7 @@ class EventManagement extends Component
         $this->logo = null;
         $this->logoPreview = null;
         $this->status = 'draft';
+        $this->payment_method = 'manual';
         $this->resetErrorBag();
     }
 
@@ -155,6 +159,7 @@ class EventManagement extends Component
             'registration_open' => $this->registration_open,
             'location' => $this->location,
             'status' => $this->status,
+            'payment_method' => $this->payment_method,
         ];
 
         // Only set created_by for new events

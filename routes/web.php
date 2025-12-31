@@ -61,6 +61,9 @@ Route::prefix('payments')->name('payments.')->group(function () {
     Route::post('/{id}/upload-proof', [PaymentController::class, 'uploadProof'])->name('upload-proof');
 });
 
+// Webhook Routes (no auth required, but should be secured)
+Route::post('/webhook/moota', [\App\Http\Controllers\Webhook\MootaWebhookController::class, 'handle'])->name('webhook.moota');
+
 // Live Result Detail Route (must be after all specific routes to avoid conflicts)
 // This route will match any slug that doesn't conflict with existing routes
 Route::get('/{slug}', [LiveResultController::class, 'show'])

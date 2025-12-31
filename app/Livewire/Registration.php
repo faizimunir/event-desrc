@@ -110,7 +110,7 @@ class Registration extends Component
         $this->package = Package::select('id', 'event_id', 'name', 'description', 'price', 'status')
             ->with([
                 'event' => function ($query) {
-                    $query->select('id', 'name', 'description', 'location', 'start_date', 'end_date', 'registration_start', 'registration_end', 'registration_open');
+                    $query->select('id', 'name', 'description', 'location', 'start_date', 'end_date', 'registration_start', 'registration_end', 'registration_open', 'payment_method');
                 }
             ])
             ->findOrFail($this->packageId);
@@ -286,6 +286,17 @@ class Registration extends Component
                 'form_data' => !empty($formData) ? $formData : null,
                 'status' => 'pending',
             ]);
+
+            // Create payment record for Moota events (so webhook can match it)
+            $event = $this->package->event;
+            if ($event && $event->payment_method === 'moota') {
+                \App\Models\Payment::create([
+                    'participant_id' => $participant->id,
+                    'payment_method' => 'bank_transfer',
+                    'amount' => $this->package->price,
+                    'status' => 'pending',
+                ]);
+            }
         } catch (\Exception $e) {
             \Log::error('Error creating participant: ' . $e->getMessage());
             $this->addError('general', 'Terjadi kesalahan saat menyimpan data. Silakan coba lagi.');

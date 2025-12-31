@@ -37,7 +37,7 @@ class Payment extends Component
                 'package' => function ($query) {
                     $query->select('id', 'event_id', 'name', 'price')
                         ->with(['event' => function ($eventQuery) {
-                            $eventQuery->select('id', 'name', 'location', 'start_date');
+                            $eventQuery->select('id', 'name', 'location', 'start_date', 'payment_method');
                         }]);
                 },
                 'category' => function ($query) {
@@ -54,9 +54,18 @@ class Payment extends Component
             $this->payment_proof_url = asset('storage/' . $this->payment->payment_proof);
         }
         
-        // Check if payment is already confirmed (participant status = 'registered')
-        if ($this->participant->status === 'registered' && $this->payment && $this->payment->payment_proof) {
-            $this->payment_confirmed = true;
+        // Check if payment is already confirmed
+        // For manual: participant status = 'registered' and payment_proof exists
+        // For moota: participant status = 'confirmed' (auto verified)
+        $event = $this->participant->package->event ?? null;
+        if ($event && $event->payment_method === 'moota') {
+            if ($this->participant->status === 'confirmed') {
+                $this->payment_confirmed = true;
+            }
+        } else {
+            if ($this->participant->status === 'registered' && $this->payment && $this->payment->payment_proof) {
+                $this->payment_confirmed = true;
+            }
         }
     }
 

@@ -145,27 +145,94 @@
             </div>
 
             <!-- Bank Information -->
+            @php
+                $event = $participant->package->event ?? null;
+                $paymentMethod = $event->payment_method ?? 'manual';
+                
+                // Get payment setting for this event
+                $paymentSetting = \App\Models\PaymentSetting::where(function($query) use ($event) {
+                    if ($event) {
+                        $query->where('event_id', $event->id)
+                              ->orWhereNull('event_id');
+                    } else {
+                        $query->whereNull('event_id');
+                    }
+                })
+                ->where('status', 'active')
+                ->orderBy('is_default', 'desc')
+                ->orderBy('created_at', 'desc')
+                ->first();
+            @endphp
+
             <div class="mt-6 p-4 bg-gray-50 rounded-md">
                 <h3 class="font-semibold text-gray-900 mb-3">Informasi Rekening</h3>
-                <div class="space-y-2 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Bank:</span>
-                        <span class="font-medium text-gray-900">{{ config('app.bank_name', 'Bank BCA') }}</span>
+                @if($paymentSetting)
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Bank:</span>
+                            <span class="font-medium text-gray-900">{{ $paymentSetting->bank_name }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">No. Rekening:</span>
+                            <span class="font-medium text-gray-900">{{ $paymentSetting->account_number }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Atas Nama:</span>
+                            <span class="font-medium text-gray-900">{{ $paymentSetting->account_name }}</span>
+                        </div>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">No. Rekening:</span>
-                        <span class="font-medium text-gray-900">{{ config('app.bank_account', '1234567890') }}</span>
+                @else
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Bank:</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_name', 'Bank BCA') }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">No. Rekening:</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_account', '1234567890') }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Atas Nama:</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_account_name', 'Event Registration') }}</span>
+                        </div>
                     </div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Atas Nama:</span>
-                        <span class="font-medium text-gray-900">{{ config('app.bank_account_name', 'Event Registration') }}</span>
+                @endif
+
+                @if($paymentMethod === 'moota')
+                    <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                        <p class="text-sm text-blue-800 font-medium mb-2">
+                            <svg class="inline-block w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                            </svg>
+                            Pembayaran Otomatis dengan Moota
+                        </p>
+                        <p class="text-xs text-blue-700">
+                            Setelah melakukan transfer, pembayaran Anda akan diverifikasi otomatis oleh sistem. 
+                            Pastikan nominal transfer sesuai dengan total yang tertera di atas. 
+                            Anda akan menerima notifikasi konfirmasi melalui email dan WhatsApp setelah pembayaran terverifikasi.
+                        </p>
+                        <p class="text-xs text-blue-700 mt-2">
+                            <strong>Catatan:</strong> Mohon transfer sesuai dengan nominal yang tertera (termasuk kode unik). 
+                            Sistem akan mendeteksi pembayaran Anda secara otomatis.
+                        </p>
                     </div>
-                </div>
+                @else
+                    <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p class="text-xs text-yellow-800">
+                            <strong>Penting:</strong> Setelah melakukan transfer, silakan upload bukti pembayaran di bawah ini. 
+                            Admin akan memverifikasi pembayaran Anda.
+                        </p>
+                    </div>
+                @endif
             </div>
         </div>
 
         <!-- Success Message -->
         @if($payment_confirmed)
+            @php
+                $event = $participant->package->event ?? null;
+                $paymentMethod = $event->payment_method ?? 'manual';
+            @endphp
             <div class="bg-white rounded-lg shadow-md p-8 text-center">
                 <div class="mb-6">
                     <svg class="mx-auto h-16 w-16 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -173,17 +240,31 @@
                     </svg>
                 </div>
                 <h2 class="text-2xl font-bold text-gray-900 mb-4">Pendaftaran Telah Diterima</h2>
-                <p class="text-gray-600 mb-6">
-                    Terima kasih telah melakukan konfirmasi pembayaran. Pendaftaran Anda telah diterima dan sedang menunggu verifikasi dari admin.
-                </p>
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <p class="text-sm text-blue-800">
-                        <strong>No. Registrasi:</strong> {{ $participant->registration_number }}
+                @if($paymentMethod === 'moota')
+                    <p class="text-gray-600 mb-6">
+                        Terima kasih! Pembayaran Anda telah terverifikasi otomatis oleh sistem. Pendaftaran Anda telah dikonfirmasi.
                     </p>
-                    <p class="text-sm text-blue-800 mt-2">
-                        Kami akan mengirimkan notifikasi melalui email dan WhatsApp setelah admin memverifikasi pembayaran Anda.
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                        <p class="text-sm text-green-800">
+                            <strong>No. Registrasi:</strong> {{ $participant->registration_number }}
+                        </p>
+                        <p class="text-sm text-green-800 mt-2">
+                            Notifikasi konfirmasi telah dikirim melalui email dan WhatsApp. Silakan cek inbox Anda.
+                        </p>
+                    </div>
+                @else
+                    <p class="text-gray-600 mb-6">
+                        Terima kasih telah melakukan konfirmasi pembayaran. Pendaftaran Anda telah diterima dan sedang menunggu verifikasi dari admin.
                     </p>
-                </div>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                        <p class="text-sm text-blue-800">
+                            <strong>No. Registrasi:</strong> {{ $participant->registration_number }}
+                        </p>
+                        <p class="text-sm text-blue-800 mt-2">
+                            Kami akan mengirimkan notifikasi melalui email dan WhatsApp setelah admin memverifikasi pembayaran Anda.
+                        </p>
+                    </div>
+                @endif
                 <a 
                     href="{{ route('home') }}" 
                     class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-200"
@@ -195,6 +276,47 @@
                     Kembali ke Home
                 </a>
             </div>
+        @else
+        @php
+            $event = $participant->package->event ?? null;
+            $paymentMethod = $event->payment_method ?? 'manual';
+        @endphp
+        
+        @if($paymentMethod === 'moota')
+        <!-- Moota Payment Instructions -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">Instruksi Pembayaran</h2>
+            <div class="space-y-4">
+                <div class="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <p class="text-sm text-gray-700 mb-3">
+                        <strong>Langkah-langkah pembayaran:</strong>
+                    </p>
+                    <ol class="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                        <li>Lakukan transfer sesuai dengan nominal yang tertera di atas</li>
+                        <li>Pastikan nominal transfer <strong>sesuai persis</strong> (termasuk kode unik)</li>
+                        <li>Setelah transfer, sistem akan mendeteksi pembayaran Anda secara otomatis</li>
+                        <li>Anda akan menerima notifikasi konfirmasi melalui email dan WhatsApp</li>
+                    </ol>
+                </div>
+                <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                    <p class="text-sm text-yellow-800">
+                        <strong>Catatan Penting:</strong> 
+                        Tidak perlu upload bukti pembayaran. Sistem akan memverifikasi pembayaran Anda secara otomatis melalui Moota.
+                    </p>
+                </div>
+                <div class="p-4 bg-gray-50 border border-gray-200 rounded-md">
+                    <p class="text-sm text-gray-700">
+                        <strong>Status Pembayaran:</strong> 
+                        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium">
+                            Menunggu Verifikasi Otomatis
+                        </span>
+                    </p>
+                    <p class="text-xs text-gray-600 mt-2">
+                        Halaman ini akan otomatis terupdate setelah pembayaran terverifikasi.
+                    </p>
+                </div>
+            </div>
+        </div>
         @else
         <!-- Upload Payment Proof -->
         <div class="bg-white rounded-lg shadow-md p-6">
@@ -346,6 +468,7 @@
                 @endif
             </div>
         </div>
+        @endif
         @endif
     </div>
 </div>

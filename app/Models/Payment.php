@@ -14,14 +14,17 @@ class Payment extends Model
         'payment_date',
         'payment_proof',
         'transaction_id',
+        'payment_reference',
         'notes',
         'status',
         'verified_by',
+        'payment_verified_at',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'payment_date' => 'datetime',
+        'payment_verified_at' => 'datetime',
     ];
 
     public function participant(): BelongsTo

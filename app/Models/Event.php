@@ -22,6 +22,7 @@ class Event extends Model
         'image',
         'logo_url',
         'status',
+        'payment_method',
         'created_by',
     ];
 
