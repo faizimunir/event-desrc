@@ -143,7 +143,7 @@ class MootaService
     /**
      * Verifikasi pembayaran berdasarkan data mutasi Moota
      *
-     * @param array $mutationData Data mutasi dari Moota
+     * @param array $mutationData Data mutasi dari Moota (sudah dinormalisasi)
      * @return array|null
      */
     public function verifyPayment($mutationData)
@@ -151,12 +151,24 @@ class MootaService
         try {
             $amount = (float) ($mutationData['amount'] ?? 0);
             $note = $mutationData['note'] ?? $mutationData['description'] ?? null;
-            $mutationId = $mutationData['id'] ?? null;
+            $mutationId = $mutationData['id'] ?? $mutationData['mutation_id'] ?? null;
             $date = $mutationData['date'] ?? null;
+
+            Log::info('Moota Verify Payment: Starting verification', [
+                'mutation_id' => $mutationId,
+                'amount' => $amount,
+                'note' => $note,
+            ]);
 
             $match = $this->matchTransaction($amount, $note);
 
             if ($match) {
+                Log::info('Moota Verify Payment: Match found', [
+                    'payment_id' => $match['payment']->id,
+                    'participant_id' => $match['participant']->id,
+                    'match_type' => $match['match_type'],
+                ]);
+
                 return [
                     'success' => true,
                     'payment' => $match['payment'],
@@ -167,16 +179,24 @@ class MootaService
                 ];
             }
 
+            Log::warning('Moota Verify Payment: No match found', [
+                'amount' => $amount,
+                'note' => $note,
+                'mutation_id' => $mutationId,
+            ]);
+
             return [
                 'success' => false,
                 'message' => 'No matching payment found',
                 'amount' => $amount,
                 'note' => $note,
+                'mutation_id' => $mutationId,
             ];
         } catch (\Exception $e) {
             Log::error('Moota Verify Payment Exception: ' . $e->getMessage(), [
                 'exception' => $e,
                 'mutation_data' => $mutationData,
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return null;

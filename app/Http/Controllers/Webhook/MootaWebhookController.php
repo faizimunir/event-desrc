@@ -30,9 +30,17 @@ class MootaWebhookController extends Controller
     public function handle(Request $request)
     {
         try {
+            $payload = $request->all();
+            
+            // Moota mengirim payload sebagai array dengan satu elemen
+            // Normalize payload: jika array, ambil elemen pertama
+            if (is_array($payload) && isset($payload[0]) && is_array($payload[0])) {
+                $payload = $payload[0];
+            }
+
             // Handle test request from Moota (when checking URL, Moota sends empty/minimal payload)
-            // If request is empty or missing required fields, treat it as a test/check request
-            if (empty($request->all()) || !$request->has('id') || !$request->has('bank_id')) {
+            // Jika payload kosong atau tidak memiliki mutation_id, treat sebagai test request
+            if (empty($payload) || !isset($payload['mutation_id'])) {
                 Log::info('Moota Webhook: Test/Check request received', [
                     'payload' => $request->all(),
                 ]);
@@ -43,8 +51,11 @@ class MootaWebhookController extends Controller
                 ], 200);
             }
 
-            // Validasi request untuk real webhook
-            $validator = Validator::make($request->all(), [
+            // Normalize data dari struktur Moota
+            $mutationData = $this->normalizeMootaPayload($payload);
+
+            // Validasi data yang sudah dinormalisasi
+            $validator = Validator::make($mutationData, [
                 'id' => 'required|string',
                 'bank_id' => 'required|string',
                 'account_number' => 'required|string',
@@ -56,7 +67,8 @@ class MootaWebhookController extends Controller
             if ($validator->fails()) {
                 Log::warning('Moota Webhook: Invalid request', [
                     'errors' => $validator->errors(),
-                    'payload' => $request->all(),
+                    'original_payload' => $request->all(),
+                    'normalized_data' => $mutationData,
                 ]);
 
                 return response()->json([
@@ -67,9 +79,9 @@ class MootaWebhookController extends Controller
             }
 
             // Hanya proses transaksi masuk (credit)
-            if ($request->input('type') !== 'credit') {
+            if ($mutationData['type'] !== 'credit') {
                 Log::info('Moota Webhook: Ignoring debit transaction', [
-                    'mutation_id' => $request->input('id'),
+                    'mutation_id' => $mutationData['id'],
                 ]);
 
                 return response()->json([
@@ -80,11 +92,12 @@ class MootaWebhookController extends Controller
 
             // Dispatch job untuk memproses webhook di queue
             // Ini memastikan server tidak terbebani dan semua data terrekam
-            ProcessMootaWebhook::dispatch($request->all());
+            ProcessMootaWebhook::dispatch($mutationData);
 
             Log::info('Moota Webhook: Received and queued', [
-                'mutation_id' => $request->input('id'),
-                'amount' => $request->input('amount'),
+                'mutation_id' => $mutationData['id'],
+                'amount' => $mutationData['amount'],
+                'account_number' => $mutationData['account_number'],
             ]);
 
             return response()->json([
@@ -104,5 +117,55 @@ class MootaWebhookController extends Controller
                 'message' => 'Internal server error',
             ], 500);
         }
+    }
+
+    /**
+     * Normalize Moota payload ke format standar
+     * 
+     * Moota mengirim payload dengan struktur yang berbeda:
+     * - mutation_id (bukan id)
+     * - type: "CR" atau "DB" (bukan "credit" atau "debit")
+     * - note bisa null
+     * - description bisa null
+     */
+    private function normalizeMootaPayload(array $payload): array
+    {
+        // Normalize type: "CR" -> "credit", "DB" -> "debit"
+        $type = strtoupper($payload['type'] ?? '');
+        $normalizedType = ($type === 'CR' || $type === 'CREDIT') ? 'credit' : 'debit';
+
+        // Extract mutation_id atau id
+        $mutationId = $payload['mutation_id'] ?? $payload['id'] ?? $payload['token'] ?? null;
+        
+        // Extract bank_id
+        $bankId = $payload['bank_id'] ?? $payload['bank']['bank_id'] ?? $payload['account']['account_id'] ?? null;
+
+        // Extract account_number
+        $accountNumber = $payload['account_number'] ?? $payload['bank']['account_number'] ?? $payload['account']['account_number'] ?? null;
+
+        // Extract amount
+        $amount = $payload['amount'] ?? $payload['payment_detail']['total'] ?? 0;
+
+        // Extract date
+        $date = $payload['date'] ?? $payload['created_at'] ?? now()->toDateTimeString();
+
+        // Extract note/description
+        $note = $payload['note'] ?? $payload['description'] ?? $payload['payment_detail']['unique_note'] ?? null;
+
+        return [
+            'id' => $mutationId,
+            'mutation_id' => $mutationId,
+            'bank_id' => $bankId,
+            'account_number' => $accountNumber,
+            'amount' => (float) $amount,
+            'type' => $normalizedType,
+            'date' => $date,
+            'note' => $note,
+            'description' => $payload['description'] ?? null,
+            'balance' => $payload['balance'] ?? 0,
+            'bank_type' => $payload['bank_type'] ?? $payload['bank']['bank_type'] ?? null,
+            // Keep original payload for reference
+            'original_payload' => $payload,
+        ];
     }
 }
