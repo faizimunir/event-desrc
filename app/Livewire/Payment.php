@@ -32,6 +32,7 @@ class Payment extends Component
 
     public function loadParticipant()
     {
+        // Refresh dari database untuk mendapatkan data terbaru
         $this->participant = Participant::select('id', 'package_id', 'category_id', 'registration_number', 'unique_code', 'name', 'nickname', 'number_plate', 'komunitas', 'email', 'phone', 'city', 'date_of_birth', 'form_data', 'status')
             ->with([
                 'package' => function ($query) {
@@ -47,6 +48,8 @@ class Payment extends Component
             ])
             ->findOrFail($this->participantId);
 
+        // Refresh payment relationship
+        $this->participant->load('payment');
         $this->payment = $this->participant->payment;
         
         if ($this->payment && $this->payment->payment_proof) {
@@ -56,10 +59,12 @@ class Payment extends Component
         
         // Check if payment is already confirmed
         // For manual: participant status = 'registered' and payment_proof exists
-        // For moota: participant status = 'confirmed' (auto verified)
+        // For moota: participant status = 'confirmed' (auto verified) OR payment status = 'verified'
         $event = $this->participant->package->event ?? null;
         if ($event && $event->payment_method === 'moota') {
-            if ($this->participant->status === 'confirmed') {
+            // Untuk Moota: cek status participant atau payment
+            if ($this->participant->status === 'confirmed' || 
+                ($this->payment && $this->payment->status === 'verified')) {
                 $this->payment_confirmed = true;
             }
         } else {
@@ -154,6 +159,37 @@ class Payment extends Component
 
         session()->flash('success', 'Pendaftaran telah diterima. Tunggu konfirmasi dari admin.');
         $this->dispatch('payment-confirmed');
+    }
+
+    /**
+     * Refresh participant data (untuk polling)
+     * Dipanggil otomatis setiap 10 detik jika payment belum confirmed
+     */
+    public function refreshPayment()
+    {
+        // Hanya refresh jika belum confirmed
+        if (!$this->payment_confirmed) {
+            // Simpan status sebelumnya
+            $previousStatus = $this->participant->status ?? null;
+            $previousPaymentStatus = $this->payment->status ?? null;
+            
+            // Reload data dari database
+            $this->loadParticipant();
+            
+            // Jika setelah refresh ternyata sudah confirmed, dispatch event
+            if ($this->payment_confirmed) {
+                $this->dispatch('payment-verified');
+                session()->flash('success', 'Pembayaran Anda telah terverifikasi!');
+                
+                // Log untuk debugging
+                \Log::info('Payment auto-verified via polling', [
+                    'participant_id' => $this->participant->id,
+                    'previous_status' => $previousStatus,
+                    'current_status' => $this->participant->status,
+                    'payment_status' => $this->payment->status ?? null,
+                ]);
+            }
+        }
     }
 
     public function getFormFieldsProperty()
