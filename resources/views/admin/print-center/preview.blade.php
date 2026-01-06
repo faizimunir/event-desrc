@@ -187,10 +187,6 @@
         /* Floating Print Button (screen only) */
         @media screen {
             .floating-print-btn {
-                position: fixed;
-                bottom: 30px;
-                right: 30px;
-                z-index: 1000;
                 padding: 15px 30px;
                 font-size: 16px;
                 font-weight: bold;
@@ -225,8 +221,13 @@
                 background: #fff;
             }
 
-            /* Hide floating button */
-            .floating-print-btn {
+            /* Hide floating buttons */
+            .floating-print-btn,
+            a[style*="floating"] {
+                display: none !important;
+            }
+            
+            div[style*="position: fixed"] {
                 display: none !important;
             }
 
@@ -268,9 +269,16 @@
 </head>
 <body>
     <!-- Floating Print Button (Screen Only) -->
-    <button onclick="window.print()" class="floating-print-btn">
-        🖨️ Cetak Sekarang
-    </button>
+    <div style="position: fixed; bottom: 30px; right: 30px; z-index: 1000; display: flex; gap: 10px;">
+        <button onclick="window.print()" class="floating-print-btn">
+            🖨️ Cetak Sekarang
+        </button>
+        @if(isset($backUrl))
+            <a href="{{ $backUrl }}" style="padding: 15px 30px; font-size: 16px; font-weight: bold; background-color: #6c757d; color: white; border: none; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 12px rgba(108, 117, 125, 0.4); transition: all 0.3s ease; text-decoration: none; display: inline-block;">
+                ← Kembali
+            </a>
+        @endif
+    </div>
 
     @if($sheetData && isset($sheetData['groups']) && count($sheetData['groups']) > 0)
         @foreach($sheetData['groups'] as $groupIndex => $group)

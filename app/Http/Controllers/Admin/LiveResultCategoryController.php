@@ -219,43 +219,8 @@ class LiveResultCategoryController extends Controller
                 ->with('error', 'Silakan pilih round terlebih dahulu.');
         }
         
-        // Fetch data from Google Sheets (similar to LiveResultController)
-        $result = $this->googleSheetsService->getSheetData(
-            $category->spreadsheet_id,
-            $selectedRound
-        );
-        
-        $sheetData = null;
-        
-        if ($result['success']) {
-            $rawData = $result['values'];
-            
-            // Fetch B1 for keterangan
-            $b1Range = $selectedRound . '!B1';
-            if (preg_match('/[^a-zA-Z0-9_]/', $selectedRound)) {
-                $escapedSheetName = str_replace("'", "''", $selectedRound);
-                $b1Range = "'" . $escapedSheetName . "'!B1";
-            }
-            
-            $b1Result = $this->googleSheetsService->getSheetData(
-                $category->spreadsheet_id,
-                $selectedRound,
-                $b1Range,
-                false
-            );
-            
-            $b1Value = '';
-            if ($b1Result['success'] && !empty($b1Result['values']) && isset($b1Result['values'][0][0])) {
-                $b1Value = trim($b1Result['values'][0][0]);
-            }
-            
-            // Parse data using LiveResultController's parse method
-            $liveResultController = new \App\Http\Controllers\LiveResultController($this->googleSheetsService);
-            $parsedData = $this->parseSheetDataForPrint($rawData, $category->spreadsheet_id, $selectedRound, $b1Value);
-            $sheetData = $parsedData;
-        }
-        
-        return view('admin.live-result-categories.print', compact('event', 'category', 'selectedRound', 'sheetData'));
+        // Use unified print preview method
+        return $this->getPrintPreview($category, $selectedRound, route('admin.live-result-categories.index', $eventId));
     }
 
     /**
@@ -317,7 +282,6 @@ class LiveResultCategoryController extends Controller
         ]);
 
         $category = LiveResultCategory::with('event')->findOrFail($request->category_id);
-        $event = $category->event;
         $selectedRound = $request->round;
 
         // Verify round exists in selected_sheets
@@ -327,45 +291,54 @@ class LiveResultCategoryController extends Controller
                 ->with('error', 'Round yang dipilih tidak valid untuk kategori ini.');
         }
 
+        // Use unified print preview method
+        return $this->getPrintPreview($category, $selectedRound, route('admin.print-center'));
+    }
+
+    /**
+     * Unified method untuk print preview
+     * Menggunakan satu view dan logika yang sama
+     */
+    protected function getPrintPreview(LiveResultCategory $category, string $selectedRound, string $backUrl)
+    {
+        $event = $category->event;
+        
         // Fetch data from Google Sheets
         $result = $this->googleSheetsService->getSheetData(
             $category->spreadsheet_id,
             $selectedRound
         );
         
-        $sheetData = null;
-        
-        if ($result['success']) {
-            $rawData = $result['values'];
-            
-            // Fetch B1 for keterangan
-            $b1Range = $selectedRound . '!B1';
-            if (preg_match('/[^a-zA-Z0-9_]/', $selectedRound)) {
-                $escapedSheetName = str_replace("'", "''", $selectedRound);
-                $b1Range = "'" . $escapedSheetName . "'!B1";
-            }
-            
-            $b1Result = $this->googleSheetsService->getSheetData(
-                $category->spreadsheet_id,
-                $selectedRound,
-                $b1Range,
-                false
-            );
-            
-            $b1Value = '';
-            if ($b1Result['success'] && !empty($b1Result['values']) && isset($b1Result['values'][0][0])) {
-                $b1Value = trim($b1Result['values'][0][0]);
-            }
-            
-            // Parse data
-            $parsedData = $this->parseSheetDataForPrint($rawData, $category->spreadsheet_id, $selectedRound, $b1Value);
-            $sheetData = $parsedData;
-        } else {
-            return redirect()
-                ->route('admin.print-center')
+        if (!$result['success']) {
+            return redirect($backUrl)
                 ->with('error', 'Gagal mengambil data dari Google Sheets. Silakan coba lagi.');
         }
         
-        return view('admin.print-center.preview', compact('event', 'category', 'selectedRound', 'sheetData'));
+        $rawData = $result['values'];
+        
+        // Fetch B1 for keterangan
+        $b1Range = $selectedRound . '!B1';
+        if (preg_match('/[^a-zA-Z0-9_]/', $selectedRound)) {
+            $escapedSheetName = str_replace("'", "''", $selectedRound);
+            $b1Range = "'" . $escapedSheetName . "'!B1";
+        }
+        
+        $b1Result = $this->googleSheetsService->getSheetData(
+            $category->spreadsheet_id,
+            $selectedRound,
+            $b1Range,
+            false
+        );
+        
+        $b1Value = '';
+        if ($b1Result['success'] && !empty($b1Result['values']) && isset($b1Result['values'][0][0])) {
+            $b1Value = trim($b1Result['values'][0][0]);
+        }
+        
+        // Parse data
+        $sheetData = $this->parseSheetDataForPrint($rawData, $category->spreadsheet_id, $selectedRound, $b1Value);
+        
+        // Use unified print view
+        return view('admin.print-center.preview', compact('event', 'category', 'selectedRound', 'sheetData', 'backUrl'));
     }
 }

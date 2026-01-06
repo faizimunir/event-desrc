@@ -129,6 +129,9 @@
                     <thead class="bg-gray-50 dark:bg-gray-900">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                                Print
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                                 Judul
                             </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -151,6 +154,31 @@
                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         @foreach($categories as $category)
                             <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($category->selected_sheets && is_array($category->selected_sheets) && count($category->selected_sheets) > 0)
+                                        <div class="flex items-center gap-2">
+                                            <select 
+                                                id="printSheet_{{ $category->id }}" 
+                                                class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                                            >
+                                                <option value="">Pilih Sheet</option>
+                                                @foreach($category->selected_sheets as $sheet)
+                                                    <option value="{{ htmlspecialchars($sheet, ENT_QUOTES, 'UTF-8') }}">{{ $sheet }}</option>
+                                                @endforeach
+                                            </select>
+                                            <button 
+                                                type="button" 
+                                                onclick="printCategorySheet({{ $category->id }}, {{ $event->id }})"
+                                                class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                                                title="Print"
+                                            >
+                                                Print
+                                            </button>
+                                        </div>
+                                    @else
+                                        <span class="text-sm text-gray-400 dark:text-gray-500 italic">-</span>
+                                    @endif
+                                </td>
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="text-sm font-medium text-gray-900 dark:text-white">
                                         {{ $category->title }}
@@ -240,8 +268,73 @@
     </div>
 </div>
 
+<!-- Print Modal -->
+<div id="printModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+        <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white" id="printModalTitle">Pilih Round untuk Print</h3>
+                <button onclick="closePrintModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <form id="printForm" method="GET" target="_blank">
+                <div class="mb-4">
+                    <label for="printRound" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Pilih Round <span class="text-red-500">*</span>
+                    </label>
+                    <select 
+                        id="printRound" 
+                        name="round" 
+                        required
+                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+                    >
+                        <option value="">-- Pilih Round --</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button 
+                        type="button" 
+                        onclick="closePrintModal()"
+                        class="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors"
+                    >
+                        Batal
+                    </button>
+                    <button 
+                        type="submit"
+                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+                    >
+                        Print
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @push('scripts')
 <script>
+    // Print Category Sheet Function - Global scope
+    function printCategorySheet(categoryId, eventId) {
+        const selectElement = document.getElementById('printSheet_' + categoryId);
+        if (!selectElement) {
+            alert('Element tidak ditemukan.');
+            return;
+        }
+        const selectedSheet = selectElement.value;
+        
+        if (!selectedSheet) {
+            alert('Silakan pilih sheet terlebih dahulu.');
+            return;
+        }
+        
+        // Redirect to print route with round parameter
+        const printUrl = '{{ route("admin.live-result-categories.print", [$event->id, ":categoryId"]) }}'.replace(':categoryId', categoryId) + '?round=' + encodeURIComponent(selectedSheet);
+        window.open(printUrl, '_blank');
+    }
+
 document.addEventListener('DOMContentLoaded', function() {
     const fetchSheetsBtn = document.getElementById('fetchSheetsBtn');
     const spreadsheetIdInput = document.getElementById('spreadsheet_id');
@@ -323,6 +416,62 @@ document.addEventListener('DOMContentLoaded', function() {
             errorMessage.classList.remove('hidden');
             console.error('Error:', error);
         });
+    });
+
+    // Print Modal Functions
+    function openPrintModal(button) {
+        const modal = document.getElementById('printModal');
+        const form = document.getElementById('printForm');
+        const roundSelect = document.getElementById('printRound');
+        const modalTitle = document.getElementById('printModalTitle');
+        
+        // Get data from button attributes
+        const categoryId = button.getAttribute('data-category-id');
+        const sheetsData = button.getAttribute('data-sheets') || '[]';
+        let selectedSheets = [];
+        try {
+            selectedSheets = JSON.parse(sheetsData);
+        } catch (e) {
+            console.error('Error parsing sheets data:', e);
+            selectedSheets = [];
+        }
+        const categoryTitle = button.getAttribute('data-category-title');
+        
+        // Check if there are sheets available
+        if (!selectedSheets || selectedSheets.length === 0) {
+            alert('Tidak ada sheet yang dipilih untuk kategori ini. Silakan pilih sheet terlebih dahulu.');
+            return;
+        }
+        
+        // Set modal title
+        modalTitle.textContent = `Print - ${categoryTitle}`;
+        
+        // Set form action
+        form.action = '{{ route("admin.live-result-categories.print", [$event->id, ":categoryId"]) }}'.replace(':categoryId', categoryId);
+        
+        // Clear and populate round select
+        roundSelect.innerHTML = '<option value="">-- Pilih Round --</option>';
+        selectedSheets.forEach(function(sheet) {
+            const option = document.createElement('option');
+            option.value = sheet;
+            option.textContent = sheet;
+            roundSelect.appendChild(option);
+        });
+        
+        // Show modal
+        modal.classList.remove('hidden');
+    }
+
+    function closePrintModal() {
+        const modal = document.getElementById('printModal');
+        modal.classList.add('hidden');
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('printModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closePrintModal();
+        }
     });
 });
 </script>
