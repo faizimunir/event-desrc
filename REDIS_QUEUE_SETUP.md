@@ -389,6 +389,169 @@ Redis::llen('queues:default');
 php artisan queue:clear redis
 ```
 
+### Upload File Gagal Setelah Setup Redis (Permission Issue)
+
+**Masalah:** Upload poster event atau file lainnya gagal setelah perubahan permission untuk Redis.
+
+**Penyebab:** 
+- Perubahan ownership/permission folder saat setup Redis queue worker
+- Web server (www-data) tidak memiliki write permission ke folder `storage/`
+- Queue worker user berbeda dengan web server user
+
+**Solusi untuk Debian/Ubuntu:**
+
+1. **Cek User Web Server dan Queue Worker:**
+```bash
+# Cek user web server (biasanya www-data)
+ps aux | grep -E 'apache|nginx|php-fpm' | head -1
+
+# Cek user queue worker (dari supervisor/systemd config)
+sudo supervisorctl status laravel-worker:*
+# atau
+sudo systemctl status laravel-worker
+```
+
+2. **Fix Permission Storage Directory:**
+```bash
+# Masuk ke root project
+cd /path/to/event-desrc
+
+# Set ownership ke www-data (web server user)
+sudo chown -R www-data:www-data storage/
+sudo chown -R www-data:www-data bootstrap/cache/
+
+# Set permission yang benar
+sudo chmod -R 775 storage/
+sudo chmod -R 775 bootstrap/cache/
+
+# Pastikan folder events dan logos ada dan writable
+sudo mkdir -p storage/app/public/events
+sudo mkdir -p storage/app/public/logos
+sudo mkdir -p storage/app/public/payments
+sudo chown -R www-data:www-data storage/app/public/
+sudo chmod -R 775 storage/app/public/
+```
+
+3. **Jika Queue Worker Menggunakan User Berbeda:**
+
+**Option A: Set Queue Worker ke User www-data (Recommended)**
+
+Edit supervisor config:
+```bash
+sudo nano /etc/supervisor/conf.d/laravel-worker.conf
+```
+
+Pastikan user=www-data:
+```ini
+[program:laravel-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 --timeout=90
+autostart=true
+autorestart=true
+stopasgroup=true
+killasgroup=true
+user=www-data
+group=www-data
+numprocs=1
+redirect_stderr=true
+stdout_logfile=/path/to/storage/logs/worker.log
+stopwaitsecs=3600
+```
+
+Atau untuk systemd:
+```bash
+sudo nano /etc/systemd/system/laravel-worker.service
+```
+
+Pastikan User dan Group:
+```ini
+[Service]
+User=www-data
+Group=www-data
+```
+
+Kemudian restart:
+```bash
+# Supervisor
+sudo supervisorctl reread
+sudo supervisorctl update
+sudo supervisorctl restart laravel-worker:*
+
+# Systemd
+sudo systemctl daemon-reload
+sudo systemctl restart laravel-worker
+```
+
+**Option B: Set Group Permission (Alternatif)**
+
+Jika queue worker harus menggunakan user berbeda:
+```bash
+# Buat group bersama
+sudo groupadd laravel-app
+sudo usermod -a -G laravel-app www-data
+sudo usermod -a -G laravel-app [queue-worker-user]
+
+# Set ownership dengan group
+sudo chown -R www-data:laravel-app storage/
+sudo chown -R www-data:laravel-app bootstrap/cache/
+sudo chmod -R 775 storage/
+sudo chmod -R 775 bootstrap/cache/
+```
+
+4. **Pastikan Symbolic Link Ada:**
+```bash
+# Cek apakah symbolic link sudah ada
+ls -la public/storage
+
+# Jika tidak ada, buat symbolic link
+php artisan storage:link
+
+# Pastikan permission symbolic link
+sudo chown -h www-data:www-data public/storage
+```
+
+5. **Test Upload:**
+```bash
+# Test permission dengan membuat file test
+sudo -u www-data touch storage/app/public/test.txt
+sudo -u www-data rm storage/app/public/test.txt
+
+# Jika berhasil, coba upload poster event dari aplikasi
+```
+
+6. **Cek Log untuk Error Detail:**
+```bash
+# Cek Laravel log
+tail -f storage/logs/laravel.log
+
+# Cek PHP error log
+tail -f /var/log/php*-fpm.log
+# atau
+tail -f /var/log/apache2/error.log
+```
+
+**Quick Fix Command (All-in-One):**
+```bash
+cd /path/to/event-desrc
+sudo chown -R www-data:www-data storage/ bootstrap/cache/
+sudo chmod -R 775 storage/ bootstrap/cache/
+sudo mkdir -p storage/app/public/{events,logos,payments}
+sudo chown -R www-data:www-data storage/app/public/
+sudo chmod -R 775 storage/app/public/
+php artisan storage:link
+sudo chown -h www-data:www-data public/storage
+```
+
+**Verifikasi:**
+```bash
+# Test write permission
+sudo -u www-data touch storage/app/public/events/test.txt && echo "OK" || echo "FAILED"
+sudo -u www-data rm -f storage/app/public/events/test.txt
+
+# Cek ownership
+ls -la storage/app/public/
+```
+
 ---
 
 ## Perbandingan: Database vs Redis
