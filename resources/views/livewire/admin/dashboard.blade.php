@@ -93,7 +93,7 @@
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                        <a href="{{ route('admin.events.show', $event->id) }}" class="text-blue-600 hover:text-blue-900">Lihat</a>
+                                        <a href="{{ route('event.detail', $event->id) }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-900">Lihat</a>
                                     </td>
                                 </tr>
                             @endforeach

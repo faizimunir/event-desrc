@@ -204,19 +204,13 @@ class EventManagement extends Component
     {
         $admin = Auth::guard('admin')->user();
         
-        // Restrict Co Admin Event from deleting events
-        if ($admin->isCoAdminEvent()) {
-            session()->flash('error', 'Co Admin Event tidak dapat menghapus event.');
+        // Only SuperAdmin can delete events
+        if (!$admin->isSuperAdmin()) {
+            session()->flash('error', 'Hanya Super Admin yang dapat menghapus event. Silakan hubungi Super Admin atau Administrator utama untuk menghapus event.');
             return;
         }
         
         $event = Event::findOrFail($id);
-        
-        // Check if admin has access to this event
-        if (!$admin->canAccessEvent($id)) {
-            session()->flash('error', 'Anda tidak memiliki akses untuk menghapus event ini.');
-            return;
-        }
         
         if ($event->image) {
             Storage::disk('public')->delete($event->image);

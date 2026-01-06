@@ -71,6 +71,8 @@
                             @endif
                             @if(auth('admin')->user()->isSuperAdmin() || auth('admin')->user()->isAdminEvent())
                                 <button wire:click="openModal({{ $event->id }})" class="text-blue-600 hover:text-blue-900">Edit</button>
+                            @endif
+                            @if(auth('admin')->user()->isSuperAdmin())
                                 <button wire:click="delete({{ $event->id }})" wire:confirm="Apakah Anda yakin ingin menghapus event ini?" class="text-red-600 hover:text-red-900">Hapus</button>
                             @endif
                         </td>
