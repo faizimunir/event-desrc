@@ -14,7 +14,7 @@ class Home extends Component
         $events = Cache::remember('published_events', 3600, function () {
             return Event::select('id', 'name', 'description', 'start_date', 'end_date', 'location', 'image', 'status', 'registration_start', 'registration_end', 'created_at', 'updated_at')
                 ->where('status', 'published')
-                ->orderBy('start_date', 'asc')
+                ->orderBy('start_date', 'desc')
                 ->get()
                 ->map(function ($event) {
                     // Use WIB timezone explicitly
