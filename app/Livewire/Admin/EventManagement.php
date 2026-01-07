@@ -134,6 +134,14 @@ class EventManagement extends Component
             return;
         }
         
+        // If editing, check if admin has access to this event
+        if ($this->editingId) {
+            if ($admin->isAdminEvent() && !$admin->canAccessEvent($this->editingId)) {
+                session()->flash('error', 'Anda tidak memiliki akses untuk mengedit event ini.');
+                return;
+            }
+        }
+        
         $this->validate();
 
         // Store editingId before any operations
@@ -249,6 +257,20 @@ class EventManagement extends Component
 
     public function toggleRegistration($id)
     {
+        $admin = Auth::guard('admin')->user();
+        
+        // Only SuperAdmin and Admin Event can toggle registration
+        if ($admin->isCoAdminEvent()) {
+            session()->flash('error', 'Co Admin Event tidak dapat mengubah status pendaftaran.');
+            return;
+        }
+        
+        // Admin Event can only toggle registration for events they have access to
+        if ($admin->isAdminEvent() && !$admin->canAccessEvent($id)) {
+            session()->flash('error', 'Anda tidak memiliki akses untuk mengubah status pendaftaran event ini.');
+            return;
+        }
+        
         $event = Event::findOrFail($id);
         $event->registration_open = !$event->registration_open;
         $event->save();

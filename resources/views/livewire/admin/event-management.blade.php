@@ -49,15 +49,25 @@
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <button 
-                                wire:click="toggleRegistration({{ $event->id }})"
-                                class="px-3 py-1 text-xs font-medium rounded-md transition-colors
+                            @if(auth('admin')->user()->isSuperAdmin() || (auth('admin')->user()->isAdminEvent() && auth('admin')->user()->canAccessEvent($event->id)))
+                                <button 
+                                    wire:click="toggleRegistration({{ $event->id }})"
+                                    class="px-3 py-1 text-xs font-medium rounded-md transition-colors
+                                        {{ $event->registration_open 
+                                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                                            : 'bg-gray-100 text-gray-800 hover:bg-gray-200' }}"
+                                >
+                                    {{ $event->registration_open ? 'Terbuka' : 'Tertutup' }}
+                                </button>
+                            @else
+                                <span class="px-3 py-1 text-xs font-medium rounded-md
                                     {{ $event->registration_open 
-                                        ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200' }}"
-                            >
-                                {{ $event->registration_open ? 'Terbuka' : 'Tertutup' }}
-                            </button>
+                                        ? 'bg-green-100 text-green-800' 
+                                        : 'bg-gray-100 text-gray-800' }}"
+                                >
+                                    {{ $event->registration_open ? 'Terbuka' : 'Tertutup' }}
+                                </span>
+                            @endif
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
@@ -134,13 +144,22 @@
                             </div>
                         </div>
 
-                        <div class="flex items-center">
-                            <input type="checkbox" wire:model="registration_open" id="registration_open" class="rounded border-gray-300">
-                            <label for="registration_open" class="ml-2 text-sm text-gray-700">
-                                Buka Pendaftaran Secara Manual (abaikan waktu pendaftaran)
-                            </label>
-                        </div>
-                        <p class="text-xs text-gray-500">Jika dicentang, pendaftaran akan selalu terbuka terlepas dari waktu yang ditentukan di atas.</p>
+                        @if(auth('admin')->user()->isSuperAdmin() || auth('admin')->user()->isAdminEvent())
+                            <div class="flex items-center">
+                                <input type="checkbox" wire:model="registration_open" id="registration_open" class="rounded border-gray-300">
+                                <label for="registration_open" class="ml-2 text-sm text-gray-700">
+                                    Buka Pendaftaran Secara Manual (abaikan waktu pendaftaran)
+                                </label>
+                            </div>
+                            <p class="text-xs text-gray-500">Jika dicentang, pendaftaran akan selalu terbuka terlepas dari waktu yang ditentukan di atas.</p>
+                        @else
+                            <div class="p-3 bg-gray-50 rounded-md">
+                                <p class="text-sm text-gray-600">
+                                    Status Pendaftaran: <strong>{{ $registration_open ? 'Terbuka' : 'Tertutup' }}</strong>
+                                </p>
+                                <p class="text-xs text-gray-500 mt-1">Hanya Super Admin dan Admin Event yang dapat mengubah status pendaftaran.</p>
+                            </div>
+                        @endif
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Lokasi</label>

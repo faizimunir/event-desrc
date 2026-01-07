@@ -152,8 +152,14 @@ class Registration extends Component
         }
         
         // Check registration status
-        // If registration_open is manually set to true, skip time check
-        if (!($this->event->registration_open ?? false)) {
+        // If registration_open is explicitly set to false, registration is closed
+        if ($this->event->registration_open === false) {
+            session()->flash('error', 'Pendaftaran untuk event ini sedang ditutup.');
+            return redirect()->route('event.detail', $this->event->id);
+        }
+        
+        // If registration_open is null (not explicitly set), check time-based registration
+        if (is_null($this->event->registration_open)) {
             // Check registration period using WIB timezone
             $now = now('Asia/Jakarta');
             $registrationStart = \Carbon\Carbon::parse($this->event->registration_start)->setTimezone('Asia/Jakarta');
@@ -236,8 +242,14 @@ class Registration extends Component
         $this->event->refresh();
 
         // Check registration status
-        // If registration_open is manually set to true, skip time check
-        if (!($this->event->registration_open ?? false)) {
+        // If registration_open is explicitly set to false, registration is closed
+        if ($this->event->registration_open === false) {
+            $this->addError('registration', 'Pendaftaran untuk event ini sedang ditutup.');
+            return;
+        }
+        
+        // If registration_open is null (not explicitly set), check time-based registration
+        if (is_null($this->event->registration_open)) {
             // Check registration period using WIB timezone
             $now = now('Asia/Jakarta');
             $registrationStart = \Carbon\Carbon::parse($this->event->registration_start)->setTimezone('Asia/Jakarta');
