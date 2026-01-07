@@ -43,7 +43,34 @@
         <div class="bg-white rounded-lg shadow-md p-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-6">Data Peserta</h2>
 
-            <form wire:submit="submit">
+            <!-- Payment Setting Missing Warning -->
+            @if($paymentSettingMissing)
+                <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-red-800">
+                                Pendaftaran Belum Dapat Dilakukan
+                            </h3>
+                            <div class="mt-2 text-sm text-red-700">
+                                <p>
+                                    Pendaftaran untuk event ini belum diatur oleh admin event. 
+                                    Pengaturan pembayaran (informasi rekening) belum dikonfigurasi.
+                                </p>
+                                <p class="mt-2">
+                                    Silakan hubungi admin event untuk informasi lebih lanjut atau tunggu sampai pengaturan pembayaran selesai dikonfigurasi.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            <form wire:submit="submit" @if($paymentSettingMissing) onsubmit="return false;" @endif>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Nama Lengkap -->
                     <div>
@@ -54,8 +81,9 @@
                             type="text" 
                             id="name"
                             wire:model="name"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('name') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('name') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Masukkan nama lengkap"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('name')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -71,8 +99,9 @@
                             type="text" 
                             id="nickname"
                             wire:model="nickname"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('nickname') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('nickname') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Masukkan nama panggilan"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('nickname')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -88,8 +117,9 @@
                             type="text" 
                             id="number_plate"
                             wire:model="number_plate"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('number_plate') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('number_plate') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Masukkan nomor plat"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('number_plate')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -105,8 +135,9 @@
                             type="text" 
                             id="komunitas"
                             wire:model="komunitas"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('komunitas') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('komunitas') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Masukkan nama komunitas"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('komunitas')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -122,8 +153,9 @@
                             type="email" 
                             id="email"
                             wire:model="email"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('email') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('email') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="email@example.com"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('email')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -139,8 +171,9 @@
                             type="text" 
                             id="phone"
                             wire:model="phone"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('phone') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('phone') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="08xxxxxxxxxx"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('phone')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -156,8 +189,9 @@
                             type="text" 
                             id="city"
                             wire:model="city"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('city') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('city') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                             placeholder="Masukkan asal kota"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('city')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -173,7 +207,8 @@
                             type="date" 
                             id="date_of_birth"
                             wire:model="date_of_birth"
-                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('date_of_birth') border-red-500 @enderror"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('date_of_birth') border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            @if($paymentSettingMissing) disabled @endif
                         >
                         @error('date_of_birth')
                             <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
@@ -200,33 +235,37 @@
                                             type="{{ $field->type === 'tel' ? 'text' : $field->type }}"
                                             id="form_field_{{ $field->name }}"
                                             wire:model="formFieldsData.{{ $field->name }}"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                                             placeholder="{{ $field->help_text ?: '' }}"
                                             @if($field->required) required @endif
+                                            @if($paymentSettingMissing) disabled @endif
                                         >
                                     @elseif($field->type === 'textarea')
                                         <textarea 
                                             id="form_field_{{ $field->name }}"
                                             wire:model="formFieldsData.{{ $field->name }}"
                                             rows="3"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                                             placeholder="{{ $field->help_text ?: '' }}"
                                             @if($field->required) required @endif
+                                            @if($paymentSettingMissing) disabled @endif
                                         ></textarea>
                                     @elseif($field->type === 'date')
                                         <input 
                                             type="date"
                                             id="form_field_{{ $field->name }}"
                                             wire:model="formFieldsData.{{ $field->name }}"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                                             @if($field->required) required @endif
+                                            @if($paymentSettingMissing) disabled @endif
                                         >
                                     @elseif($field->type === 'select')
                                         <select 
                                             id="form_field_{{ $field->name }}"
                                             wire:model="formFieldsData.{{ $field->name }}"
-                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror"
+                                            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 @error('formFieldsData.' . $field->name) border-red-500 @enderror disabled:bg-gray-100 disabled:cursor-not-allowed"
                                             @if($field->required) required @endif
+                                            @if($paymentSettingMissing) disabled @endif
                                         >
                                             <option value="">Pilih {{ $field->label }}</option>
                                             @if($field->options && is_array($field->options))
@@ -245,8 +284,9 @@
                                                             name="formFieldsData[{{ $field->name }}]"
                                                             wire:model="formFieldsData.{{ $field->name }}"
                                                             value="{{ $option }}"
-                                                            class="mr-2"
+                                                            class="mr-2 disabled:cursor-not-allowed"
                                                             @if($field->required) required @endif
+                                                            @if($paymentSettingMissing) disabled @endif
                                                         >
                                                         <span>{{ $option }}</span>
                                                     </label>
@@ -260,8 +300,9 @@
                                                 id="form_field_{{ $field->name }}"
                                                 wire:model="formFieldsData.{{ $field->name }}"
                                                 value="1"
-                                                class="rounded border-gray-300"
+                                                class="rounded border-gray-300 disabled:cursor-not-allowed"
                                                 @if($field->required) required @endif
+                                                @if($paymentSettingMissing) disabled @endif
                                             >
                                             <span class="ml-2 text-sm text-gray-700">{{ $field->help_text ?: 'Ya' }}</span>
                                         </label>
@@ -305,6 +346,12 @@
                     </div>
                 @enderror
 
+                @error('payment_setting')
+                    <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+                        <p class="text-sm text-red-600">{{ $message }}</p>
+                    </div>
+                @enderror
+
                 <!-- Submit Button -->
                 <div class="mt-8 flex justify-end space-x-4">
                     <a 
@@ -316,9 +363,10 @@
                     </a>
                     <button 
                         type="submit"
-                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-200"
+                        class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                         wire:loading.attr="disabled"
                         wire:target="submit"
+                        @if($paymentSettingMissing) disabled @endif
                     >
                         <span wire:loading.remove wire:target="submit">Daftar Sekarang</span>
                         <span wire:loading wire:target="submit" class="flex items-center">

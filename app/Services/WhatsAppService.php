@@ -122,9 +122,9 @@ class WhatsAppService
             '{total_transfer}' => number_format($package->price + (int)$participant->unique_code, 0, ',', '.'),
             '{location}' => $event->location,
             '{date}' => \Carbon\Carbon::parse($event->start_date)->format('d M Y'),
-            '{bank_name}' => config('app.bank_name', 'Bank BCA'),
-            '{bank_account}' => config('app.bank_account', '1234567890'),
-            '{bank_account_name}' => config('app.bank_account_name', 'Event Registration'),
+            '{bank_name}' => config('app.bank_name'),
+            '{bank_account}' => config('app.bank_account'),
+            '{bank_account_name}' => config('app.bank_account_name'),
         ];
 
         return str_replace(array_keys($replacements), array_values($replacements), $content);

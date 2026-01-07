@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Package;
 use App\Models\Participant;
 use App\Models\FormField;
+use App\Models\PaymentSetting;
 use App\Jobs\SendPendingNotificationJob;
 use Livewire\Component;
 
@@ -32,6 +33,7 @@ class Registration extends Component
     public $formFieldsData = [];
 
     public $participant = null;
+    public $paymentSettingMissing = false;
 
     protected function rules()
     {
@@ -183,6 +185,23 @@ class Registration extends Component
             }
         }
 
+        // Check payment setting for manual verification events
+        $paymentMethod = $this->event->payment_method ?? 'manual';
+        if ($paymentMethod === 'manual') {
+            $paymentSetting = PaymentSetting::where(function($query) {
+                $query->where('event_id', $this->event->id)
+                      ->orWhereNull('event_id');
+            })
+            ->where('status', 'active')
+            ->orderBy('is_default', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->first();
+            
+            if (!$paymentSetting) {
+                $this->paymentSettingMissing = true;
+            }
+        }
+
         // Load form fields for this package
         $this->loadFormFields();
     }
@@ -254,6 +273,25 @@ class Registration extends Component
                     $this->addError('category', 'Kuota kategori sudah penuh.');
                     return;
                 }
+            }
+        }
+
+        // Check payment setting for manual verification events
+        $paymentMethod = $this->event->payment_method ?? 'manual';
+        if ($paymentMethod === 'manual') {
+            $paymentSetting = PaymentSetting::where(function($query) {
+                $query->where('event_id', $this->event->id)
+                      ->orWhereNull('event_id');
+            })
+            ->where('status', 'active')
+            ->orderBy('is_default', 'desc')
+            ->orderBy('created_at', 'desc')
+            ->first();
+            
+            if (!$paymentSetting) {
+                $this->addError('payment_setting', 'Pendaftaran belum diatur oleh admin event. Silakan hubungi admin untuk informasi lebih lanjut.');
+                $this->paymentSettingMissing = true;
+                return;
             }
         }
 

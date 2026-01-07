@@ -194,15 +194,15 @@
                     <div class="space-y-2 text-sm">
                         <div class="flex justify-between">
                             <span class="text-gray-600">Bank:</span>
-                            <span class="font-medium text-gray-900">{{ config('app.bank_name', 'Bank BCA') }}</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_name') }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">No. Rekening:</span>
-                            <span class="font-medium text-gray-900">{{ config('app.bank_account', '1234567890') }}</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_account') }}</span>
                         </div>
                         <div class="flex justify-between">
                             <span class="text-gray-600">Atas Nama:</span>
-                            <span class="font-medium text-gray-900">{{ config('app.bank_account_name', 'Event Registration') }}</span>
+                            <span class="font-medium text-gray-900">{{ config('app.bank_account_name') }}</span>
                         </div>
                     </div>
                 @endif
@@ -213,7 +213,7 @@
                             <svg class="inline-block w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
                             </svg>
-                            Pembayaran Otomatis dengan Moota
+                            Pembayaran Otomatis oleh Sistem Kami
                         </p>
                         <p class="text-xs text-blue-700">
                             Setelah melakukan transfer, pembayaran Anda akan diverifikasi otomatis oleh sistem. 
@@ -221,8 +221,9 @@
                             Anda akan menerima notifikasi konfirmasi melalui email dan WhatsApp setelah pembayaran terverifikasi.
                         </p>
                         <p class="text-xs text-blue-700 mt-2">
-                            <strong>Catatan:</strong> Mohon transfer sesuai dengan nominal yang tertera (termasuk kode unik). 
+                            <strong>Catatan: <i>Mohon transfer sesuai dengan nominal yang tertera (termasuk kode unik).</i> 
                             Sistem akan mendeteksi pembayaran Anda secara otomatis.
+                            </strong>
                         </p>
                     </div>
                 @else
@@ -304,13 +305,13 @@
                         <li>Lakukan transfer sesuai dengan nominal yang tertera di atas</li>
                         <li>Pastikan nominal transfer <strong>sesuai persis</strong> (termasuk kode unik)</li>
                         <li>Setelah transfer, sistem akan mendeteksi pembayaran Anda secara otomatis</li>
-                        <li>Anda akan menerima notifikasi konfirmasi melalui email dan WhatsApp</li>
+                        <li>Anda akan menerima notifikasi konfirmasi melalui Email dan WhatsApp</li>
                     </ol>
                 </div>
                 <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                     <p class="text-sm text-yellow-800">
                         <strong>Catatan Penting:</strong> 
-                        Tidak perlu upload bukti pembayaran. Sistem akan memverifikasi pembayaran Anda secara otomatis melalui Moota.
+                        Tidak perlu upload bukti pembayaran. Sistem akan memverifikasi pembayaran Anda secara otomatis.
                     </p>
                 </div>
                 <div class="p-4 bg-gray-50 border border-gray-200 rounded-md">

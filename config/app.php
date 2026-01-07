@@ -123,4 +123,18 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Bank Information
+    |--------------------------------------------------------------------------
+    |
+    | Bank account information for payment processing. These values are used
+    | when payment settings are not configured in the database.
+    |
+    */
+
+    'bank_name' => env('BANK_NAME'),
+    'bank_account' => env('BANK_ACCOUNT'),
+    'bank_account_name' => env('BANK_ACCOUNT_NAME'),
+
 ];

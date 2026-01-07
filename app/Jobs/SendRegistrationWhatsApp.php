@@ -36,9 +36,9 @@ class SendRegistrationWhatsApp implements ShouldQueue
 
         // Bank transfer information
         $bankInfo = [
-            'bank_name' => config('app.bank_name', 'Bank BCA'),
-            'account_number' => config('app.bank_account', '1234567890'),
-            'account_name' => config('app.bank_account_name', 'Event Registration'),
+            'bank_name' => config('app.bank_name'),
+            'account_number' => config('app.bank_account'),
+            'account_name' => config('app.bank_account_name'),
         ];
 
         $message = "Halo {$participant->name},\n\n";
