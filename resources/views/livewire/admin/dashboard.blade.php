@@ -17,7 +17,7 @@
             </div>
         </div>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <a href="{{ route('admin.registrations.index') }}" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer block">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <svg class="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,9 +29,9 @@
                     <p class="text-2xl font-semibold text-gray-900">{{ $participants }}</p>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <a href="{{ route('admin.payment-proofs.index', ['status' => 'paid']) }}" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer block">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <svg class="h-8 w-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -43,9 +43,9 @@
                     <p class="text-2xl font-semibold text-gray-900">{{ $payments }}</p>
                 </div>
             </div>
-        </div>
+        </a>
 
-        <div class="bg-white rounded-lg shadow p-6">
+        <a href="{{ route('admin.payment-proofs.index', ['status' => 'pending']) }}" class="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow duration-200 cursor-pointer block">
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <svg class="h-8 w-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -57,7 +57,7 @@
                     <p class="text-2xl font-semibold text-gray-900">{{ $pendingPayments }}</p>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 
     <!-- Recent Events -->

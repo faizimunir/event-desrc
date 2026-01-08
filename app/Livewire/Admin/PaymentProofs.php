@@ -21,6 +21,12 @@ class PaymentProofs extends Component
 
     public function mount()
     {
+        // Set status filter from query parameter if provided
+        $status = request()->query('status');
+        if ($status && in_array($status, ['pending', 'paid', 'verified', 'rejected'])) {
+            $this->statusFilter = $status;
+        }
+        
         $this->loadEvents();
         $this->loadPayments();
     }
