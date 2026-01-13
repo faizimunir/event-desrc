@@ -84,7 +84,15 @@
                                         <div class="text-sm font-medium text-gray-900">{{ $event->name }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm text-gray-500">{{ $event->start_date->format('d M Y') }}</div>
+                                        <div class="text-sm text-gray-500">
+                                            @if($event->is_coming_soon ?? false)
+                                                <span class="text-blue-600 font-semibold">Coming Soon</span>
+                                            @elseif($event->start_date)
+                                                {{ $event->start_date->format('d M Y') }}
+                                            @else
+                                                <span class="text-gray-400">-</span>
+                                            @endif
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 

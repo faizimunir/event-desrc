@@ -12,18 +12,26 @@ class Home extends Component
     {
         // Cache events for 1 hour
         $events = Cache::remember('published_events', 3600, function () {
-            return Event::select('id', 'name', 'description', 'start_date', 'end_date', 'location', 'image', 'status', 'registration_start', 'registration_end', 'created_at', 'updated_at')
+            return Event::select('id', 'name', 'description', 'start_date', 'end_date', 'is_coming_soon', 'location', 'image', 'status', 'registration_start', 'registration_end', 'is_registration_coming_soon', 'created_at', 'updated_at')
                 ->where('status', 'published')
-                ->orderBy('start_date', 'desc')
+                ->orderByRaw('COALESCE(start_date, "9999-12-31") DESC')
                 ->get()
                 ->map(function ($event) {
                     // Use WIB timezone explicitly
                     $now = now('Asia/Jakarta');
-                    $registrationStart = \Carbon\Carbon::parse($event->registration_start)->setTimezone('Asia/Jakarta');
-                    $registrationEnd = \Carbon\Carbon::parse($event->registration_end)->setTimezone('Asia/Jakarta');
                     
-                    $event->is_open = $now >= $registrationStart && $now <= $registrationEnd;
-                    $event->is_closed = $now > $registrationEnd || $event->status === 'closed';
+                    // Handle registration dates for coming soon events
+                    if ($event->is_registration_coming_soon || !$event->registration_start || !$event->registration_end) {
+                        $event->is_open = false;
+                        $event->is_closed = false;
+                    } else {
+                        $registrationStart = \Carbon\Carbon::parse($event->registration_start)->setTimezone('Asia/Jakarta');
+                        $registrationEnd = \Carbon\Carbon::parse($event->registration_end)->setTimezone('Asia/Jakarta');
+                        
+                        $event->is_open = $now >= $registrationStart && $now <= $registrationEnd;
+                        $event->is_closed = $now > $registrationEnd || $event->status === 'closed';
+                    }
+                    
                     return $event;
                 });
         });

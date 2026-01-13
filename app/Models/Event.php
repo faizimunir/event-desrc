@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -15,8 +16,10 @@ class Event extends Model
         'description',
         'start_date',
         'end_date',
+        'is_coming_soon',
         'registration_start',
         'registration_end',
+        'is_registration_coming_soon',
         'registration_open',
         'location',
         'image',
@@ -29,8 +32,10 @@ class Event extends Model
     protected $casts = [
         'start_date' => 'date',
         'end_date' => 'date',
+        'is_coming_soon' => 'boolean',
         'registration_start' => 'datetime',
         'registration_end' => 'datetime',
+        'is_registration_coming_soon' => 'boolean',
         'registration_open' => 'boolean',
     ];
 
@@ -77,6 +82,33 @@ class Event extends Model
     public function liveResultCategories(): HasMany
     {
         return $this->hasMany(LiveResultCategory::class);
+    }
+
+    public function adminAccess()
+    {
+        return $this->belongsToMany(Admin::class, 'admin_event_access', 'event_id', 'admin_id')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if event is collaborative (has multiple admins with access)
+     */
+    public function isCollaborative(): bool
+    {
+        // Count admins with access via pivot table
+        $adminAccessCount = $this->adminAccess()->count();
+        
+        // Count admins with event_id pointing to this event
+        $directAdminCount = Admin::where('event_id', $this->id)->count();
+        
+        // Count creator
+        $hasCreator = $this->created_by ? 1 : 0;
+        
+        // Total unique admins with access
+        $totalAdmins = max($adminAccessCount, $directAdminCount, $hasCreator);
+        
+        // If more than 1 admin has access, it's collaborative
+        return $totalAdmins > 1;
     }
 
     /**

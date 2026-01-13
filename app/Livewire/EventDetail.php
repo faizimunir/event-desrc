@@ -26,7 +26,7 @@ class EventDetail extends Component
         // Cache event detail for 30 minutes
         $cacheKey = "event_detail_{$this->eventId}";
         $this->event = Cache::remember($cacheKey, 1800, function () {
-            return Event::select('id', 'name', 'description', 'start_date', 'end_date', 'registration_start', 'registration_end', 'location', 'image', 'status', 'created_at', 'updated_at')
+            return Event::select('id', 'name', 'description', 'start_date', 'end_date', 'is_coming_soon', 'registration_start', 'registration_end', 'is_registration_coming_soon', 'location', 'image', 'status', 'created_at', 'updated_at')
                 ->with([
                     'categories' => function ($query) {
                         $query->select('id', 'event_id', 'name', 'description', 'max_participants', 'status')

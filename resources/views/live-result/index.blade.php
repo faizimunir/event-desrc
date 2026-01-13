@@ -56,7 +56,15 @@
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
-                            <span>{{ \Carbon\Carbon::parse($event->start_date)->format('d M Y') }}</span>
+                            <span>
+                                @if($event->is_coming_soon ?? false)
+                                    <span class="text-blue-600 font-semibold">Coming Soon</span>
+                                @elseif($event->start_date)
+                                    {{ \Carbon\Carbon::parse($event->start_date)->format('d M Y') }}
+                                @else
+                                    <span class="text-gray-400">-</span>
+                                @endif
+                            </span>
                         </div>
                     </div>
                 </a>

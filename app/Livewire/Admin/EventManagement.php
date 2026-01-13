@@ -22,8 +22,10 @@ class EventManagement extends Component
     public $description = '';
     public $start_date = '';
     public $end_date = '';
+    public $is_coming_soon = false;
     public $registration_start = '';
     public $registration_end = '';
+    public $is_registration_coming_soon = false;
     public $registration_open = false;
     public $location = '';
     public $image;
@@ -32,19 +34,47 @@ class EventManagement extends Component
     public $status = 'draft';
     public $payment_method = 'manual';
 
-    protected $rules = [
-        'name' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'start_date' => 'required|date',
-        'end_date' => 'required|date|after_or_equal:start_date',
-        'registration_start' => 'required|date',
-        'registration_end' => 'required|date|after_or_equal:registration_start',
-        'location' => 'required|string|max:255',
-        'image' => 'nullable|image|max:2048',
-        'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
-        'status' => 'required|in:draft,published,closed,cancelled',
-        'payment_method' => 'required|in:manual,moota',
-    ];
+    public function getRules()
+    {
+        $rules = [
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'location' => 'required|string|max:255',
+            'image' => 'nullable|image|max:2048',
+            'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
+            'status' => 'required|in:draft,published,closed,cancelled',
+            'payment_method' => 'required|in:manual,moota',
+            'is_coming_soon' => 'boolean',
+            'is_registration_coming_soon' => 'boolean',
+        ];
+
+        // Date fields are required only if coming soon is not checked
+        if (!$this->is_coming_soon) {
+            $rules['start_date'] = 'required|date';
+            $rules['end_date'] = 'required|date|after_or_equal:start_date';
+        } else {
+            $rules['start_date'] = 'nullable|date';
+            $rules['end_date'] = 'nullable|date';
+            // Only validate after_or_equal if both dates are provided
+            if ($this->start_date && $this->end_date) {
+                $rules['end_date'] = 'nullable|date|after_or_equal:start_date';
+            }
+        }
+
+        if (!$this->is_registration_coming_soon) {
+            $rules['registration_start'] = 'required|date';
+            $rules['registration_end'] = 'required|date|after_or_equal:registration_start';
+        } else {
+            $rules['registration_start'] = 'nullable|date';
+            $rules['registration_end'] = 'nullable|date';
+            // Only validate after_or_equal if both dates are provided
+            if ($this->registration_start && $this->registration_end) {
+                $rules['registration_end'] = 'nullable|date|after_or_equal:registration_start';
+            }
+        }
+
+        return $rules;
+    }
 
     public function mount()
     {
@@ -79,11 +109,13 @@ class EventManagement extends Component
             $event = Event::findOrFail($id);
             $this->name = $event->name;
             $this->description = $event->description;
-            $this->start_date = $event->start_date->format('Y-m-d');
-            $this->end_date = $event->end_date->format('Y-m-d');
+            $this->start_date = $event->start_date ? $event->start_date->format('Y-m-d') : '';
+            $this->end_date = $event->end_date ? $event->end_date->format('Y-m-d') : '';
+            $this->is_coming_soon = $event->is_coming_soon ?? false;
             // Convert to WIB timezone for display
-            $this->registration_start = $event->registration_start->setTimezone('Asia/Jakarta')->format('Y-m-d\TH:i');
-            $this->registration_end = $event->registration_end->setTimezone('Asia/Jakarta')->format('Y-m-d\TH:i');
+            $this->registration_start = $event->registration_start ? $event->registration_start->setTimezone('Asia/Jakarta')->format('Y-m-d\TH:i') : '';
+            $this->registration_end = $event->registration_end ? $event->registration_end->setTimezone('Asia/Jakarta')->format('Y-m-d\TH:i') : '';
+            $this->is_registration_coming_soon = $event->is_registration_coming_soon ?? false;
             $this->registration_open = $event->registration_open ?? false;
             $this->location = $event->location;
             $this->status = $event->status;
@@ -112,8 +144,10 @@ class EventManagement extends Component
         $this->description = '';
         $this->start_date = '';
         $this->end_date = '';
+        $this->is_coming_soon = false;
         $this->registration_start = '';
         $this->registration_end = '';
+        $this->is_registration_coming_soon = false;
         $this->registration_open = false;
         $this->location = '';
         $this->image = null;
@@ -142,7 +176,7 @@ class EventManagement extends Component
             }
         }
         
-        $this->validate();
+        $this->validate($this->getRules());
 
         // Store editingId before any operations
         $editingId = $this->editingId;
@@ -150,20 +184,28 @@ class EventManagement extends Component
         // Convert datetime-local input to Carbon with WIB timezone
         // Input dari datetime-local sudah dalam format local time (WIB dari browser)
         // Parse sebagai WIB, lalu simpan (dengan timezone Asia/Jakarta, Laravel akan handle storage)
-        $registrationStart = Carbon::createFromFormat('Y-m-d\TH:i', $this->registration_start, 'Asia/Jakarta');
-        $registrationEnd = Carbon::createFromFormat('Y-m-d\TH:i', $this->registration_end, 'Asia/Jakarta');
+        $registrationStart = null;
+        $registrationEnd = null;
         
-        // Set timezone ke Asia/Jakarta untuk memastikan waktu disimpan dengan benar
-        $registrationStart->setTimezone('Asia/Jakarta');
-        $registrationEnd->setTimezone('Asia/Jakarta');
+        if ($this->registration_start && !$this->is_registration_coming_soon) {
+            $registrationStart = Carbon::createFromFormat('Y-m-d\TH:i', $this->registration_start, 'Asia/Jakarta');
+            $registrationStart->setTimezone('Asia/Jakarta');
+        }
+        
+        if ($this->registration_end && !$this->is_registration_coming_soon) {
+            $registrationEnd = Carbon::createFromFormat('Y-m-d\TH:i', $this->registration_end, 'Asia/Jakarta');
+            $registrationEnd->setTimezone('Asia/Jakarta');
+        }
         
         $data = [
             'name' => $this->name,
             'description' => $this->description,
-            'start_date' => $this->start_date,
-            'end_date' => $this->end_date,
+            'start_date' => $this->is_coming_soon ? null : $this->start_date,
+            'end_date' => $this->is_coming_soon ? null : $this->end_date,
+            'is_coming_soon' => $this->is_coming_soon,
             'registration_start' => $registrationStart,
             'registration_end' => $registrationEnd,
+            'is_registration_coming_soon' => $this->is_registration_coming_soon,
             'registration_open' => $this->registration_open,
             'location' => $this->location,
             'status' => $this->status,

@@ -22,7 +22,8 @@ class LiveResultController extends Controller
     public function index()
     {
         $events = Event::where('status', 'published')
-            ->orderBy('start_date', 'desc')
+            ->select('id', 'name', 'start_date', 'is_coming_soon', 'slug', 'status')
+            ->orderByRaw('COALESCE(start_date, "9999-12-31") DESC')
             ->get()
             ->map(function ($event) {
                 // Generate slug if not exists

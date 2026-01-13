@@ -19,7 +19,7 @@ class Dashboard extends Component
             $participants = Participant::count();
             $payments = Payment::where('status', 'paid')->count();
             $pendingPayments = Payment::where('status', 'pending')->count();
-            $recentEvents = Event::select('id', 'name', 'start_date', 'status', 'created_at')
+            $recentEvents = Event::select('id', 'name', 'start_date', 'is_coming_soon', 'status', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get();
@@ -56,7 +56,7 @@ class Dashboard extends Component
             })->where('status', 'pending')->count();
             
             $recentEvents = Event::whereIn('id', $accessibleEventIds)
-                ->select('id', 'name', 'start_date', 'status', 'created_at')
+                ->select('id', 'name', 'start_date', 'is_coming_soon', 'status', 'created_at')
                 ->orderBy('created_at', 'desc')
                 ->limit(5)
                 ->get();

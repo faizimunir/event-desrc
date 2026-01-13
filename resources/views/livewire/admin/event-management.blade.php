@@ -37,7 +37,13 @@
                             <div class="text-sm font-medium text-gray-900">{{ $event->name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-500">{{ $event->start_date->format('d M Y') }}</div>
+                            <div class="text-sm text-gray-500">
+                                @if($event->is_coming_soon ?? false)
+                                    <span class="text-blue-600 font-semibold">Coming Soon</span>
+                                @else
+                                    {{ $event->start_date ? $event->start_date->format('d M Y') : '-' }}
+                                @endif
+                            </div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-500">{{ $event->location }}</div>
@@ -118,7 +124,15 @@
                             <textarea wire:model="description" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm"></textarea>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" wire:model="is_coming_soon" id="is_coming_soon" class="rounded border-gray-300">
+                            <label for="is_coming_soon" class="ml-2 text-sm text-gray-700">
+                                Coming Soon (Sembunyikan tanggal event)
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4">Jika dicentang, tanggal event akan disembunyikan dan digantikan dengan "Coming Soon" di tampilan publik.</p>
+
+                        <div class="grid grid-cols-2 gap-4" x-show="!$wire.is_coming_soon" x-transition>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Tanggal Mulai</label>
                                 <input type="date" wire:model="start_date" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
@@ -131,7 +145,15 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4">
+                        <div class="flex items-center mb-2">
+                            <input type="checkbox" wire:model="is_registration_coming_soon" id="is_registration_coming_soon" class="rounded border-gray-300">
+                            <label for="is_registration_coming_soon" class="ml-2 text-sm text-gray-700">
+                                Coming Soon (Sembunyikan tanggal registrasi)
+                            </label>
+                        </div>
+                        <p class="text-xs text-gray-500 mb-4">Jika dicentang, tanggal registrasi akan disembunyikan dan digantikan dengan "Coming Soon" di tampilan publik.</p>
+
+                        <div class="grid grid-cols-2 gap-4" x-show="!$wire.is_registration_coming_soon" x-transition>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Registrasi Mulai</label>
                                 <input type="datetime-local" wire:model="registration_start" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">

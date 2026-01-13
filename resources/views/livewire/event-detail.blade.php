@@ -63,9 +63,15 @@
                             <div>
                                 <p class="font-medium text-gray-900">Tanggal Event</p>
                                 <p class="text-gray-600">
-                                    {{ \Carbon\Carbon::parse($event->start_date)->format('d M Y') }} 
-                                    @if($event->start_date !== $event->end_date)
-                                        - {{ \Carbon\Carbon::parse($event->end_date)->format('d M Y') }}
+                                    @if($event->is_coming_soon ?? false)
+                                        <span class="text-blue-600 font-semibold">Coming Soon</span>
+                                    @elseif($event->start_date)
+                                        {{ \Carbon\Carbon::parse($event->start_date)->format('d M Y') }} 
+                                        @if($event->end_date && $event->start_date != $event->end_date)
+                                            - {{ \Carbon\Carbon::parse($event->end_date)->format('d M Y') }}
+                                        @endif
+                                    @else
+                                        <span class="text-gray-400">Belum ditentukan</span>
                                     @endif
                                 </p>
                             </div>
@@ -78,8 +84,14 @@
                             <div>
                                 <p class="font-medium text-gray-900">Waktu Pendaftaran</p>
                                 <p class="text-gray-600">
-                                    {{ \Carbon\Carbon::parse($event->registration_start)->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
-                                    - {{ \Carbon\Carbon::parse($event->registration_end)->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                    @if($event->is_registration_coming_soon ?? false)
+                                        <span class="text-blue-600 font-semibold">Coming Soon</span>
+                                    @elseif($event->registration_start && $event->registration_end)
+                                        {{ \Carbon\Carbon::parse($event->registration_start)->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                        - {{ \Carbon\Carbon::parse($event->registration_end)->setTimezone('Asia/Jakarta')->format('d M Y H:i') }} WIB
+                                    @else
+                                        <span class="text-gray-400">Belum ditentukan</span>
+                                    @endif
                                 </p>
                             </div>
                         </div>
