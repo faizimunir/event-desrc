@@ -22,7 +22,7 @@ class LiveResultController extends Controller
     public function index()
     {
         $events = Event::where('status', 'published')
-            ->select('id', 'name', 'start_date', 'is_coming_soon', 'slug', 'status')
+            ->select('id', 'name', 'start_date', 'is_coming_soon', 'slug', 'status', 'image', 'logo_url')
             ->orderByRaw('COALESCE(start_date, "9999-12-31") DESC')
             ->get()
             ->map(function ($event) {
@@ -49,6 +49,7 @@ class LiveResultController extends Controller
     {
         $event = Event::where('slug', $slug)
             ->where('status', 'published')
+            ->select('id', 'name', 'description', 'start_date', 'end_date', 'is_coming_soon', 'slug', 'status', 'image', 'logo_url', 'location')
             ->firstOrFail();
 
         // Get categories for this event (only those with selected_sheets)
