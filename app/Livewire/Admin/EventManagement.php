@@ -29,6 +29,7 @@ class EventManagement extends Component
     public $registration_open = false;
     public $location = '';
     public $image;
+    public $imagePreview = null;
     public $logo;
     public $logoPreview = null;
     public $status = 'draft';
@@ -120,6 +121,12 @@ class EventManagement extends Component
             $this->location = $event->location;
             $this->status = $event->status;
             $this->payment_method = $event->payment_method ?? 'manual';
+            // Set image preview if image exists
+            if ($event->image) {
+                $this->imagePreview = asset('storage/' . $event->image);
+            } else {
+                $this->imagePreview = null;
+            }
             // Set logo preview if logo exists
             if ($event->logo_url) {
                 $this->logoPreview = asset('storage/' . $event->logo_url);
@@ -151,6 +158,7 @@ class EventManagement extends Component
         $this->registration_open = false;
         $this->location = '';
         $this->image = null;
+        $this->imagePreview = null;
         $this->logo = null;
         $this->logoPreview = null;
         $this->status = 'draft';
@@ -217,29 +225,40 @@ class EventManagement extends Component
             $data['created_by'] = Auth::guard('admin')->id();
         }
 
-        if ($this->image) {
-            if ($editingId) {
-                $event = Event::findOrFail($editingId);
-                if ($event->image) {
-                    Storage::disk('public')->delete($event->image);
-                }
-            }
-            $data['image'] = $this->image->store('events', 'public');
+        // Get existing event if editing (to preserve existing image/logo)
+        $existingEvent = null;
+        if ($editingId) {
+            $existingEvent = Event::findOrFail($editingId);
         }
 
-        if ($this->logo) {
-            if ($editingId) {
-                $event = Event::findOrFail($editingId);
-                if ($event->logo_url) {
-                    Storage::disk('public')->delete($event->logo_url);
-                }
+        // Handle image upload
+        if ($this->image) {
+            // If editing, delete old image first
+            if ($existingEvent && $existingEvent->image) {
+                Storage::disk('public')->delete($existingEvent->image);
             }
+            // Store new image
+            $data['image'] = $this->image->store('events', 'public');
+        } elseif ($existingEvent && $existingEvent->image) {
+            // If editing and no new image uploaded, keep existing image
+            $data['image'] = $existingEvent->image;
+        }
+
+        // Handle logo upload
+        if ($this->logo) {
+            // If editing, delete old logo first
+            if ($existingEvent && $existingEvent->logo_url) {
+                Storage::disk('public')->delete($existingEvent->logo_url);
+            }
+            // Store new logo
             $data['logo_url'] = $this->logo->store('logos', 'public');
+        } elseif ($existingEvent && $existingEvent->logo_url) {
+            // If editing and no new logo uploaded, keep existing logo
+            $data['logo_url'] = $existingEvent->logo_url;
         }
 
         if ($editingId) {
-            $event = Event::findOrFail($editingId);
-            $event->update($data);
+            $existingEvent->update($data);
             session()->flash('success', 'Event berhasil diupdate.');
         } else {
             Event::create($data);
@@ -287,6 +306,30 @@ class EventManagement extends Component
         }
         $this->logo = null;
         $this->logoPreview = null;
+    }
+
+    public function updatedImage()
+    {
+        $this->validateOnly('image');
+        if ($this->image) {
+            $this->imagePreview = $this->image->temporaryUrl();
+        }
+    }
+
+    public function removeImage()
+    {
+        if ($this->editingId) {
+            $event = Event::findOrFail($this->editingId);
+            if ($event->image) {
+                Storage::disk('public')->delete($event->image);
+                $event->image = null;
+                $event->save();
+                $this->imagePreview = null;
+                session()->flash('success', 'Poster berhasil dihapus.');
+            }
+        }
+        $this->image = null;
+        $this->imagePreview = null;
     }
 
     public function updatedLogo()

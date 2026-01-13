@@ -191,8 +191,23 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700">Poster</label>
-                            <input type="file" wire:model="image" accept="image/*" class="mt-1 block w-full">
+                            <input type="file" wire:model="image" accept="image/*" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                            <p class="mt-1 text-xs text-gray-500">Format: JPG, JPEG, PNG, GIF, WEBP. Maksimal 2MB</p>
                             @error('image') <span class="text-red-500 text-xs">{{ $message }}</span> @enderror
+                            
+                            <!-- Image Preview -->
+                            @if($imagePreview)
+                                <div class="mt-3 flex items-center gap-4">
+                                    <div class="relative">
+                                        <img src="{{ $imagePreview }}" alt="Poster Preview" class="h-40 w-auto object-contain border border-gray-300 rounded-md p-2 bg-white">
+                                    </div>
+                                    @if($editingId)
+                                        <button type="button" wire:click="removeImage" class="text-sm text-red-600 hover:text-red-800 font-medium">
+                                            Hapus Poster
+                                        </button>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
 
                         <div>
