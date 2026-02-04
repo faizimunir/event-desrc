@@ -124,6 +124,20 @@ class LiveResultController extends Controller
     }
 
     /**
+     * Check if category has been synced (for auto-refresh)
+     */
+    public function checkSync(Request $request, $categoryId)
+    {
+        $category = LiveResultCategory::findOrFail($categoryId);
+        
+        return response()->json([
+            'success' => true,
+            'last_sync' => $category->last_sync ? $category->last_sync->toIso8601String() : null,
+            'timestamp' => $category->last_sync ? $category->last_sync->timestamp : null,
+        ]);
+    }
+
+    /**
      * Parse sheet data with grouping and column mapping
      */
     protected function parseSheetData(array $rawData, string $spreadsheetId, string $sheetName, string $b1Value = ''): array
