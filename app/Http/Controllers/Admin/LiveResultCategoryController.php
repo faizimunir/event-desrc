@@ -25,6 +25,11 @@ class LiveResultCategoryController extends Controller
     public function index($eventId)
     {
         $event = Event::findOrFail($eventId);
+        
+        // Ensure all categories are properly ordered (reorder if needed)
+        $this->reorderCategories($eventId);
+        
+        // Get categories sorted by order (which is alphabetically ordered)
         $categories = LiveResultCategory::where('event_id', $eventId)
             ->orderBy('order')
             ->orderBy('title')
@@ -77,8 +82,11 @@ class LiveResultCategoryController extends Controller
             'title' => $validated['title'],
             'spreadsheet_id' => $validated['spreadsheet_id'],
             'selected_sheets' => $validated['selected_sheets'] ?? [],
-            'order' => LiveResultCategory::where('event_id', $eventId)->max('order') + 1,
+            'order' => 0, // Temporary, will be updated by reorderCategories
         ]);
+
+        // Reorder all categories alphabetically by title
+        $this->reorderCategories($eventId);
 
         return redirect()
             ->route('admin.live-result-categories.index', $eventId)
@@ -101,6 +109,9 @@ class LiveResultCategoryController extends Controller
         $category = LiveResultCategory::where('event_id', $eventId)->findOrFail($id);
         $category->update($validated);
 
+        // Reorder all categories alphabetically by title after update
+        $this->reorderCategories($eventId);
+
         return redirect()
             ->route('admin.live-result-categories.index', $eventId)
             ->with('success', 'Kategori berhasil diperbarui.');
@@ -114,9 +125,33 @@ class LiveResultCategoryController extends Controller
         $category = LiveResultCategory::where('event_id', $eventId)->findOrFail($id);
         $category->delete();
 
+        // Reorder remaining categories alphabetically by title
+        $this->reorderCategories($eventId);
+
         return redirect()
             ->route('admin.live-result-categories.index', $eventId)
             ->with('success', 'Kategori berhasil dihapus.');
+    }
+
+    /**
+     * Reorder categories alphabetically by title (case-insensitive)
+     * This ensures categories are always sorted alphabetically/by year
+     */
+    protected function reorderCategories($eventId)
+    {
+        // Use case-insensitive sorting for better results (handles "2022 girls" vs "2019 GIRLS")
+        $categories = LiveResultCategory::where('event_id', $eventId)
+            ->orderByRaw('LOWER(title) ASC')
+            ->get();
+
+        $order = 1;
+        foreach ($categories as $category) {
+            // Only update if order has changed to avoid unnecessary database writes
+            if ($category->order != $order) {
+                $category->update(['order' => $order]);
+            }
+            $order++;
+        }
     }
 
     /**
@@ -253,7 +288,7 @@ class LiveResultCategoryController extends Controller
                       ->whereNotNull('selected_sheets')
                       ->whereJsonLength('selected_sheets', '>', 0)
                       ->orderBy('order')
-                      ->orderBy('title');
+                      ->orderByRaw('LOWER(title) ASC');
             }])->where('status', 'published')->get();
         } else {
             $events = Event::with(['liveResultCategories' => function($query) {
@@ -261,7 +296,7 @@ class LiveResultCategoryController extends Controller
                       ->whereNotNull('selected_sheets')
                       ->whereJsonLength('selected_sheets', '>', 0)
                       ->orderBy('order')
-                      ->orderBy('title');
+                      ->orderByRaw('LOWER(title) ASC');
             }])->where(function($query) use ($admin) {
                 $query->where('created_by', $admin->id)
                       ->orWhere('id', $admin->event_id);

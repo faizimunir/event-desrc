@@ -53,12 +53,13 @@ class LiveResultController extends Controller
             ->firstOrFail();
 
         // Get categories for this event (only those with selected_sheets)
+        // Sort alphabetically by title (case-insensitive) to ensure consistent ordering
+        // This ensures categories are always sorted regardless of order field value
         $categories = LiveResultCategory::where('event_id', $event->id)
             ->where('is_active', true)
             ->whereNotNull('selected_sheets')
             ->whereJsonLength('selected_sheets', '>', 0)
-            ->orderBy('order')
-            ->orderBy('title')
+            ->orderByRaw('LOWER(title) ASC')
             ->get();
 
         // Get selected category and round
