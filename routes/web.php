@@ -20,6 +20,7 @@ Route::get('/', function () {
 Route::prefix('result')->name('result.')->group(function () {
     Route::get('/', [LiveResultController::class, 'index'])->name('index');
     Route::get('/check-sync/{categoryId}', [LiveResultController::class, 'checkSync'])->name('check-sync');
+    Route::get('/load-data/{slug}', [LiveResultController::class, 'loadData'])->name('load-data');
 });
 
 // Public Event Routes

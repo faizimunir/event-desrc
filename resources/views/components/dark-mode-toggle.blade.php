@@ -1,7 +1,20 @@
 <div 
     x-data="{ 
-        darkMode: localStorage.getItem('darkMode') === 'true' || (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches),
+        darkMode: (() => {
+            const stored = localStorage.getItem('darkMode');
+            if (stored !== null) {
+                return stored === 'true';
+            }
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        })(),
         init() {
+            // Sync with current state
+            const isDark = document.documentElement.classList.contains('dark');
+            if (this.darkMode !== isDark) {
+                this.darkMode = isDark;
+            }
+            
+            // Watch for changes
             this.$watch('darkMode', value => {
                 localStorage.setItem('darkMode', value);
                 if (value) {
@@ -10,16 +23,16 @@
                     document.documentElement.classList.remove('dark');
                 }
             });
-            // Apply initial state
-            if (this.darkMode) {
-                document.documentElement.classList.add('dark');
-            }
+        },
+        toggle() {
+            this.darkMode = !this.darkMode;
         }
     }"
     class="inline-flex items-center"
 >
     <button
-        @click="darkMode = !darkMode"
+        @click="toggle()"
+        type="button"
         class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         :aria-label="darkMode ? 'Switch to light mode' : 'Switch to dark mode'"
     >

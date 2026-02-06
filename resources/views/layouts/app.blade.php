@@ -23,6 +23,19 @@
     <style>
         [x-cloak] { display: none !important; }
     </style>
+    <script>
+        // Initialize dark mode before page renders to prevent flash
+        (function() {
+            const darkMode = localStorage.getItem('darkMode');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (darkMode === 'true' || (darkMode === null && prefersDark)) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        })();
+    </script>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 antialiased transition-colors duration-200">
     <!-- Page Loader -->
@@ -40,8 +53,11 @@
                     <a href="{{ route('home') }}" class="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200" wire:navigate>
                         Home
                     </a>
-                    <a href="{{ route('result.index') }}" class="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200" wire:navigate>
-                        Live Result
+                    <a href="{{ route('result.index') }}" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg" wire:navigate>
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"></path>
+                        </svg>
+                        <span>Live Result</span>
                     </a>
                     <x-dark-mode-toggle />
                     @auth('admin')

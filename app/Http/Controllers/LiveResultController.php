@@ -139,6 +139,108 @@ class LiveResultController extends Controller
     }
 
     /**
+     * Load data via AJAX (for seamless category/round selection)
+     */
+    public function loadData(Request $request, $slug)
+    {
+        $event = Event::where('slug', $slug)
+            ->where('status', 'published')
+            ->select('id', 'name', 'description', 'start_date', 'end_date', 'is_coming_soon', 'slug', 'status', 'image', 'logo_url', 'location')
+            ->firstOrFail();
+
+        // Get categories for this event
+        $categories = LiveResultCategory::where('event_id', $event->id)
+            ->where('is_active', true)
+            ->whereNotNull('selected_sheets')
+            ->whereJsonLength('selected_sheets', '>', 0)
+            ->orderByRaw('LOWER(title) ASC')
+            ->get();
+
+        // Get selected category and round
+        $selectedCategoryId = $request->get('category');
+        $selectedRound = $request->get('round');
+        
+        // Decode round if it's URL encoded (from AJAX request)
+        if ($selectedRound) {
+            $selectedRound = urldecode($selectedRound);
+        }
+        
+        $selectedCategory = null;
+        $sheetData = null;
+
+        if ($selectedCategoryId) {
+            $selectedCategory = $categories->find($selectedCategoryId);
+            
+            if ($selectedCategory && $selectedRound) {
+                // Fetch data from Google Sheets
+                $result = $this->googleSheetsService->getSheetData(
+                    $selectedCategory->spreadsheet_id,
+                    $selectedRound
+                );
+                
+                if ($result['success']) {
+                    $rawData = $result['values'];
+                    
+                    // Fetch B1 for keterangan
+                    $b1Range = $selectedRound . '!B1';
+                    if (preg_match('/[^a-zA-Z0-9_]/', $selectedRound)) {
+                        $escapedSheetName = str_replace("'", "''", $selectedRound);
+                        $b1Range = "'" . $escapedSheetName . "'!B1";
+                    }
+                    
+                    $b1Result = $this->googleSheetsService->getSheetData(
+                        $selectedCategory->spreadsheet_id,
+                        $selectedRound,
+                        $b1Range,
+                        false
+                    );
+                    
+                    $b1Value = '';
+                    if ($b1Result['success'] && !empty($b1Result['values']) && isset($b1Result['values'][0][0])) {
+                        $b1Value = trim($b1Result['values'][0][0]);
+                    }
+                    
+                    // Parse and group data
+                    $parsedData = $this->parseSheetData($rawData, $selectedCategory->spreadsheet_id, $selectedRound, $b1Value);
+                    $sheetData = $parsedData;
+                } else {
+                    // Log error if fetching failed
+                    \Log::warning('Failed to fetch sheet data', [
+                        'spreadsheet_id' => $selectedCategory->spreadsheet_id,
+                        'round' => $selectedRound,
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ]);
+                }
+            }
+        }
+
+        // Return partial view for AJAX
+        if ($request->ajax() || $request->wantsJson()) {
+            try {
+                return response()->json([
+                    'success' => true,
+                    'html' => view('live-result.partials.content', compact('event', 'categories', 'selectedCategory', 'selectedRound', 'sheetData'))->render(),
+                    'categoryId' => $selectedCategory ? $selectedCategory->id : null,
+                    'round' => $selectedRound,
+                ]);
+            } catch (\Exception $e) {
+                \Log::error('Error rendering live result partial view: ' . $e->getMessage(), [
+                    'event_id' => $event->id,
+                    'category_id' => $selectedCategoryId,
+                    'round' => $selectedRound,
+                    'trace' => $e->getTraceAsString()
+                ]);
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Gagal memuat data. Silakan coba lagi.',
+                ], 500);
+            }
+        }
+
+        return view('live-result.show', compact('event', 'categories', 'selectedCategory', 'selectedRound', 'sheetData'));
+    }
+
+    /**
      * Parse sheet data with grouping and column mapping
      */
     protected function parseSheetData(array $rawData, string $spreadsheetId, string $sheetName, string $b1Value = ''): array
