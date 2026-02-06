@@ -160,7 +160,7 @@
         .riders-name {
             font-weight: bold;
             margin-bottom: 1px;
-            font-size: 7pt;
+            font-size: 8pt;
             line-height: 1.1;
         }
 
