@@ -138,25 +138,22 @@
                                             
                                             <!-- Gate Moto -->
                                             <td class="px-4 py-3 whitespace-nowrap text-sm text-center font-medium text-gray-900 dark:text-white border-r border-gray-200 dark:border-gray-700">
-                                                @if($sheetData['is_qualifikasi'] ?? false)
-                                                    @php
-                                                        $gates = [];
-                                                        if (!empty($row['gate_moto_1'])) $gates[] = $row['gate_moto_1'];
-                                                        if (!empty($row['gate_moto_2'])) $gates[] = $row['gate_moto_2'];
-                                                        if (!empty($row['gate_moto_3'])) $gates[] = $row['gate_moto_3'];
-                                                    @endphp
-                                                    @if(!empty($gates))
-                                                        <span class="inline-flex items-center gap-1">
-                                                            @foreach($gates as $index => $gate)
-                                                                <span>{{ $gate }}</span>
-                                                                @if($index < count($gates) - 1)
-                                                                    <span class="text-gray-400">|</span>
-                                                                @endif
-                                                            @endforeach
-                                                        </span>
-                                                    @else
-                                                        <span class="text-gray-400">-</span>
-                                                    @endif
+                                                @php
+                                                    // Always combine gate motos if they exist (for all rounds)
+                                                    $gates = [];
+                                                    if (!empty($row['gate_moto_1'])) $gates[] = $row['gate_moto_1'];
+                                                    if (!empty($row['gate_moto_2'])) $gates[] = $row['gate_moto_2'];
+                                                    if (!empty($row['gate_moto_3'])) $gates[] = $row['gate_moto_3'];
+                                                @endphp
+                                                @if(!empty($gates))
+                                                    <span class="inline-flex items-center gap-1">
+                                                        @foreach($gates as $index => $gate)
+                                                            <span>{{ $gate }}</span>
+                                                            @if($index < count($gates) - 1)
+                                                                <span class="text-gray-400">|</span>
+                                                            @endif
+                                                        @endforeach
+                                                    </span>
                                                 @else
                                                     {{ !empty($row['gate']) ? $row['gate'] : '-' }}
                                                 @endif

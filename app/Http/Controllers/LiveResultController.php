@@ -314,18 +314,12 @@ class LiveResultController extends Controller
         $colPanggilan = $this->findColumnIndex($headerMap, ['panggilan', 'nickname', 'nick']);
         $colTeam = $this->findColumnIndex($headerMap, ['team', 'tim']);
         
-        // Gate columns: For Qualifikasi use Gate Moto 1/2/3, otherwise use Gate
-        if ($isQualifikasi) {
-            $colGateMoto1 = $this->findColumnIndex($headerMap, ['gate moto 1', 'gate1', 'gate 1']);
-            $colGateMoto2 = $this->findColumnIndex($headerMap, ['gate moto 2', 'gate2', 'gate 2']);
-            $colGateMoto3 = $this->findColumnIndex($headerMap, ['gate moto 3', 'gate3', 'gate 3']);
-            $colGate = null; // Not used for Qualifikasi
-        } else {
-            $colGate = $this->findColumnIndex($headerMap, ['gate']);
-            $colGateMoto1 = null;
-            $colGateMoto2 = null;
-            $colGateMoto3 = null;
-        }
+        // Gate columns: Always look for Gate Moto 1/2/3 for all rounds (to support multiple motos)
+        // Also look for single Gate column as fallback
+        $colGateMoto1 = $this->findColumnIndex($headerMap, ['gate moto 1', 'gate1', 'gate 1']);
+        $colGateMoto2 = $this->findColumnIndex($headerMap, ['gate moto 2', 'gate2', 'gate 2']);
+        $colGateMoto3 = $this->findColumnIndex($headerMap, ['gate moto 3', 'gate3', 'gate 3']);
+        $colGate = $this->findColumnIndex($headerMap, ['gate']); // Fallback if no gate moto columns
         
         $colPoinMoto1 = $this->findColumnIndex($headerMap, ['poin moto 1', 'poin1', 'points1', 'point moto 1']);
         $colPoinMoto2 = $this->findColumnIndex($headerMap, ['poin moto 2', 'poin2', 'points2', 'point moto 2']);
@@ -542,15 +536,15 @@ class LiveResultController extends Controller
                 return $rankA <=> $rankB;
             });
         } else {
-            // Sort by Gate or Gate Moto 1
-            usort($groupData, function($a, $b) use ($isQualifikasi) {
-                if ($isQualifikasi) {
-                    $valueA = !empty($a['gate_moto_1']) && is_numeric($a['gate_moto_1']) ? (int)$a['gate_moto_1'] : 9999;
-                    $valueB = !empty($b['gate_moto_1']) && is_numeric($b['gate_moto_1']) ? (int)$b['gate_moto_1'] : 9999;
-                } else {
-                    $valueA = !empty($a['gate']) && is_numeric($a['gate']) ? (int)$a['gate'] : 9999;
-                    $valueB = !empty($b['gate']) && is_numeric($b['gate']) ? (int)$b['gate'] : 9999;
-                }
+            // Sort by Gate Moto 1 (if exists) or Gate (fallback) - applies to all rounds
+            usort($groupData, function($a, $b) {
+                // Prefer gate_moto_1 if exists, otherwise use gate
+                $valueA = !empty($a['gate_moto_1']) && is_numeric($a['gate_moto_1']) 
+                    ? (int)$a['gate_moto_1'] 
+                    : (!empty($a['gate']) && is_numeric($a['gate']) ? (int)$a['gate'] : 9999);
+                $valueB = !empty($b['gate_moto_1']) && is_numeric($b['gate_moto_1']) 
+                    ? (int)$b['gate_moto_1'] 
+                    : (!empty($b['gate']) && is_numeric($b['gate']) ? (int)$b['gate'] : 9999);
                 return $valueA <=> $valueB;
             });
         }
