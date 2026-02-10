@@ -308,26 +308,150 @@ class LiveResultCategoryController extends Controller
 
     /**
      * Print Center Preview - Halaman preview print
+     * Menampilkan semua kategori pada round final
      */
     public function printCenterPreview(Request $request)
     {
         $request->validate([
-            'category_id' => 'required|exists:live_result_categories,id',
-            'round' => 'required|string',
+            'event_id' => 'required|exists:events,id',
         ]);
 
-        $category = LiveResultCategory::with('event')->findOrFail($request->category_id);
-        $selectedRound = $request->round;
+        $event = Event::findOrFail($request->event_id);
+        
+        // Get all active categories for this event that have selected_sheets
+        $categories = LiveResultCategory::where('event_id', $event->id)
+            ->where('is_active', true)
+            ->whereNotNull('selected_sheets')
+            ->whereJsonLength('selected_sheets', '>', 0)
+            ->orderBy('order')
+            ->orderByRaw('LOWER(title) ASC')
+            ->get();
 
-        // Verify round exists in selected_sheets
-        if (!in_array($selectedRound, $category->selected_sheets ?? [])) {
+        if ($categories->isEmpty()) {
             return redirect()
                 ->route('admin.print-center')
-                ->with('error', 'Round yang dipilih tidak valid untuk kategori ini.');
+                ->with('error', 'Tidak ada kategori tersedia untuk event ini.');
         }
 
-        // Use unified print preview method
-        return $this->getPrintPreview($category, $selectedRound, route('admin.print-center'));
+        // Collect all categories with their final round data
+        $categoriesData = [];
+        
+        foreach ($categories as $category) {
+            // Find final round in selected_sheets
+            // Only match "Final" exactly, not "Semi Final" or "Quarter Final"
+            $finalRound = null;
+            $selectedSheets = $category->selected_sheets ?? [];
+            
+            foreach ($selectedSheets as $sheet) {
+                $sheetLower = strtolower(trim($sheet));
+                
+                // Check if sheet contains "final" but NOT "semi final" or "quarter final"
+                // This ensures we only get "Final" rounds, not "Semi Final" or "Quarter Final"
+                if (stripos($sheetLower, 'final') !== false) {
+                    // Exclude if it contains "semi final" or "quarter final" patterns
+                    // Pattern 1: "semi final", "semi-final", "semifinal" (with or without space/hyphen)
+                    $hasSemiFinal = preg_match('/\b(semi[\s\-]?final|final[\s\-]?semi)\b/i', $sheetLower);
+                    
+                    // Pattern 2: "quarter final", "quarter-final", "quarterfinal" (with or without space/hyphen)
+                    $hasQuarterFinal = preg_match('/\b(quarter[\s\-]?final|final[\s\-]?quarter)\b/i', $sheetLower);
+                    
+                    // Pattern 3: Check if "semi" or "quarter" appears immediately before "final"
+                    // This catches cases like "Semi Final", "Quarter Final" where words are separate
+                    $finalPos = stripos($sheetLower, 'final');
+                    if ($finalPos !== false && $finalPos > 0) {
+                        $beforeFinal = trim(substr($sheetLower, 0, $finalPos));
+                        // Check if the word before "final" is "semi" or "quarter"
+                        if (preg_match('/\b(semi|quarter)\s*$/i', $beforeFinal)) {
+                            if (preg_match('/\b(semi)\s*$/i', $beforeFinal)) {
+                                $hasSemiFinal = true;
+                            }
+                            if (preg_match('/\b(quarter)\s*$/i', $beforeFinal)) {
+                                $hasQuarterFinal = true;
+                            }
+                        }
+                    }
+                    
+                    // Only accept if it's a true "Final" round (not Semi or Quarter)
+                    if (!$hasSemiFinal && !$hasQuarterFinal) {
+                        $finalRound = $sheet;
+                        break;
+                    }
+                }
+            }
+            
+            // Skip if no final round found
+            if (!$finalRound) {
+                continue;
+            }
+            
+            // Fetch data from Google Sheets
+            try {
+                $result = $this->googleSheetsService->getSheetData(
+                    $category->spreadsheet_id,
+                    $finalRound
+                );
+                
+                if (!$result['success']) {
+                    // Log error but continue to next category
+                    Log::warning('Failed to fetch data for category', [
+                        'category_id' => $category->id,
+                        'category_title' => $category->title,
+                        'round' => $finalRound,
+                        'error' => $result['error'] ?? 'Unknown error'
+                    ]);
+                    continue; // Skip this category if data fetch fails
+                }
+            } catch (\Exception $e) {
+                // Log exception but continue to next category
+                Log::error('Exception while fetching data for category', [
+                    'category_id' => $category->id,
+                    'category_title' => $category->title,
+                    'round' => $finalRound,
+                    'exception' => $e->getMessage()
+                ]);
+                continue;
+            }
+            
+            $rawData = $result['values'];
+            
+            // Fetch B1 for keterangan
+            $b1Range = $finalRound . '!B1';
+            if (preg_match('/[^a-zA-Z0-9_]/', $finalRound)) {
+                $escapedSheetName = str_replace("'", "''", $finalRound);
+                $b1Range = "'" . $escapedSheetName . "'!B1";
+            }
+            
+            $b1Result = $this->googleSheetsService->getSheetData(
+                $category->spreadsheet_id,
+                $finalRound,
+                $b1Range,
+                false
+            );
+            
+            $b1Value = '';
+            if ($b1Result['success'] && !empty($b1Result['values']) && isset($b1Result['values'][0][0])) {
+                $b1Value = trim($b1Result['values'][0][0]);
+            }
+            
+            // Parse data
+            $sheetData = $this->parseSheetDataForPrint($rawData, $category->spreadsheet_id, $finalRound, $b1Value);
+            
+            $categoriesData[] = [
+                'category' => $category,
+                'round' => $finalRound,
+                'sheetData' => $sheetData,
+            ];
+        }
+        
+        if (empty($categoriesData)) {
+            return redirect()
+                ->route('admin.print-center')
+                ->with('error', 'Tidak ada kategori dengan round final yang tersedia untuk event ini.');
+        }
+
+        $backUrl = route('admin.print-center');
+        
+        return view('admin.print-center.preview-all', compact('event', 'categoriesData', 'backUrl'));
     }
 
     /**

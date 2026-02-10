@@ -6,7 +6,7 @@
 <div class="p-6">
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Cetak Hasil</h1>
-        <p class="text-gray-600 dark:text-gray-400">Pilih event, kategori, dan round untuk mencetak hasil live result</p>
+        <p class="text-gray-600 dark:text-gray-400">Pilih event untuk mencetak hasil live result (semua kategori pada round final)</p>
     </div>
 
     @if(session('error'))
@@ -38,52 +38,8 @@
                             @endif
                         @endforeach
                     </select>
-                </div>
-
-                <!-- Pilih Kategori -->
-                <div>
-                    <label for="category_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Pilih Kategori <span class="text-red-500">*</span>
-                    </label>
-                    <select 
-                        id="category_id" 
-                        name="category_id" 
-                        required
-                        disabled
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:cursor-not-allowed"
-                    >
-                        <option value="">-- Pilih Event terlebih dahulu --</option>
-                        @foreach($events as $event)
-                            @if($event->liveResultCategories->count() > 0)
-                                @foreach($event->liveResultCategories as $category)
-                                    <option value="{{ $category->id }}" data-event-id="{{ $event->id }}" data-sheets="{{ json_encode($category->selected_sheets) }}">
-                                        {{ $category->title }}
-                                    </option>
-                                @endforeach
-                            @endif
-                        @endforeach
-                    </select>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Kategori akan muncul setelah Anda memilih event
-                    </p>
-                </div>
-
-                <!-- Pilih Round (Dinamis) -->
-                <div>
-                    <label for="round" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Pilih Round <span class="text-red-500">*</span>
-                    </label>
-                    <select 
-                        id="round" 
-                        name="round" 
-                        required
-                        disabled
-                        class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white disabled:bg-gray-100 dark:disabled:bg-gray-900 disabled:cursor-not-allowed"
-                    >
-                        <option value="">-- Pilih Kategori terlebih dahulu --</option>
-                    </select>
-                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                        Round akan muncul setelah Anda memilih kategori
+                        Preview akan menampilkan semua kategori pada round final
                     </p>
                 </div>
 
@@ -106,79 +62,12 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const eventSelect = document.getElementById('event_id');
-    const categorySelect = document.getElementById('category_id');
-    const roundSelect = document.getElementById('round');
     const previewBtn = document.getElementById('previewBtn');
-
-    // Store all categories with their event IDs for filtering
-    const allCategories = Array.from(categorySelect.options).map(option => ({
-        value: option.value,
-        text: option.textContent,
-        eventId: option.getAttribute('data-event-id'),
-        sheets: option.getAttribute('data-sheets') ? JSON.parse(option.getAttribute('data-sheets')) : []
-    }));
 
     // Handle event selection
     eventSelect.addEventListener('change', function() {
         const selectedEventId = this.value;
-        
-        // Clear category and round selections
-        categorySelect.innerHTML = '<option value="">-- Pilih Kategori --</option>';
-        roundSelect.innerHTML = '<option value="">-- Pilih Kategori terlebih dahulu --</option>';
-        roundSelect.disabled = true;
-        categorySelect.disabled = true;
-        previewBtn.disabled = true;
-        
-        if (selectedEventId) {
-            // Filter categories by selected event
-            const filteredCategories = allCategories.filter(cat => cat.eventId === selectedEventId);
-            
-            if (filteredCategories.length > 0) {
-                filteredCategories.forEach(function(category) {
-                    const option = document.createElement('option');
-                    option.value = category.value;
-                    option.textContent = category.text;
-                    option.setAttribute('data-event-id', category.eventId);
-                    option.setAttribute('data-sheets', JSON.stringify(category.sheets));
-                    categorySelect.appendChild(option);
-                });
-                categorySelect.disabled = false;
-            } else {
-                categorySelect.innerHTML = '<option value="">Tidak ada kategori tersedia</option>';
-            }
-        }
-    });
-
-    // Handle category selection
-    categorySelect.addEventListener('change', function() {
-        const selectedOption = this.options[this.selectedIndex];
-        
-        // Clear round selection
-        roundSelect.innerHTML = '<option value="">-- Pilih Round --</option>';
-        roundSelect.disabled = true;
-        previewBtn.disabled = true;
-        
-        if (selectedOption.value) {
-            const sheets = JSON.parse(selectedOption.getAttribute('data-sheets') || '[]');
-            
-            // Add round options
-            if (sheets.length > 0) {
-                sheets.forEach(function(sheet) {
-                    const option = document.createElement('option');
-                    option.value = sheet;
-                    option.textContent = sheet;
-                    roundSelect.appendChild(option);
-                });
-                roundSelect.disabled = false;
-            } else {
-                roundSelect.innerHTML = '<option value="">Tidak ada round tersedia</option>';
-            }
-        }
-    });
-
-    // Handle round selection
-    roundSelect.addEventListener('change', function() {
-        previewBtn.disabled = !this.value || this.disabled || !categorySelect.value || categorySelect.disabled || !eventSelect.value;
+        previewBtn.disabled = !selectedEventId;
     });
 });
 </script>
