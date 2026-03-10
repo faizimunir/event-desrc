@@ -1,0 +1,181 @@
+<div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
+    <div class="flex items-center gap-2">
+        <flux:button variant="ghost" size="sm" :href="$event ? route('events.show', $event) : route('events.index')" wire:navigate icon="arrow-left">
+            {{ __('Back') }}
+        </flux:button>
+    </div>
+
+    <form wire:submit="save" class="max-w-lg space-y-6">
+        <flux:input wire:model="title" type="text" :label="__('Title')" required autofocus />
+        @error('title')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Description') }}</flux:label>
+            <flux:textarea wire:model="description" rows="4"></flux:textarea>
+            @error('description')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Organizer') }}</flux:label>
+            <flux:select wire:model="organizer_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No organizer —') }}</flux:select.option>
+                @foreach ($organizers as $org)
+                    <flux:select.option :value="$org->id">{{ $org->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('organizer_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Racing committee') }}</flux:label>
+            <flux:select wire:model="racing_committee_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No racing committee —') }}</flux:select.option>
+                @foreach ($racingCommittees as $rc)
+                    <flux:select.option :value="$rc->id">{{ $rc->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('racing_committee_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Master of ceremony') }}</flux:label>
+            <flux:select wire:model="master_of_ceremony_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No master of ceremony —') }}</flux:select.option>
+                @foreach ($masterOfCeremonies as $moc)
+                    <flux:select.option :value="$moc->id">{{ $moc->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('master_of_ceremony_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Status') }}</flux:label>
+            <flux:select wire:model="status" class="w-full" required>
+                <flux:select.option value="draft">{{ __('Draft') }} — {{ __('default, not visible on main page') }}</flux:select.option>
+                <flux:select.option value="published">{{ __('Published') }} — {{ __('visible on main page, registration not open') }}</flux:select.option>
+                <flux:select.option value="open_regist">{{ __('Open Regist') }} — {{ __('registration open') }}</flux:select.option>
+                <flux:select.option value="closed_regist">{{ __('Closed Regist') }} — {{ __('registration closed') }}</flux:select.option>
+                <flux:select.option value="live">{{ __('Live') }} — {{ __('event in progress') }}</flux:select.option>
+                <flux:select.option value="done">{{ __('Done') }} — {{ __('event finished') }}</flux:select.option>
+            </flux:select>
+            @error('status')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <flux:radio.group wire:model="category" :label="__('Category')" variant="cards" class="max-sm:flex-col">
+            <flux:radio value="umur" :label="__('Umur')" />
+            <flux:radio value="tahun" :label="__('Tahun')" />
+        </flux:radio.group>
+        @error('category')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        <div class="grid grid-cols-2 gap-4">
+        <flux:input wire:model="start_at" type="datetime-local" :label="__('Start')" required />
+        @error('start_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        <flux:input wire:model="end_at" type="datetime-local" :label="__('End')" />
+        @error('end_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Location') }}</flux:label>
+            <flux:select wire:model="location_id" :placeholder="__('Select location')" class="w-full">
+                <flux:select.option value="">{{ __('— No location —') }}</flux:select.option>
+                @foreach ($locations as $loc)
+                    <flux:select.option :value="$loc->id">{{ $loc->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('location_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+        <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />
+        @error('registration_opens_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        <flux:input wire:model="registration_closes_at" type="datetime-local" :label="__('Registration closes at')" />
+        @error('registration_closes_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Poster') }}</flux:label>
+            <flux:file-upload wire:model="poster" label="{{ __('Upload poster') }}">
+                <flux:file-upload.dropzone
+                    heading="{{ __('Drop file or click to browse') }}"
+                    text="{{ __('JPG, PNG, GIF up to 10MB') }}"
+                    with-progress
+                    inline
+                />
+            </flux:file-upload>
+            @error('poster')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+            <div class="mt-4 flex flex-col gap-2">
+                @if ($poster)
+                    <flux:file-item
+                        :heading="$poster->getClientOriginalName()"
+                        :image="$poster->temporaryUrl()"
+                        :size="$poster->getSize()"
+                    >
+                        <x-slot name="actions">
+                            <flux:button type="button" variant="ghost" size="sm" icon="x-mark" wire:click="removePoster" />
+                        </x-slot>
+                    </flux:file-item>
+                @elseif ($event?->posterUrl())
+                    <flux:file-item
+                        heading="{{ __('Current poster') }}"
+                        :image="$event->posterUrl()"
+                    >
+                        <x-slot name="actions">
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Replace by uploading above') }}</span>
+                        </x-slot>
+                    </flux:file-item>
+                @endif
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <flux:button variant="primary" type="submit">{{ $event ? __('Update Event') : __('Create Event') }}</flux:button>
+            <flux:button variant="ghost" :href="route('events.index')" wire:navigate>{{ __('Cancel') }}</flux:button>
+        </div>
+    </form>
+    @if ($event)
+        @canAs('event.delete')
+            @can('delete', $event)
+                <form id="delete-event-form-{{ $event->id }}" method="post" action="{{ route('events.destroy', $event) }}" class="mt-6">
+                    @csrf
+                    @method('DELETE')
+                    <flux:button
+                        type="button"
+                        variant="danger"
+                        icon="trash"
+                        onclick="if(confirm('{{ addslashes(__('Are you sure you want to delete this event?')) }}')) document.getElementById('delete-event-form-{{ $event->id }}').submit()"
+                    >
+                        {{ __('Delete Event') }}
+                    </flux:button>
+                </form>
+            @endcan
+        @endcanAs
+    @endif
+</div>
