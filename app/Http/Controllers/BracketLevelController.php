@@ -36,7 +36,7 @@ class BracketLevelController extends Controller
         abort_if($bracket->event_id !== $event->id, 404);
 
         $validated = $request->validate([
-            'event_level_id' => ['required', 'exists:event_levels,id'],
+            'event_level_id' => ['required', 'exists:levels,id'],
             'name_original' => ['required', 'string', 'max:255'],
         ]);
 
@@ -69,7 +69,7 @@ class BracketLevelController extends Controller
         $this->authorize('update', $bracketLevel);
 
         $validated = $request->validate([
-            'event_level_id' => ['required', 'exists:event_levels,id'],
+            'event_level_id' => ['required', 'exists:levels,id'],
             'name_original' => ['required', 'string', 'max:255'],
         ]);
 

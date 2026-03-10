@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('event_bracket_levels', function (Blueprint $table) {
             $table->id();
             $table->foreignId('event_bracket_id')->constrained('event_brackets')->cascadeOnDelete();
-            $table->foreignId('event_level_id')->constrained('event_levels')->cascadeOnDelete();
+            $table->foreignId('event_level_id')->constrained('levels')->cascadeOnDelete();
             $table->string('name_original');
             $table->timestamps();
         });

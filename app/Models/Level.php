@@ -9,7 +9,7 @@ class Level extends Model
 {
     use HasFactory;
 
-    protected $table = 'event_levels';
+    protected $table = 'levels';
 
     protected $fillable = [
         'code',

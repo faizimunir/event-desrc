@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('name');
             $table->decimal('price', 12, 2)->default(0)->comment('Registration price for this package');
-            $table->text('race_pack')->nullable()->comment('Description of race pack items included');
+            $table->unsignedInteger('quota')->nullable()->comment('Optional limit for early bird / limited slots; null = no limit');
             $table->unsignedSmallInteger('sort_order')->default(0);
             $table->timestamps();
         });

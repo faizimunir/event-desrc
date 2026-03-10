@@ -20,7 +20,7 @@ class PackageForm extends Component
 
     public string $price = '';
 
-    public string $race_pack = '';
+    public ?string $quota = null;
 
     public int $sort_order = 0;
 
@@ -40,7 +40,7 @@ class PackageForm extends Component
 
             $this->name = $this->package->name;
             $this->price = (string) $this->package->price;
-            $this->race_pack = $this->package->race_pack ?? '';
+            $this->quota = $this->package->quota !== null ? (string) $this->package->quota : null;
             $this->sort_order = (int) $this->package->sort_order;
             $this->rewardsSelected = $this->package->rewards->pluck('id')->map(fn ($id) => (string) $id)->all();
         } else {
@@ -60,7 +60,7 @@ class PackageForm extends Component
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
-            'race_pack' => ['nullable', 'string', 'max:65535'],
+            'quota' => ['nullable', 'integer', 'min:1'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'rewardsSelected' => ['nullable', 'array'],
             'rewardsSelected.*' => ['integer', 'exists:rewards,id'],
@@ -69,11 +69,13 @@ class PackageForm extends Component
         $sortOrder = (int) ($validated['sort_order'] ?? 0);
         $rewards = $validated['rewardsSelected'] ?? [];
 
+        $quota = isset($validated['quota']) && $validated['quota'] !== '' ? (int) $validated['quota'] : null;
+
         if ($this->package?->exists) {
             $this->package->update([
                 'name' => $validated['name'],
                 'price' => $validated['price'],
-                'race_pack' => $validated['race_pack'] ?: null,
+                'quota' => $quota,
                 'sort_order' => $sortOrder,
             ]);
             $existingPivot = $this->package->rewards->keyBy('id')->map(fn ($r) => $r->pivot->photo_reward)->all();
@@ -86,7 +88,7 @@ class PackageForm extends Component
             $pkg = $this->event->packages()->create([
                 'name' => $validated['name'],
                 'price' => $validated['price'],
-                'race_pack' => $validated['race_pack'] ?: null,
+                'quota' => $quota,
                 'sort_order' => $sortOrder,
             ]);
             if (! empty($rewards)) {

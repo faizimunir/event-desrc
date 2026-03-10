@@ -89,7 +89,9 @@
                                         @endif
                                     @else
                                         <span class="text-zinc-400 text-sm">—</span>
-                                        <br><a href="{{ route('payment.create', ['registration_id' => $reg->id, 'whatsapp' => $reg->rider->user->whatsapp ?? '']) }}" target="_blank" class="text-xs text-zinc-500 hover:underline">{{ __('Send payment link') }}</a>
+                                        @if ($reg->order)
+                                            <br><a href="{{ route('payment.create', ['order_id' => $reg->order->id, 'whatsapp' => $reg->rider->user->whatsapp ?? '']) }}" target="_blank" class="text-xs text-zinc-500 hover:underline">{{ __('Send payment link') }}</a>
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-400">{{ $reg->created_at->format('d/m/Y H:i') }}</td>

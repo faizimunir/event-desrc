@@ -26,24 +26,14 @@ class UserRoleSeeder extends Seeder
 
         $users = [
             [
-                'name'  => 'Windra',
-                'email' => 'windra@example.com',
+                'name'  => 'Super Eljo',
+                'email' => 'supereljo@desrc.id',
                 'roles' => ['super_admin'],
             ],
             [
-                'name'  => 'Said',
-                'email' => 'said@example.com',
-                'roles' => ['admin', 'committee'], // Multi-role: admin + committee
-            ],
-            [
-                'name'  => 'Nisa',
-                'email' => 'nisa@example.com',
-                'roles' => ['member'],
-            ],
-            [
-                'name'  => 'Andry',
-                'email' => 'andry@example.com',
-                'roles' => ['organizer'],
+                'name'  => 'Eljo',
+                'email' => 'eljo@desrc.id',
+                'roles' => ['admin', 'committee'],
             ],
         ];
 

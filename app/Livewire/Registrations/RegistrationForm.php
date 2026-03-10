@@ -130,11 +130,20 @@ class RegistrationForm extends Component
         $packageId = null;
         if ($this->event->packages->isNotEmpty()) {
             if ($this->event->packages->count() === 1) {
-                $packageId = $this->event->packages->first()->id;
+                $pkg = $this->event->packages->first();
+                if ($pkg->isQuotaFull()) {
+                    $this->addError('package_id', __('This package has no remaining quota.'));
+                    return null;
+                }
+                $packageId = $pkg->id;
             } else {
                 $pkg = $this->event->packages->firstWhere('id', $this->package_id);
                 if (! $pkg) {
                     $this->addError('package_id', __('Please select a package.'));
+                    return null;
+                }
+                if ($pkg->isQuotaFull()) {
+                    $this->addError('package_id', __('This package has no remaining quota.'));
                     return null;
                 }
                 $packageId = $pkg->id;
@@ -209,9 +218,14 @@ class RegistrationForm extends Component
             'number_plate' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $packageId = $this->event->packages->count() === 1
-            ? $this->event->packages->first()->id
-            : $this->package_id;
+        $pkg = $this->event->packages->count() === 1
+            ? $this->event->packages->first()
+            : $this->event->packages->firstWhere('id', $this->package_id);
+        if ($pkg && $pkg->isQuotaFull()) {
+            $this->addError('package_id', __('This package has no remaining quota.'));
+            return null;
+        }
+        $packageId = $pkg?->id;
 
         return $this->createRegistration($riderId, $validated, $packageId, $bracket, $eligibility);
     }

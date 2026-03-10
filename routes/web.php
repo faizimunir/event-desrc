@@ -5,6 +5,7 @@ use App\Http\Controllers\BracketLevelController;
 use App\Http\Controllers\BracketController;
 use App\Http\Controllers\EventCodeAccessController;
 use App\Http\Controllers\EventController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\LevelController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
@@ -64,6 +65,10 @@ require __DIR__.'/settings.php';
 
 // Aktivasi akun (untuk user yang sudah daftar rider via WA, belum set email/password)
 Route::get('activation', fn () => view('activation'))->name('activation.show');
+
+// Orders (public): pesanan saya — by session (guest) atau user_id (logged-in)
+Route::get('orders', [OrderController::class, 'index'])->name('orders.index');
+Route::get('orders/{order}', [OrderController::class, 'show'])->name('orders.show');
 
 // Payment (public): form upload bukti transfer manual
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');

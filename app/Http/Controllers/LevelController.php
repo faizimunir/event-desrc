@@ -26,7 +26,7 @@ class LevelController extends Controller
         abort_unless(auth()->user()->canAs('level.create'), 403);
 
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:255', 'unique:event_levels,code'],
+            'code' => ['required', 'string', 'max:255', 'unique:levels,code'],
             'name' => ['required', 'string', 'max:255'],
             'order' => ['required', 'integer', 'min:0'],
         ]);
@@ -50,7 +50,7 @@ class LevelController extends Controller
         $this->authorize('update', $level);
 
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:255', 'unique:event_levels,code,'.$level->id],
+            'code' => ['required', 'string', 'max:255', 'unique:levels,code,'.$level->id],
             'name' => ['required', 'string', 'max:255'],
             'order' => ['required', 'integer', 'min:0'],
         ]);

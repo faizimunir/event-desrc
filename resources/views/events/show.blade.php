@@ -109,8 +109,9 @@
                         @foreach ($event->packages as $pkg)
                             <li>
                                 <span class="font-medium">{{ $pkg->name }}</span> — {{ $pkg->formatted_price }}
-                                @if ($pkg->race_pack)
-                                    <span class="text-zinc-500 dark:text-zinc-400">({{ \Illuminate\Support\Str::limit($pkg->race_pack, 40) }})</span>
+                                @if ($pkg->quota !== null)
+                                    @php $rem = $pkg->remainingQuota(); @endphp
+                                    <span class="text-zinc-500 dark:text-zinc-400">({{ $rem !== null ? $rem . ' / ' . $pkg->quota . ' ' . __('slots') : __('Full') }})</span>
                                 @endif
                                 @if ($pkg->rewards->isNotEmpty())
                                     <div class="mt-1 flex flex-wrap items-center gap-1.5 text-zinc-500 dark:text-zinc-400">

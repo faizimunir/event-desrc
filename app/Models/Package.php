@@ -18,7 +18,7 @@ class Package extends Model
         'event_id',
         'name',
         'price',
-        'race_pack',
+        'quota',
         'sort_order',
     ];
 
@@ -26,8 +26,28 @@ class Package extends Model
     {
         return [
             'price' => 'decimal:2',
+            'quota' => 'integer',
             'sort_order' => 'integer',
         ];
+    }
+
+    /**
+     * Sisa kuota paket (early bird/terbatas). null = tanpa batas.
+     */
+    public function remainingQuota(): ?int
+    {
+        if ($this->quota === null) {
+            return null;
+        }
+        $used = $this->registrations()->count();
+        return max(0, (int) $this->quota - $used);
+    }
+
+    /** Apakah paket punya batas kuota dan sudah penuh. */
+    public function isQuotaFull(): bool
+    {
+        $remaining = $this->remainingQuota();
+        return $remaining !== null && $remaining <= 0;
     }
 
     public function event(): BelongsTo

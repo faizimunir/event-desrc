@@ -14,7 +14,7 @@
                 <tr>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Name') }}</th>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Price') }}</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Race pack') }}</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Quota') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
@@ -36,7 +36,14 @@
                     @endcanAs
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $package->name }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $package->formatted_price }}</td>
-                        <td class="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400 max-w-xs truncate" title="{{ $package->race_pack }}">{{ $package->race_pack ? \Illuminate\Support\Str::limit($package->race_pack, 50) : '—' }}</td>
+                        <td class="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
+                            @if ($package->quota !== null)
+                                @php $rem = $package->remainingQuota(); @endphp
+                                {{ $rem !== null ? $rem . ' / ' . $package->quota : $package->quota }}
+                            @else
+                                —
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr>

@@ -9,14 +9,11 @@
         <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
     @enderror
 
-    <div>
-        <flux:label class="mb-2 block">{{ __('Race pack') }}</flux:label>
-        <flux:textarea wire:model="race_pack" :placeholder="__('Describe what is included in this package (e.g. Jersey, Bib number, Goodie bag)')" rows="4" />
-        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Optional. Describes what the participant gets with this package.') }}</p>
-        @error('race_pack')
-            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-        @enderror
-    </div>
+    <flux:input wire:model="quota" type="number" min="1" :label="__('Quota (early bird / limited)')" :placeholder="__('Optional')" />
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Optional. Limit how many participants can choose this package (e.g. early bird). Leave empty for no limit.') }}</p>
+    @error('quota')
+        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+    @enderror
 
     <flux:input wire:model="sort_order" type="number" min="0" :label="__('Sort order')" />
     @error('sort_order')

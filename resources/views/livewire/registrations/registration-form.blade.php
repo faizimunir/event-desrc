@@ -38,10 +38,11 @@
                 <select wire:model.live="package_id" required class="w-full rounded-lg border border-zinc-200 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100 focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
                     <option value="">{{ __('— Select package —') }}</option>
                     @foreach ($event->packages as $pkg)
-                        <option value="{{ $pkg->id }}">
+                        <option value="{{ $pkg->id }}" @if ($pkg->isQuotaFull()) disabled @endif>
                             {{ $pkg->name }} — {{ $pkg->formatted_price }}
-                            @if ($pkg->race_pack)
-                                ({{ \Illuminate\Support\Str::limit($pkg->race_pack, 40) }})
+                            @if ($pkg->quota !== null)
+                                @php $rem = $pkg->remainingQuota(); @endphp
+                                ({{ $rem !== null ? $rem . ' / ' . $pkg->quota : __('Full') }})
                             @endif
                         </option>
                     @endforeach

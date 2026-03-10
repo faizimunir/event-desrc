@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\Order;
 use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\User;
@@ -63,6 +64,15 @@ class RegistrationController extends Controller
             ]);
         } catch (ValidationException $e) {
             throw $e->redirectTo(route('events.public.show', $event->slug));
+        }
+
+        if (! empty($validated['package_id'])) {
+            $package = $event->packages()->find($validated['package_id']);
+            if ($package && $package->isQuotaFull()) {
+                return redirect()->route('events.public.show', $event->slug)
+                    ->withErrors(['package_id' => __('This package has no remaining quota.')])
+                    ->withInput();
+            }
         }
 
         $normalizedWa = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
@@ -164,9 +174,15 @@ class RegistrationController extends Controller
             'number_plate' => $validated['number_plate'] ?? null,
         ]);
 
+        $order = Order::create([
+            'registration_id' => $registration->id,
+            'session_id' => $request->session()->getId(),
+            'user_id' => $request->user()?->id,
+        ]);
+
         return redirect()->route('events.public.show', $event->slug)
             ->with('status', __('Registration submitted. You can check status on this page.'))
-            ->with('registration_id', $registration->id);
+            ->with('order_id', $order->id);
     }
 
     /**

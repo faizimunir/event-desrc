@@ -39,22 +39,16 @@
                     {{ __('Events') }}
                 </flux:sidebar.item>
                 @endcanAs
+                @canAs('rider.read')
+                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
+                    wire:navigate>
+                    {{ __('Riders') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('location.read')
                 <flux:sidebar.item icon="map-pin" :href="route('locations.index')" :current="request()->routeIs('locations.*')"
                     wire:navigate>
                     {{ __('Locations') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('organizer.read')
-                <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
-                    wire:navigate>
-                    {{ __('Organizers') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('rc.read')
-                <flux:sidebar.item icon="award" :href="route('racing-committees.index')" :current="request()->routeIs('racing-committees.*')"
-                    wire:navigate>
-                    {{ __('Racing Committees') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('reward.read')
@@ -63,22 +57,28 @@
                     {{ __('Rewards') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @canAs('rider.read')
-                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
-                    wire:navigate>
-                    {{ __('Riders') }}
-                </flux:sidebar.item>
-                @endcanAs
                 @canAs('level.read')
                 <flux:sidebar.item icon="layers" :href="route('levels.index')" :current="request()->routeIs('levels.*')"
                     wire:navigate>
                     {{ __('Levels') }}
                 </flux:sidebar.item>
                 @endcanAs
+                @canAs('organizer.read')
+                <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
+                    wire:navigate>
+                    {{ __('Organizers') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('mc.read')
                 <flux:sidebar.item icon="mic" :href="route('master-of-ceremonies.index')" :current="request()->routeIs('master-of-ceremonies.*')"
                     wire:navigate>
                     {{ __('Master of Ceremonies') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('rc.read')
+                <flux:sidebar.item icon="award" :href="route('racing-committees.index')" :current="request()->routeIs('racing-committees.*')"
+                    wire:navigate>
+                    {{ __('Racing Committees') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @if (auth()->user()->hasRole('super_admin'))
@@ -93,22 +93,7 @@
                 @endif
             </div>
         </flux:sidebar.nav>
-
-        <flux:spacer />
-
-        <flux:sidebar.nav>
-            <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit"
-                target="_blank">
-                {{ __('Repository') }}
-            </flux:sidebar.item>
-
-            <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire"
-                target="_blank">
-                {{ __('Documentation') }}
-            </flux:sidebar.item>
-            
-        </flux:sidebar.nav>
-
+<flux:sidebar.spacer />
         <flux:radio.group x-data variant="segmented" x-model="$flux.appearance">
     <flux:radio value="light" icon="sun" />
     <flux:radio value="dark" icon="moon" />

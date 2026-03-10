@@ -8,6 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Registration extends Model
 {
+    public function order(): HasOne
+    {
+        return $this->hasOne(Order::class);
+    }
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_APPROVED = 'approved';

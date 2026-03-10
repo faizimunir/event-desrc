@@ -6,12 +6,19 @@
 
     <flux:navbar class="-mb-px max-lg:hidden">
         <flux:navbar.item icon="calendar" href="{{ route('home') }}#events">Events</flux:navbar.item>
-
     </flux:navbar>
 
     <flux:spacer />
 
     <flux:navbar class="me-4">
+        <a href="{{ route('orders.index') }}" class="relative inline-flex" aria-label="{{ __('My orders') }}">
+            <flux:button icon="shopping-cart" variant="subtle" aria-label="{{ __('My orders') }}" />
+            @if (isset($pendingOrdersCount) && $pendingOrdersCount > 0)
+                <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white ring-2 ring-zinc-50 dark:ring-zinc-900">
+                    {{ $pendingOrdersCount > 99 ? '99+' : $pendingOrdersCount }}
+                </span>
+            @endif
+        </a>
         <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" />
     </flux:navbar>
 
@@ -60,6 +67,7 @@
     <flux:sidebar.nav>
         <flux:sidebar.item icon="home" href="{{ route('home') }}" :current="request()->routeIs('home')">Home</flux:sidebar.item>
         <flux:sidebar.item icon="calendar" href="{{ route('home') }}#events">Events</flux:sidebar.item>
+        <flux:sidebar.item icon="shopping-bag" href="{{ route('orders.index') }}" :current="request()->routeIs('orders.*')">{{ __('My orders') }}</flux:sidebar.item>
         @auth
             <flux:sidebar.item icon="squares-2x2" href="{{ route('dashboard') }}" wire:navigate>Dashboard</flux:sidebar.item>
             <flux:sidebar.item icon="calendar-days" href="{{ route('events.index') }}" wire:navigate>Kelola Event</flux:sidebar.item>

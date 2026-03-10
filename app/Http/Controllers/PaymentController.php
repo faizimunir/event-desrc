@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Services\WhacenterService;
@@ -12,49 +13,56 @@ use Illuminate\Validation\Rule;
 class PaymentController extends Controller
 {
     /**
-     * Public: form bayar manual — verifikasi nomor pendaftaran + WhatsApp, tampilkan rekening & form upload bukti.
+     * Public: form bayar manual — verifikasi order_id (+ WhatsApp jika perlu), tampilkan rekening & form upload bukti.
      */
     public function create(Request $request)
     {
         $registration = null;
         $bank = Payment::getManualBankInfo();
-        $registrationId = $request->old('registration_id', $request->query('registration_id'));
+        $orderId = $request->old('order_id', $request->query('order_id'));
         $whatsapp = $request->old('whatsapp', $request->query('whatsapp'));
 
-        if ($registrationId && $whatsapp) {
-            $reg = Registration::with(['event', 'rider.user', 'bracket', 'package'])
-                ->find($registrationId);
-            if ($reg) {
-                $normalized = WhacenterService::normalizeWhatsApp($whatsapp);
-                if ($reg->rider->user->whatsapp === $normalized) {
+        if ($orderId) {
+            $order = Order::with(['registration.event', 'registration.rider.user', 'registration.bracket', 'registration.package'])
+                ->find($orderId);
+            if ($order) {
+                $reg = $order->registration;
+                $normalized = $whatsapp ? WhacenterService::normalizeWhatsApp($whatsapp) : null;
+                $matchesWhatsapp = $normalized && $reg->rider->user->whatsapp === $normalized;
+                $ownedByVisitor = $order->isOwnedByCurrentVisitor();
+                if ($matchesWhatsapp || $ownedByVisitor) {
                     $registration = $reg;
+                    if (! $whatsapp && $reg->rider->user->whatsapp) {
+                        $whatsapp = $reg->rider->user->whatsapp;
+                    }
                 }
             }
         }
 
-        return view('payments.create', compact('registration', 'bank', 'registrationId', 'whatsapp'));
+        return view('payments.create', compact('registration', 'bank', 'orderId', 'whatsapp'));
     }
 
     /**
-     * Public: verifikasi registration_id + whatsapp (POST untuk cek, lalu redirect ke form dengan data).
+     * Public: verifikasi order_id + whatsapp (POST untuk cek, lalu redirect ke form dengan data).
      */
     public function verify(Request $request)
     {
         $validated = $request->validate([
-            'registration_id' => ['required', 'integer', 'exists:registrations,id'],
+            'order_id' => ['required', 'integer', 'exists:orders,id'],
             'whatsapp' => ['required', 'string', 'max:20'],
         ]);
 
-        $registration = Registration::with('rider.user')->findOrFail($validated['registration_id']);
+        $order = Order::with('registration.rider.user')->findOrFail($validated['order_id']);
+        $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
             return redirect()->route('payment.create')
-                ->withErrors(['whatsapp' => __('WhatsApp number does not match this registration.')])
+                ->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
                 ->withInput();
         }
 
         return redirect()->route('payment.create', [
-            'registration_id' => $registration->id,
+            'order_id' => $order->id,
             'whatsapp' => $request->input('whatsapp'),
         ])->withInput();
     }
@@ -65,16 +73,17 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'registration_id' => ['required', 'integer', 'exists:registrations,id'],
+            'order_id' => ['required', 'integer', 'exists:orders,id'],
             'whatsapp' => ['required', 'string', 'max:20'],
             'transfer_proof' => ['required', 'file', 'image', 'max:5120'], // 5MB
         ]);
 
-        $registration = Registration::with('rider.user', 'package')->findOrFail($validated['registration_id']);
+        $order = Order::with('registration.rider.user', 'registration.package')->findOrFail($validated['order_id']);
+        $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
             return redirect()->route('payment.create')
-                ->withErrors(['whatsapp' => __('WhatsApp number does not match this registration.')])
+                ->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
                 ->withInput();
         }
 
@@ -84,7 +93,7 @@ class PaymentController extends Controller
 
         if ($payment) {
             if (! $payment->isPending()) {
-                return redirect()->route('payment.create', ['registration_id' => $registration->id])
+                return redirect()->route('payment.create', ['order_id' => $order->id])
                     ->with('error', __('This payment has already been processed.'))
                     ->withInput();
             }
@@ -106,7 +115,7 @@ class PaymentController extends Controller
         $payment->save();
 
         return redirect()->route('payment.create', [
-            'registration_id' => $registration->id,
+            'order_id' => $order->id,
             'whatsapp' => $request->input('whatsapp'),
         ])->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
     }

@@ -27,17 +27,17 @@
             @endif
 
             @if (!$registration)
-                {{-- Step 1: Verifikasi pendaftaran (ID + WhatsApp) --}}
+                {{-- Step 1: Verifikasi order (Order ID + WhatsApp) --}}
                 <form action="{{ route('payment.verify') }}" method="post" class="mt-6 space-y-4">
                     @csrf
                     <div>
-                        <label for="registration_id" class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            {{ __('Registration ID') }}
+                        <label for="order_id" class="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                            {{ __('Order ID') }}
                         </label>
-                        <input type="number" name="registration_id" id="registration_id" value="{{ old('registration_id', $registrationId) }}"
+                        <input type="number" name="order_id" id="order_id" value="{{ old('order_id', $orderId) }}"
                             class="mt-1 block w-full rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 px-3 py-2 text-zinc-900 dark:text-zinc-100 shadow-sm focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                             placeholder="{{ __('e.g. 1') }}" required>
-                        @error('registration_id')
+                        @error('order_id')
                             <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
@@ -55,7 +55,7 @@
                             {{ __('Use the same number you used when registering.') }}
                         </p>
                     </div>
-                    @if ($errors->any() && !$errors->has('registration_id') && !$errors->has('whatsapp'))
+                    @if ($errors->any() && !$errors->has('order_id') && !$errors->has('whatsapp'))
                         <div class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
                             {{ $errors->first() }}
                         </div>
@@ -111,7 +111,7 @@
                     @else
                         <form action="{{ route('payment.store') }}" method="post" enctype="multipart/form-data" class="space-y-4">
                             @csrf
-                            <input type="hidden" name="registration_id" value="{{ $registration->id }}">
+                            <input type="hidden" name="order_id" value="{{ $orderId }}">
                             <input type="hidden" name="whatsapp" value="{{ $whatsapp }}">
 
                             <div>

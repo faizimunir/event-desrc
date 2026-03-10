@@ -62,6 +62,11 @@ class User extends Authenticatable
         return $this->hasMany(Rider::class);
     }
 
+    public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Order::class);
+    }
+
     /** Cek apakah akun sudah aktivasi (bisa login dengan email + password). */
     public function isActivated(): bool
     {

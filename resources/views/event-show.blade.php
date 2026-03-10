@@ -353,16 +353,22 @@
             </div>
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
-                @if (session('status') && session('registration_id'))
+                @if (session('status') && session('order_id'))
                     <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
                         <p class="text-sm text-green-800 dark:text-green-200">{{ session('status') }}</p>
                         <p class="mt-2 text-sm text-green-700 dark:text-green-300">
-                            {{ __('Registration ID') }}: <strong>{{ session('registration_id') }}</strong>.
+                            {{ __('Order ID') }}: <strong>{{ session('order_id') }}</strong>.
                             {{ __('To pay, go to') }}
-                            <a href="{{ route('payment.create', ['registration_id' => session('registration_id')]) }}" class="font-medium underline hover:no-underline">
+                            <a href="{{ route('payment.create', ['order_id' => session('order_id')]) }}" class="font-medium underline hover:no-underline">
                                 {{ __('payment page') }}
                             </a>
                             {{ __('and enter this ID with your WhatsApp number.') }}
+                        </p>
+                        <p class="mt-3">
+                            <a href="{{ route('orders.show', session('order_id')) }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-300 hover:underline">
+                                {{ __('View my order') }}
+                                <flux:icon name="arrow-right" variant="mini" class="size-4" />
+                            </a>
                         </p>
                     </div>
                 @endif
@@ -470,7 +476,7 @@
                                             @if ($isFull) disabled
                                                 @else
                                                     x-on:click="selectedBracket = '{{ $bracket->id }}'; selectedBracketLabel = '{{ addslashes($bracket->name) }}'; if (requirePackage) scrollToPackages(); else scrollToForm()" @endif>
-                                            {{ $isFull ? __('Full') : __('Select bracket') }}
+                                            {{ $isFull ? __('Full') : __('Select') }}
                                         </button>
                                     </div>
                                 @endforeach
@@ -483,20 +489,24 @@
                                     {{ __('Select Package') }}</h3>
                                 <div class="mt-3 grid gap-3 sm:grid-cols-3">
                                     @foreach ($event->packages as $package)
+                                        @php $pkgFull = $package->isQuotaFull(); @endphp
                                         <button type="button"
-                                            x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; scrollToForm()"
+                                            @if (!$pkgFull) x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; scrollToForm()" @endif
+                                            @if ($pkgFull) disabled @endif
                                             class="rounded-xl border p-4 text-left transition-all"
                                             :class="selectedPackage === '{{ $package->id }}'
                                                 ?
                                                 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50 dark:bg-amber-900/20' :
-                                                'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'">
+                                                {{ $pkgFull ? "'border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/50 cursor-not-allowed opacity-75'" : "'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'" }}">
                                             <div class="font-medium text-zinc-900 dark:text-zinc-100">
                                                 {{ $package->name }}</div>
                                             <div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                                                 {{ $package->formatted_price }}</div>
-                                            @if ($package->race_pack)
+                                            @if ($package->quota !== null)
+                                                @php $rem = $package->remainingQuota(); @endphp
                                                 <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                                    {{ $package->race_pack }}</div>
+                                                    {{ $rem !== null ? __(':remaining of :quota slots', ['remaining' => $rem, 'quota' => $package->quota]) : __('Full') }}
+                                                </div>
                                             @endif
                                             @if ($package->rewards->isNotEmpty())
                                                 <div class="mt-2 flex flex-wrap items-center gap-1.5">
