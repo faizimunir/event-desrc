@@ -40,7 +40,7 @@ class EventCodeAccessController extends Controller
             'usage_limit' => $validated['usage_limit'] ?? null,
         ]);
 
-        return redirect()->route('events.code-access.index', $event)
+        return redirect()->route('events.show', [$event, 'tab' => 'code-access'])
             ->with('status', __('Access code added.'));
     }
 
@@ -55,7 +55,7 @@ class EventCodeAccessController extends Controller
 
         $codeAccess->delete();
 
-        return redirect()->route('events.code-access.index', $event)
+        return redirect()->route('events.show', [$event, 'tab' => 'code-access'])
             ->with('status', __('Access code removed.'));
     }
 }

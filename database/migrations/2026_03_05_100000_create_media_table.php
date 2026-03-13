@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('media', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->string('id', 26)->primary()->comment('ULID, sortable for CDN');
             $table->string('model_type')->index();
             $table->unsignedBigInteger('model_id')->index();
             $table->string('collection')->index();

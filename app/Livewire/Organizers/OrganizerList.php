@@ -26,7 +26,14 @@ class OrganizerList extends Component
     #[Computed]
     public function organizers()
     {
-        return Organizer::query()
+        $user = auth()->user();
+        $query = Organizer::query();
+
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+            $query->where('user_id', $user->id);
+        }
+
+        return $query
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%');

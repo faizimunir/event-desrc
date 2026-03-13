@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Events;
 
+use App\Models\Account;
 use App\Models\Event;
 use App\Models\Location;
 use App\Models\MasterOfCeremony;
@@ -29,6 +30,9 @@ class EventForm extends Component
     /** @var \Illuminate\Database\Eloquent\Collection<int, Organizer> */
     public $organizers;
 
+    /** @var \Illuminate\Database\Eloquent\Collection<int, Account> */
+    public $accounts;
+
     public string $title = '';
 
     public string $category = Event::CATEGORY_UMUR;
@@ -53,14 +57,25 @@ class EventForm extends Component
 
     public ?string $location_id = null;
 
+    public ?string $account_id = null;
+
     public $poster = null;
+
+    public $sizeChart = null;
 
     public function mount(?Event $event = null): void
     {
         $this->locations = Location::orderBy('name')->get();
         $this->racingCommittees = RacingCommittee::orderBy('name')->get();
         $this->masterOfCeremonies = MasterOfCeremony::orderBy('name')->get();
-        $this->organizers = Organizer::orderBy('name')->get();
+
+        $user = auth()->user();
+        $organizerQuery = Organizer::query()->orderBy('name');
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+            $organizerQuery->where('user_id', $user->id);
+        }
+        $this->organizers = $organizerQuery->get();
+        $this->accounts = Account::orderBy('acc_name')->get();
 
         if ($event?->exists) {
             $this->event = $event;
@@ -75,13 +90,19 @@ class EventForm extends Component
             $this->status = $event->status;
             $this->registration_opens_at = $event->registration_opens_at?->format('Y-m-d\TH:i') ?? '';
             $this->registration_closes_at = $event->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
-            $this->location_id = (string) $event->location_id;
+            $this->location_id = $event->location_id ? (string) $event->location_id : null;
+            $this->account_id = $event->account_id ? (string) $event->account_id : null;
         }
     }
 
     public function removePoster(): void
     {
         $this->poster = null;
+    }
+
+    public function removeSizeChart(): void
+    {
+        $this->sizeChart = null;
     }
 
     public function save(): void
@@ -96,6 +117,8 @@ class EventForm extends Component
         $this->organizer_id = $this->organizer_id ?: null;
         $this->racing_committee_id = $this->racing_committee_id ?: null;
         $this->master_of_ceremony_id = $this->master_of_ceremony_id ?: null;
+        $this->location_id = $this->location_id ?: null;
+        $this->account_id = $this->account_id ?: null;
 
         $rules = [
             'title' => ['required', 'string', 'max:255'],
@@ -110,7 +133,9 @@ class EventForm extends Component
             'registration_opens_at' => ['nullable', 'date'],
             'registration_closes_at' => ['nullable', 'date'],
             'location_id' => ['nullable'],
+            'account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'poster' => ['nullable', 'image', 'max:10240'],
+            'sizeChart' => ['nullable', 'image', 'max:10240'],
         ];
         if ($this->registration_opens_at && $this->registration_closes_at) {
             $rules['registration_closes_at'][] = 'after_or_equal:registration_opens_at';
@@ -119,6 +144,7 @@ class EventForm extends Component
         $validated = $this->validate($rules);
 
         $locationId = $validated['location_id'] ? (int) $validated['location_id'] : null;
+        $accountId = $validated['account_id'] ? (int) $validated['account_id'] : null;
         $organizerId = $validated['organizer_id'] ? (int) $validated['organizer_id'] : null;
         $racingCommitteeId = $validated['racing_committee_id'] ? (int) $validated['racing_committee_id'] : null;
         $masterOfCeremonyId = $validated['master_of_ceremony_id'] ? (int) $validated['master_of_ceremony_id'] : null;
@@ -130,6 +156,15 @@ class EventForm extends Component
                 Storage::disk('public')->delete($posterPath);
             }
             $posterPath = $this->poster->store('events/posters', 'public');
+        }
+
+        $sizeChartPath = $this->event?->size_chart;
+
+        if ($this->sizeChart) {
+            if ($sizeChartPath && Storage::disk('public')->exists($sizeChartPath)) {
+                Storage::disk('public')->delete($sizeChartPath);
+            }
+            $sizeChartPath = $this->sizeChart->store('events/size-charts', 'public');
         }
 
         $registrationOpensAt = $validated['registration_opens_at'] ?: null;
@@ -149,7 +184,9 @@ class EventForm extends Component
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,
+                'account_id' => $accountId,
                 'poster' => $posterPath ?? $this->event->poster,
+                'size_chart' => $sizeChartPath ?? $this->event->size_chart,
             ]);
             $this->redirect(route('events.show', $this->event), navigate: true);
         } else {
@@ -166,7 +203,9 @@ class EventForm extends Component
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,
+                'account_id' => $accountId,
                 'poster' => $posterPath,
+                'size_chart' => $sizeChartPath ?? null,
             ]);
             $this->redirect(route('events.index'), navigate: true);
         }

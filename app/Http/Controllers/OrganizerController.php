@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Organizer;
-use Illuminate\Http\Request;
 
 class OrganizerController extends Controller
 {
@@ -18,21 +17,7 @@ class OrganizerController extends Controller
     {
         abort_unless(auth()->user()->canAs('organizer.create'), 403);
 
-        return view('organizers.create');
-    }
-
-    public function store(Request $request)
-    {
-        abort_unless(auth()->user()->canAs('organizer.create'), 403);
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'link' => ['nullable', 'string', 'max:255', 'url'],
-        ]);
-
-        Organizer::create($validated);
-
-        return redirect()->route('organizers.index')->with('status', __('Organizer created.'));
+        return view('organizers.form', ['organizer' => null]);
     }
 
     public function edit(Organizer $organizer)
@@ -40,22 +25,7 @@ class OrganizerController extends Controller
         abort_unless(auth()->user()->canAs('organizer.update'), 403);
         $this->authorize('update', $organizer);
 
-        return view('organizers.edit', compact('organizer'));
-    }
-
-    public function update(Request $request, Organizer $organizer)
-    {
-        abort_unless(auth()->user()->canAs('organizer.update'), 403);
-        $this->authorize('update', $organizer);
-
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'link' => ['nullable', 'string', 'max:255', 'url'],
-        ]);
-
-        $organizer->update($validated);
-
-        return redirect()->route('organizers.index')->with('status', __('Organizer updated.'));
+        return view('organizers.form', compact('organizer'));
     }
 
     public function destroy(Organizer $organizer)

@@ -21,6 +21,7 @@ class Rider extends Model
         'dob',
         'gender',
         'number_plate',
+        'photo_kia',
     ];
 
     protected function casts(): array
@@ -40,11 +41,9 @@ class Rider extends Model
         return $this->hasMany(Registration::class);
     }
 
-    public function organizers(): BelongsToMany
+    public function teams(): BelongsToMany
     {
-        return $this->belongsToMany(Organizer::class, 'organizer_rider')
-            ->withPivot('is_primary')
-            ->withTimestamps();
+        return $this->belongsToMany(Team::class, 'team_rider');
     }
 
     /** Age in full years on a given date (default: today). */

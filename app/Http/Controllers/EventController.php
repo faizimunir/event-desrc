@@ -19,10 +19,22 @@ class EventController extends Controller
     public function show(Event $event)
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorize('view', $event);
 
         $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
 
-        return view('events.show', compact('event'));
+        $codes = collect();
+        if (auth()->user()->canAs('event.update')) {
+            $codes = $event->codeAccess()->orderBy('created_at', 'desc')->get();
+        }
+
+        $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'checkin'];
+        $requestedTab = request('tab');
+        $firstTab = in_array($requestedTab, $validTabs, true)
+            ? $requestedTab
+            : 'overview';
+
+        return view('events.show', compact('event', 'codes', 'firstTab'));
     }
 
     /**

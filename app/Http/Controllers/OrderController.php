@@ -8,31 +8,20 @@ use Illuminate\Http\Request;
 class OrderController extends Controller
 {
     /**
-     * Daftar order milik visitor: by session_id (guest) atau user_id (logged-in).
+     * Daftar order milik visitor untuk session saat ini saja.
+     * Termasuk yang sudah paid agar status tampil benar.
      */
     public function index(Request $request)
     {
-        $query = Order::with(['registration.event', 'registration.rider', 'registration.bracket', 'registration.package', 'registration.payment'])
-            ->pendingPayment();
-
         $sessionId = $request->session()->getId();
-        $userId = $request->user()?->id;
 
-        $query->where(function ($q) use ($sessionId, $userId) {
-            if ($sessionId) {
-                $q->orWhere('session_id', $sessionId);
-            }
-            if ($userId) {
-                $q->orWhere('user_id', $userId);
-            }
-            if (! $sessionId && ! $userId) {
-                $q->whereRaw('1 = 0'); // no orders
-            }
-        });
+        $query = Order::with(['registration.event', 'registration.rider', 'registration.bracket', 'registration.package', 'registration.payment'])
+            ->where('session_id', $sessionId)
+            ->latest();
 
-        $orders = $query->latest()->paginate(15)->withQueryString();
+        $orders = $query->paginate(15)->withQueryString();
 
-        return view('orders.index', compact('orders'));
+        return view('orders-index', compact('orders'));
     }
 
     /**
@@ -44,8 +33,8 @@ class OrderController extends Controller
             abort(403, __('You do not have access to this order.'));
         }
 
-        $order->load(['registration.event.location', 'registration.rider.user', 'registration.bracket', 'registration.package', 'registration.payment']);
+        $order->load(['registration.event.location', 'registration.rider.user', 'registration.bracket', 'registration.package', 'registration.payment', 'registration.ticket']);
 
-        return view('orders.show', compact('order'));
+        return view('order-show', compact('order'));
     }
 }

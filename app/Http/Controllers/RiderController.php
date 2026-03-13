@@ -55,6 +55,7 @@ class RiderController extends Controller
         }
         if ($request->hasFile('photo_kia')) {
             $this->mediaService->upload($request->file('photo_kia'), $rider, 'photo_kia');
+            $rider->update(['photo_kia' => $rider->getFirstMediaUrl('photo_kia')]);
         }
 
         return redirect()->route('riders.index')->with('status', __('Rider created.'));
@@ -100,6 +101,7 @@ class RiderController extends Controller
         if ($request->hasFile('photo_kia')) {
             $rider->deleteMediaCollection('photo_kia');
             $this->mediaService->upload($request->file('photo_kia'), $rider, 'photo_kia');
+            $rider->update(['photo_kia' => $rider->getFirstMediaUrl('photo_kia')]);
         }
 
         return redirect()->route('riders.index')->with('status', __('Rider updated.'));

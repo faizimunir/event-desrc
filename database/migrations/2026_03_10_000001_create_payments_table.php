@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('registration_id')->constrained()->cascadeOnDelete();
             $table->decimal('amount', 14, 2);
             $table->string('transfer_proof_path')->nullable()->comment('Bukti transfer (foto/screenshot)');
-            $table->string('status')->default('pending'); // pending, approved, rejected
+            $table->string('status')->default('pending'); // pending, success, failed, expired, cancelled
             $table->text('admin_notes')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();

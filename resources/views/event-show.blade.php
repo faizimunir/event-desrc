@@ -227,12 +227,37 @@
 
                     </div>
 
-                    @if ($event->packages->isNotEmpty())
-                        <div
-                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
-                            <h2
-                                class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">
-                                {{ __('Rewards by package') }}</h2>
+                    <div
+                        class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
+                        <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                            {{ __('Brackets') }}</h2>
+                        @if ($event->brackets_sorted_for_display->isNotEmpty())
+                            <ul class="mt-3 flex flex-wrap gap-2">
+                                @foreach ($event->brackets_sorted_for_display as $bracket)
+                                    @php $remaining = $bracket->remainingQuota(); @endphp
+                                    <li>
+                                        <flux:badge color="zinc" size="sm">
+                                            {{ $bracket->name }}
+                                            @if ($remaining !== null)
+                                                <span
+                                                    class="ml-1 text-zinc-500">({{ $remaining }}/{{ $bracket->quota }})</span>
+                                            @endif
+                                        </flux:badge>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('No brackets for this event.') }}</p>
+                        @endif
+                    </div>
+
+                    <div
+                        class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
+                        <h2
+                            class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">
+                            {{ __('Rewards by package') }}</h2>
+                        @if ($event->packages->isNotEmpty())
                             <flux:tab.group>
                                 <flux:tabs variant="segmented" class="mb-0">
                                     @foreach ($event->packages as $package)
@@ -265,39 +290,17 @@
                                     </flux:tab.panel>
                                 @endforeach
                             </flux:tab.group>
-                        </div>
-                    @endif
+                        @else
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Packages not announced yet.') }}</p>
+                        @endif
+                    </div>
 
                     <div
                         class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
                         <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                            {{ __('Brackets') }}</h2>
-                        @if ($event->brackets_sorted_for_display->isNotEmpty())
-                            <ul class="mt-3 flex flex-wrap gap-2">
-                                @foreach ($event->brackets_sorted_for_display as $bracket)
-                                    @php $remaining = $bracket->remainingQuota(); @endphp
-                                    <li>
-                                        <flux:badge color="zinc" size="sm">
-                                            {{ $bracket->name }}
-                                            @if ($remaining !== null)
-                                                <span
-                                                    class="ml-1 text-zinc-500">({{ $remaining }}/{{ $bracket->quota }})</span>
-                                            @endif
-                                        </flux:badge>
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                                {{ __('No brackets for this event.') }}</p>
-                        @endif
-                    </div>
-
-                    @if ($event->tracks->isNotEmpty())
-                        <div
-                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
-                            <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                {{ __('Tracks') }}</h2>
+                            {{ __('Tracks') }}</h2>
+                        @if ($event->tracks->isNotEmpty())
                             <ul class="mt-3 space-y-4">
                                 @foreach ($event->tracks as $track)
                                     <li
@@ -346,32 +349,16 @@
                                     </li>
                                 @endforeach
                             </ul>
-                        </div>
-                    @endif
+                        @else
+                            <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Track not announced Yet') }}</p>
+                        @endif
+                    </div>
 
                 </div>
             </div>
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
-                @if (session('status') && session('order_id'))
-                    <div class="rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-4">
-                        <p class="text-sm text-green-800 dark:text-green-200">{{ session('status') }}</p>
-                        <p class="mt-2 text-sm text-green-700 dark:text-green-300">
-                            {{ __('Order ID') }}: <strong>{{ session('order_id') }}</strong>.
-                            {{ __('To pay, go to') }}
-                            <a href="{{ route('payment.create', ['order_id' => session('order_id')]) }}" class="font-medium underline hover:no-underline">
-                                {{ __('payment page') }}
-                            </a>
-                            {{ __('and enter this ID with your WhatsApp number.') }}
-                        </p>
-                        <p class="mt-3">
-                            <a href="{{ route('orders.show', session('order_id')) }}" class="inline-flex items-center gap-1.5 text-sm font-medium text-green-700 dark:text-green-300 hover:underline">
-                                {{ __('View my order') }}
-                                <flux:icon name="arrow-right" variant="mini" class="size-4" />
-                            </a>
-                        </p>
-                    </div>
-                @endif
                 @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                     @php
                         $showDuplicateRiderModal = session('similar_riders_choice') && session('similar_riders');
@@ -381,9 +368,14 @@
                         $selectedPackageObj = $oldPackageId
                             ? $event->packages->firstWhere('id', (int) $oldPackageId)
                             : null;
+                        if ($selectedPackageObj && ! $selectedPackageObj->isActive()) {
+                            $selectedPackageObj = null;
+                        }
                         $selectedBracketObj = $oldBracketId
                             ? $event->brackets_sorted_for_display->firstWhere('id', (int) $oldBracketId)
                             : null;
+                        $packageIdsWithJersey = $event->packages->filter(fn ($p) => $p->hasJerseyReward())->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+                        $hasActivePackage = $event->packages->contains(fn ($p) => $p->isActive());
                     @endphp
 
                     <div x-data="{
@@ -391,7 +383,8 @@
                         selectedPackageLabel: '{{ addslashes((string) ($selectedPackageObj?->name ?? '')) }}',
                         selectedBracket: '{{ (string) ($selectedBracketObj?->id ?? '') }}',
                         selectedBracketLabel: '{{ addslashes((string) ($selectedBracketObj?->name ?? '')) }}',
-                        requirePackage: {{ $event->packages->isNotEmpty() ? 'true' : 'false' }},
+                        requirePackage: {{ $hasActivePackage ? 'true' : 'false' }},
+                        packageIdsWithJersey: {!! e(json_encode($packageIdsWithJersey)) !!},
                         scrollToForm() {
                             if (typeof window.scrollToRegistrationForm === 'function') {
                                 window.scrollToRegistrationForm();
@@ -489,20 +482,36 @@
                                     {{ __('Select Package') }}</h3>
                                 <div class="mt-3 grid gap-3 sm:grid-cols-3">
                                     @foreach ($event->packages as $package)
-                                        @php $pkgFull = $package->isQuotaFull(); @endphp
+                                        @php
+                                            $pkgFull = $package->isQuotaFull();
+                                            $pkgSelectable = $package->isActive() && !$pkgFull;
+                                        @endphp
                                         <button type="button"
-                                            @if (!$pkgFull) x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; scrollToForm()" @endif
-                                            @if ($pkgFull) disabled @endif
-                                            class="rounded-xl border p-4 text-left transition-all"
+                                            @if ($pkgSelectable) x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; scrollToForm()" @endif
+                                            @if (!$pkgSelectable) disabled @endif
+                                            class="relative rounded-xl border p-4 text-left transition-all"
                                             :class="selectedPackage === '{{ $package->id }}'
                                                 ?
                                                 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50 dark:bg-amber-900/20' :
-                                                {{ $pkgFull ? "'border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/50 cursor-not-allowed opacity-75'" : "'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'" }}">
-                                            <div class="font-medium text-zinc-900 dark:text-zinc-100">
-                                                {{ $package->name }}</div>
+                                                {{ $pkgSelectable ? "'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'" : "'border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/50 cursor-not-allowed opacity-75'" }}">
+                                            @if (!$package->isActive())
+                                                <div class="absolute right-4 top-4">
+                                                    <flux:badge color="zinc" size="sm">{{ __('Coming soon') }}</flux:badge>
+                                                </div>
+                                            @endif
+                                            <div class="flex items-start justify-between gap-2">
+                                                <div class="font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ $package->name }}
+                                                </div>
+                                                @if ($pkgFull)
+                                                    <flux:badge color="red" size="sm">
+                                                        {{ $package->isSoldOut() ? __('Sold out') : __('Booked') }}
+                                                    </flux:badge>
+                                                @endif
+                                            </div>
                                             <div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
                                                 {{ $package->formatted_price }}</div>
-                                            @if ($package->quota !== null)
+                                            @if (!$package->hide_quota && $package->quota !== null)
                                                 @php $rem = $package->remainingQuota(); @endphp
                                                 <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                                     {{ $rem !== null ? __(':remaining of :quota slots', ['remaining' => $rem, 'quota' => $package->quota]) : __('Full') }}
@@ -533,9 +542,16 @@
                             </div>
                         @endif
 
-                        {{-- Form registrasi rider tampil di bawah saat bracket (dan package jika ada) sudah dipilih --}}
+                        {{-- Jika bracket sudah dipilih tapi event tidak punya package: tampilkan pesan, jangan form --}}
+                        <div x-cloak x-show="selectedBracket !== '' && !requirePackage"
+                            class="mt-6 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 p-4 text-center">
+                            <p class="text-sm font-medium text-amber-800 dark:text-amber-200">
+                                {{ __('Package Belum Tersedia') }}</p>
+                        </div>
+
+                        {{-- Form registrasi rider tampil hanya saat bracket dan package (jika ada) sudah dipilih --}}
                         <div id="registration-form" x-cloak
-                            x-show="selectedBracket !== '' && (!requirePackage || selectedPackage !== '')"
+                            x-show="selectedBracket !== '' && (requirePackage && selectedPackage !== '')"
                             x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0"
                             x-transition:enter-end="opacity-100" class="mt-6 scroll-mt-6" style="display: none;">
                             <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">
@@ -544,7 +560,7 @@
                                 class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/30 p-5 sm:p-6 mt-3">
 
                                 <form method="POST" action="{{ route('registrations.store', $event) }}"
-                                     id="registration-form-submit" x-ref="regForm">
+                                     id="registration-form-submit" x-ref="regForm" enctype="multipart/form-data">
                                     @csrf
                                     <input type="hidden" name="package_id" x-bind:value="selectedPackage">
                                     <input type="hidden" name="bracket_id" x-bind:value="selectedBracket">
@@ -592,35 +608,72 @@
                                         <h3
                                             class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                                             {{ __('Rider data') }}</h3>
-                                        <div class="grid gap-4 sm:grid-cols-2">
+                                            <div class="grid gap-4 sm:grid-cols-2">
                                             <flux:input name="name" type="text" :label="__('Full name')"
                                                 :value="old('name')" required />
                                             <flux:input name="nickname" type="text" :label="__('Nickname')"
-                                                :value="old('nickname')" />
+                                                :value="old('nickname')" required />
+                                            </div>
+                                            <div class="grid gap-4 sm:grid-cols-2">
                                             <flux:input name="pob" type="text" :label="__('Place of birth')"
-                                                :value="old('pob')" />
+                                                :value="old('pob')" required />
                                             <flux:input name="dob" type="date" :label="__('Date of birth')"
                                                 :value="old('dob')" required />
-
-                                            <div class="sm:col-span-2">
-                                                <flux:label class="mb-2 block">{{ __('Gender') }}</flux:label>
-                                                <flux:select name="gender" :placeholder="__('— Select —')" required>
+                                            </div>
+                                            <div class="grid gap-4 sm:grid-cols-2">
+                                                <flux:select name="gender" :placeholder="__('— Select —')" :label="__('Gender')" required>
                                                     <option value="boys" @selected(old('gender') === 'boys')>
                                                         {{ __('Boys') }}</option>
                                                     <option value="girls" @selected(old('gender') === 'girls')>
                                                         {{ __('Girls') }}</option>
                                                 </flux:select>
-                                            </div>
-
-                                            <div class="sm:col-span-2">
                                                 <flux:input name="number_plate" type="text"
-                                                    :label="__('Number plate')" :value="old('number_plate')" />
+                                                    :label="__('Number plate')" :value="old('number_plate')" required />
                                             </div>
+                                            {{-- Jersey size: tampil hanya jika paket yang dipilih punya reward jersey --}}
+                                            <div x-cloak x-show="packageIdsWithJersey.includes(selectedPackage)"
+                                                class="space-y-2 sm:col-span-2"
+                                                x-data="{ sizeChartPreviewOpen: false }"
+                                                @keydown.escape.window="sizeChartPreviewOpen = false">
+                                                <flux:select name="jersey_size" :placeholder="__('— Select size —')" :label="__('Jersey size')"
+                                                    x-bind:required="packageIdsWithJersey.includes(selectedPackage)">
+                                                    <option value="S" @selected(old('jersey_size') === 'S')>S</option>
+                                                    <option value="M" @selected(old('jersey_size') === 'M')>M</option>
+                                                    <option value="L" @selected(old('jersey_size') === 'L')>L</option>
+                                                    <option value="XL" @selected(old('jersey_size') === 'XL')>XL</option>
+                                                </flux:select>
+                                                @if ($event->sizeChartUrl())
+                                                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                        <button type="button"
+                                                            @click="sizeChartPreviewOpen = true"
+                                                            class="underline hover:text-zinc-700 dark:hover:text-zinc-300">
+                                                            {{ __('View size chart') }}
+                                                        </button>
+                                                    </p>
+                                                    <div x-show="sizeChartPreviewOpen" x-transition.opacity
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                                        @click.self="sizeChartPreviewOpen = false"
+                                                        role="dialog" aria-modal="true" :aria-hidden="!sizeChartPreviewOpen">
+                                                        <img src="{{ $event->sizeChartUrl() }}" alt="{{ __('Size chart') }}"
+                                                            class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
+                                                            @click.stop />
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            <livewire:team-pillbox-field />
 
+                                            {{-- Photo KIA (Kartu Identitas Anak) --}}
                                             <div class="sm:col-span-2">
-                                                <livewire:organizer-pillbox-field />
+                                                <flux:label class="mb-2 block">{{ __('Photo KIA (Kartu Identitas Anak)') }}</flux:label>
+                                                <input type="file" name="photo_kia" id="photo_kia" accept="image/jpeg,image/png,image/webp"
+                                                    class="block w-full text-sm text-zinc-500 file:mr-4 file:rounded file:border-0 file:bg-zinc-100 file:px-4 file:py-2 file:text-sm file:font-medium file:text-zinc-700 dark:file:bg-zinc-700 dark:file:text-zinc-300" required/>
+                                                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('JPG, PNG, WebP up to :max KB', ['max' => config('media.max_upload_size_kb', 2048)]) }}
+                                                </p>
+                                                @error('photo_kia')
+                                                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                                                @enderror
                                             </div>
-                                        </div>
 
                                         <div class="pt-2">
                                             <flux:button type="submit" variant="primary" icon="pencil"

@@ -3,9 +3,9 @@
 namespace App\Livewire\Registrations;
 
 use App\Models\Event;
-use App\Models\Organizer;
 use App\Models\Registration;
 use App\Models\Rider;
+use App\Models\Team;
 use App\Models\User;
 use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
@@ -40,10 +40,10 @@ class RegistrationForm extends Component
 
     public string $number_plate = '';
 
-    public string $organizerSearch = '';
+    public string $teamSearch = '';
 
     /** @var array<int, int> */
-    public array $selectedOrganizerIds = [];
+    public array $selectedTeamIds = [];
 
     /** Rider yang mirip ditemukan; user memilih pakai atau daftar baru. */
     public bool $showSimilarChoice = false;
@@ -68,50 +68,50 @@ class RegistrationForm extends Component
         }
     }
 
-    public function updatedOrganizerSearch(): void
+    public function updatedTeamSearch(): void
     {
-        $this->resetErrorBag('organizerSearch');
+        $this->resetErrorBag('teamSearch');
     }
 
     /**
-     * Organizers for pillbox options (backend search). Include selected so they stay visible.
+     * Teams for pillbox options (backend search). Include selected so they stay visible.
      */
-    public function getOrganizersProperty()
+    public function getTeamsProperty()
     {
-        $query = Organizer::query()->orderBy('name');
+        $query = Team::query()->orderBy('name');
 
-        if (trim($this->organizerSearch) !== '') {
-            $query->where('name', 'like', '%'.trim($this->organizerSearch).'%')->limit(20);
+        if (trim($this->teamSearch) !== '') {
+            $query->where('name', 'like', '%'.trim($this->teamSearch).'%')->limit(20);
             return $query->get();
         }
 
-        // When search empty, show selected organizers plus maybe a few others
-        if (count($this->selectedOrganizerIds) > 0) {
-            $selected = Organizer::whereIn('id', $this->selectedOrganizerIds)->orderBy('name')->get();
-            $others = Organizer::whereNotIn('id', $this->selectedOrganizerIds)->orderBy('name')->limit(15)->get();
+        // When search empty, show selected teams plus maybe a few others
+        if (count($this->selectedTeamIds) > 0) {
+            $selected = Team::whereIn('id', $this->selectedTeamIds)->orderBy('name')->get();
+            $others = Team::whereNotIn('id', $this->selectedTeamIds)->orderBy('name')->limit(15)->get();
             return $selected->merge($others)->unique('id')->values();
         }
 
         return $query->limit(20)->get();
     }
 
-    public function createOrganizer(): void
+    public function createTeam(): void
     {
-        $name = trim($this->organizerSearch);
+        $name = trim($this->teamSearch);
         if ($name === '') {
             return;
         }
 
-        $organizer = Organizer::firstOrCreate(
+        $team = Team::firstOrCreate(
             ['name' => $name],
             ['name' => $name]
         );
 
-        if (! in_array($organizer->id, $this->selectedOrganizerIds, true)) {
-            $this->selectedOrganizerIds[] = $organizer->id;
+        if (! in_array($team->id, $this->selectedTeamIds, true)) {
+            $this->selectedTeamIds[] = $team->id;
         }
 
-        $this->organizerSearch = '';
+        $this->teamSearch = '';
     }
 
     public function submit(RiderSimilarityService $similarity, RegistrationEligibilityService $eligibility): mixed
@@ -160,6 +160,8 @@ class RegistrationForm extends Component
             'dob' => ['required', 'date', 'before_or_equal:today'],
             'gender' => ['required', 'string', 'in:boys,girls,other'],
             'number_plate' => ['nullable', 'string', 'max:50'],
+            'selectedTeamIds' => ['nullable', 'array'],
+            'selectedTeamIds.*' => ['integer', 'exists:teams,id'],
         ]);
 
         if (! $this->skipSimilarityCheck) {
@@ -216,6 +218,8 @@ class RegistrationForm extends Component
             'dob' => ['required', 'date', 'before_or_equal:today'],
             'gender' => ['required', 'string', 'in:boys,girls,other'],
             'number_plate' => ['nullable', 'string', 'max:50'],
+            'selectedTeamIds' => ['nullable', 'array'],
+            'selectedTeamIds.*' => ['integer', 'exists:teams,id'],
         ]);
 
         $pkg = $this->event->packages->count() === 1
@@ -294,12 +298,12 @@ class RegistrationForm extends Component
             return null;
         }
 
-        $organizerIds = array_values(array_unique(array_map('intval', $this->selectedOrganizerIds)));
-        $rider->organizers()->sync($organizerIds);
+        $rider->teams()->sync($this->selectedTeamIds);
 
         Registration::create([
             'event_id' => $this->event->id,
             'rider_id' => $rider->id,
+            'team_ids' => $this->selectedTeamIds,
             'bracket_id' => $bracket->id,
             'package_id' => $packageId,
             'status' => Registration::STATUS_PENDING,
@@ -310,6 +314,8 @@ class RegistrationForm extends Component
         $this->similarRiders = [];
         $this->selectedRiderId = 0;
         $this->skipSimilarityCheck = false;
+        $this->teamSearch = '';
+        $this->selectedTeamIds = [];
 
         return redirect()->route('events.public.show', $this->event->slug)
             ->with('status', __('Registration submitted. You can check status on this page.'));

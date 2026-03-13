@@ -50,7 +50,7 @@
                         @foreach ($payments as $payment)
                             <tr>
                                 <td class="px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100">
-                                    <a href="{{ route('events.registrations.index', $payment->registration->event) }}" wire:navigate class="font-medium hover:underline">
+                                    <a href="{{ route('events.show', [$payment->registration->event, 'tab' => 'registrations']) }}" wire:navigate class="font-medium hover:underline">
                                         {{ $payment->registration->event->title }}
                                     </a>
                                     <br>
@@ -78,9 +78,10 @@
                                 <td class="px-4 py-3">
                                     @php
                                         $badgeColor = match ($payment->status) {
-                                            'approved' => 'green',
+                                            'success' => 'green',
                                             'pending' => 'yellow',
-                                            'rejected' => 'red',
+                                            'failed' => 'red',
+                                            'expired', 'cancelled' => 'zinc',
                                             default => 'zinc',
                                         };
                                     @endphp
@@ -108,6 +109,10 @@
                                                 <textarea name="admin_notes" id="reject-notes-{{ $payment->id }}" rows="2" class="mt-1 block w-48 rounded border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-800 text-sm"></textarea>
                                                 <flux:button variant="ghost" size="sm" type="submit" color="red" class="mt-1">{{ __('Confirm reject') }}</flux:button>
                                             </div>
+                                        </form>
+                                        <form action="{{ route('payments.expire', $payment) }}" method="post" class="inline" onsubmit="return confirm('{{ __('Mark as expired and create new order ID for this registration? Old order ID will no longer work.') }}');">
+                                            @csrf
+                                            <flux:button variant="ghost" size="sm" type="submit" color="zinc">{{ __('Expire') }}</flux:button>
                                         </form>
                                     @else
                                         @if ($payment->admin_notes)

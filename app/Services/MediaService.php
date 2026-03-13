@@ -38,7 +38,7 @@ class MediaService
             ]
         );
 
-        $id = (string) \Illuminate\Support\Str::uuid();
+        $id = (string) \Illuminate\Support\Str::ulid();
         $disk = 'public';
         $basePath = 'media/'.$id;
         $originalPath = $basePath.'/original.webp';

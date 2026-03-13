@@ -1,0 +1,279 @@
+@php
+    $rider = $registration->rider;
+    $payment = $registration->payment;
+    $photoKiaUrl = $rider->getFirstMediaUrl('photo_kia') ?: $rider->photo_kia;
+    $transferProofUrl = $payment?->transfer_proof_url;
+    $badgeColor = match ($registration->status) {
+        'approved' => 'green',
+        'pending' => 'yellow',
+        'rejected' => 'red',
+        'cancelled' => 'zinc',
+        default => 'zinc',
+    };
+    $payBadgeColor = $payment ? match ($payment->status) {
+        'success' => 'green',
+        'pending' => 'yellow',
+        'failed' => 'red',
+        'expired', 'cancelled' => 'zinc',
+        default => 'zinc',
+    } : null;
+    $canUpdate = auth()->user()->canAs('event.update');
+    $showStatusActions = $canUpdate && in_array($registration->status, ['pending', 'approved', 'rejected'], true);
+    $canApproveAll = $canUpdate && (! $registration->isApproved() || ($payment && $payment->isPending()));
+    $waNumber = $rider->user?->whatsapp ? \App\Services\WhacenterService::normalizeWhatsApp($rider->user->whatsapp) : '';
+    $paymentLinkUrl = $registration->order ? route('payment.create', ['order_code' => $registration->order->order_code, 'whatsapp' => $rider->user?->whatsapp ?? '']) : '';
+    $waSendPaymentUrl = $waNumber && $paymentLinkUrl ? 'https://wa.me/'.$waNumber.'?text='.rawurlencode($paymentLinkUrl) : '';
+@endphp
+<x-layouts::app :title="__('Registration') . ' — ' . $event->title">
+    <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
+        <flux:breadcrumbs class="mb-2">
+            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate>{{ __('Registrations') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>{{ $rider->name }}</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+
+        <div class="flex flex-wrap items-center gap-2">
+            <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
+                {{ __('Back to event') }}
+            </flux:button>
+            @if ($registration->order)
+                <flux:button variant="ghost" size="sm" :href="route('orders.show', $registration->order)" wire:navigate icon="document-text">
+                    {{ __('View order') }}
+                </flux:button>
+            @endif
+            @if ($payment && $payment->isPending())
+                <flux:button variant="ghost" size="sm" :href="route('payments.index', ['status' => 'pending'])" wire:navigate icon="banknotes">
+                    {{ __('Payments') }}
+                </flux:button>
+            @endif
+        </div>
+
+        {{-- Header: nama + status --}}
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <flux:heading>{{ $rider->name }}@if ($rider->nickname) <span class="font-normal text-zinc-500 dark:text-zinc-400">({{ $rider->nickname }})</span>@endif</flux:heading>
+            <flux:badge :color="$badgeColor" size="lg">{{ $registration->status_label }}</flux:badge>
+        </div>
+
+        @if (session('status'))
+            <flux:callout variant="success" class="rounded-lg">{{ session('status') }}</flux:callout>
+        @endif
+        @if (session('error'))
+            <flux:callout variant="danger" class="rounded-lg">{{ session('error') }}</flux:callout>
+        @endif
+
+        {{-- Dokumen verifikasi: Photo KIA + Bukti Transfer (prioritas untuk admin) --}}
+        <div class="grid gap-6 lg:grid-cols-2">
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Registration details') }}</h2>
+                </div>
+                <dl class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                    <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Rider') }}</dt>
+                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                            {{ $rider->name }}@if ($rider->nickname) ({{ $rider->nickname }})@endif
+                            <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->dob?->format('d/m/Y') }} · {{ $rider->gender_label ?? $rider->gender }}</span>
+                            @if ($rider->user?->whatsapp)
+                                <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->user->whatsapp }}</span>
+                            @endif
+                        </dd>
+                    </div>
+                    <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Bracket') }}</dt>
+                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">{{ $registration->bracket->name }}</dd>
+                    </div>
+                    <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Package') }}</dt>
+                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">{{ $registration->package?->name ?? '—' }}</dd>
+                    </div>
+                    <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Registered at') }}</dt>
+                        <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 sm:col-span-2 sm:mt-0">{{ $registration->created_at->format('d/m/Y H:i') }}</dd>
+                    </div>
+                </dl>
+                @if ($showStatusActions)
+                    <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-3">
+                        <div class="flex flex-wrap gap-2">
+                            @if ($registration->isApproved())
+                                <flux:button variant="primary" color="green" size="sm" icon="check" disabled>
+                                    {{ __('Approved') }}
+                                </flux:button>
+                            @else
+                                <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
+                                    @csrf
+                                    <input type="hidden" name="status" value="approved" />
+                                    <flux:button variant="primary" color="green" type="submit" size="sm" icon="check">
+                                        {{ __('Approve registration') }}
+                                    </flux:button>
+                                </form>
+                                <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
+                                    @csrf
+                                    <input type="hidden" name="status" value="rejected" />
+                                    <flux:button variant="outline" color="red" type="submit" size="sm" icon="x-mark">
+                                        {{ __('Reject') }}
+                                    </flux:button>
+                                </form>
+                            @endif
+                            <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
+                                @csrf
+                                <input type="hidden" name="status" value="cancelled" />
+                                <flux:button variant="ghost" color="zinc" type="submit" size="sm" icon="no-symbol">
+                                    {{ __('Cancel registration') }}
+                                </flux:button>
+                            </form>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Photo KIA') }}</h2>
+                </div>
+                <div class="p-4" x-data="{ previewOpen: false }" @keydown.escape.window="previewOpen = false">
+                    @if ($photoKiaUrl)
+                        <button type="button" @click="previewOpen = true" class="block w-full rounded-lg border border-zinc-200 dark:border-zinc-600 overflow-hidden bg-zinc-100 dark:bg-zinc-700/50 hover:opacity-95 transition cursor-pointer text-left">
+                            <img src="{{ $photoKiaUrl }}" alt="{{ __('Photo KIA') }}" class="w-full max-h-[320px] object-contain object-top" />
+                        </button>
+                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Click image for full preview') }}</p>
+                        <div x-show="previewOpen" x-transition.opacity x-cloak
+                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+                            @click.self="previewOpen = false"
+                            role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
+                            <img src="{{ $photoKiaUrl }}" alt="{{ __('Photo KIA') }}"
+                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
+                                @click.stop />
+                        </div>
+                    @else
+                        <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 py-12 text-center">
+                            <span class="text-zinc-400 dark:text-zinc-500 text-4xl mb-2">🖼️</span>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No photo KIA uploaded') }}</p>
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        {{-- Data pendaftaran + pembayaran (ringkas) --}}
+        <div class="grid gap-6 lg:grid-cols-2">
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payment') }}</h2>
+                </div>
+                <div class="p-4">
+                    @if ($payment)
+                        <div class="flex flex-wrap items-center gap-2">
+                            <flux:badge :color="$payBadgeColor" size="sm">{{ $payment->status_label }}</flux:badge>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $payment->formatted_amount }}</span>
+                        </div>
+                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Submitted') }}: {{ $payment->created_at->format('d/m/Y H:i') }}</p>
+                        @if ($canUpdate)
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                @if ($payment->isSuccess())
+                                    <flux:button variant="primary" color="green" size="sm" icon="check" disabled>
+                                        {{ __('Approved') }}
+                                    </flux:button>
+                                @elseif ($payment->isPending() && $transferProofUrl)
+                                    <form action="{{ route('payments.approve', $payment) }}" method="post" class="inline">
+                                        @csrf
+                                        <flux:button variant="primary" color="green" type="submit" size="sm" icon="check">
+                                            {{ __('Approve payment') }}
+                                        </flux:button>
+                                    </form>
+                                    <form action="{{ route('payments.reject', $payment) }}" method="post" class="inline">
+                                        @csrf
+                                        <flux:button variant="outline" color="red" type="submit" size="sm" icon="x-mark">
+                                            {{ __('Reject payment') }}
+                                        </flux:button>
+                                    </form>
+                                @elseif ($payment->isPending() && ! $transferProofUrl && $waSendPaymentUrl)
+                                    <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
+                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                        {{ __('Send payment link via WhatsApp') }}
+                                    </a>
+                                @endif
+                            </div>
+                        @endif
+                    @else
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No payment yet') }}</p>
+                        @if ($registration->order && $waSendPaymentUrl)
+                            <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
+                                <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                {{ __('Send payment link via WhatsApp') }}
+                            </a>
+                        @endif
+                    @endif
+                </div>
+            </div>
+
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Bukti transfer') }}</h2>
+                </div>
+                <div class="p-4" x-data="{ previewOpen: false }" @keydown.escape.window="previewOpen = false">
+                    @if ($transferProofUrl)
+                        <button type="button" @click="previewOpen = true" class="block w-full rounded-lg border border-zinc-200 dark:border-zinc-600 overflow-hidden bg-zinc-100 dark:bg-zinc-700/50 hover:opacity-95 transition cursor-pointer text-left">
+                            <img src="{{ $transferProofUrl }}" alt="{{ __('Bukti transfer') }}" class="w-full max-h-[320px] object-contain object-top" />
+                        </button>
+                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Click image for full preview') }}</p>
+                        <div x-show="previewOpen" x-transition.opacity x-cloak
+                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+                            @click.self="previewOpen = false"
+                            role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
+                            <img src="{{ $transferProofUrl }}" alt="{{ __('Bukti transfer') }}"
+                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
+                                @click.stop />
+                        </div>
+                    @else
+                        <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 py-12 text-center">
+                            <span class="text-zinc-400 dark:text-zinc-500 text-4xl mb-2">📄</span>
+                            @if ($payment)
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No transfer proof uploaded yet') }}</p>
+                                @if ($registration->order && $waSendPaymentUrl)
+                                    <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
+                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                        {{ __('Send payment link via WhatsApp') }}
+                                    </a>
+                                @endif
+                            @else
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No payment record yet') }}</p>
+                                @if ($registration->order && $waSendPaymentUrl)
+                                    <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
+                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                        {{ __('Send payment link via WhatsApp') }}
+                                    </a>
+                                @endif
+                            @endif
+                        </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+
+        @if (($canApproveAll && $transferProofUrl) || ($canUpdate && $nextRegistration))
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($canApproveAll && $transferProofUrl)
+                        <form action="{{ route('registrations.approve-all', $registration) }}" method="post" class="inline">
+                            @csrf
+                            <flux:button variant="primary" color="green" type="submit" icon="check">
+                                {{ __('Approve registration and payment') }}
+                            </flux:button>
+                        </form>
+                    @endif
+                    @if ($nextRegistration)
+                        <flux:button variant="outline" :href="route('events.registrations.show', [$event, $nextRegistration])" wire:navigate icon="arrow-right">
+                            {{ __('Next') }}
+                        </flux:button>
+                    @else
+                        <flux:button variant="outline" disabled>
+                            {{ __('No registration needs review.') }}
+                        </flux:button>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </div>
+</x-layouts::app>

@@ -106,6 +106,19 @@
             @enderror
         </div>
 
+        <div>
+            <flux:label class="mb-2 block">{{ __('Payment account') }}</flux:label>
+            <flux:select wire:model="account_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No account —') }}</flux:select.option>
+                @foreach ($accounts as $acc)
+                    <flux:select.option :value="$acc->id">{{ $acc->acc_name }} — {{ $acc->acc_bank }} ({{ $acc->acc_number }})</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('account_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
         <div class="grid grid-cols-2 gap-4">
         <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />
         @error('registration_opens_at')
@@ -146,6 +159,43 @@
                     <flux:file-item
                         heading="{{ __('Current poster') }}"
                         :image="$event->posterUrl()"
+                    >
+                        <x-slot name="actions">
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Replace by uploading above') }}</span>
+                        </x-slot>
+                    </flux:file-item>
+                @endif
+            </div>
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Size chart') }}</flux:label>
+            <flux:file-upload wire:model="sizeChart" :label="__('Upload size chart')">
+                <flux:file-upload.dropzone
+                    heading="{{ __('Drop file or click to browse') }}"
+                    text="{{ __('JPG, PNG, GIF up to 10MB') }}"
+                    with-progress
+                    inline
+                />
+            </flux:file-upload>
+            @error('sizeChart')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+            <div class="mt-4 flex flex-col gap-2">
+                @if ($sizeChart)
+                    <flux:file-item
+                        :heading="$sizeChart->getClientOriginalName()"
+                        :image="$sizeChart->temporaryUrl()"
+                        :size="$sizeChart->getSize()"
+                    >
+                        <x-slot name="actions">
+                            <flux:file-item.remove wire:click="removeSizeChart" />
+                        </x-slot>
+                    </flux:file-item>
+                @elseif ($event?->sizeChartUrl())
+                    <flux:file-item
+                        :heading="__('Current size chart')"
+                        :image="$event->sizeChartUrl()"
                     >
                         <x-slot name="actions">
                             <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Replace by uploading above') }}</span>

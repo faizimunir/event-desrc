@@ -26,8 +26,14 @@ class EventList extends Component
     #[Computed]
     public function events()
     {
-        return Event::query()
-            ->with('location')
+        $user = auth()->user();
+        $query = Event::query()->with(['location', 'organizer']);
+
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+            $query->whereHas('organizer', fn ($q) => $q->where('user_id', $user->id));
+        }
+
+        return $query
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('title', 'like', '%'.$this->search.'%')

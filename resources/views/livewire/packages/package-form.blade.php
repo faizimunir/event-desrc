@@ -10,8 +10,18 @@
     @enderror
 
     <flux:input wire:model="quota" type="number" min="1" :label="__('Quota (early bird / limited)')" :placeholder="__('Optional')" />
+    <flux:checkbox wire:model="hide_quota" :label="__('Hide quota')" />
     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Optional. Limit how many participants can choose this package (e.g. early bird). Leave empty for no limit.') }}</p>
     @error('quota')
+        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+    @enderror
+
+    <flux:select wire:model="status" :label="__('Status')" :placeholder="__('Status')">
+        <option value="active">{{ __('Active') }}</option>
+        <option value="not_active">{{ __('Not active') }}</option>
+    </flux:select>
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Not active: package is shown for info only and cannot be selected during registration.') }}</p>
+    @error('status')
         <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
     @enderror
 

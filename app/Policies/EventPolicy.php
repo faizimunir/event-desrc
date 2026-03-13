@@ -7,13 +7,30 @@ use App\Models\User;
 
 class EventPolicy
 {
+    public function view(User $user, Event $event): bool
+    {
+        if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
+            return true;
+        }
+        $organizer = $event->organizer;
+        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
+    }
+
     public function update(User $user, Event $event): bool
     {
-        return $user->canAs('event.update');
+        if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
+            return true;
+        }
+        $organizer = $event->organizer;
+        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
     }
 
     public function delete(User $user, Event $event): bool
     {
-        return $user->canAs('event.delete');
+        if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
+            return true;
+        }
+        $organizer = $event->organizer;
+        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
     }
 }

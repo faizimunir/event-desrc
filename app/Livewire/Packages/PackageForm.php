@@ -22,6 +22,10 @@ class PackageForm extends Component
 
     public ?string $quota = null;
 
+    public bool $hide_quota = false;
+
+    public string $status = 'active';
+
     public int $sort_order = 0;
 
     /** @var array<int|string, int> */
@@ -41,6 +45,8 @@ class PackageForm extends Component
             $this->name = $this->package->name;
             $this->price = (string) $this->package->price;
             $this->quota = $this->package->quota !== null ? (string) $this->package->quota : null;
+            $this->hide_quota = (bool) $this->package->hide_quota;
+            $this->status = $this->package->status ?? Package::STATUS_ACTIVE;
             $this->sort_order = (int) $this->package->sort_order;
             $this->rewardsSelected = $this->package->rewards->pluck('id')->map(fn ($id) => (string) $id)->all();
         } else {
@@ -61,6 +67,8 @@ class PackageForm extends Component
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
             'quota' => ['nullable', 'integer', 'min:1'],
+            'hide_quota' => ['boolean'],
+            'status' => ['required', 'string', 'in:'.Package::STATUS_ACTIVE.','.Package::STATUS_NOT_ACTIVE],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'rewardsSelected' => ['nullable', 'array'],
             'rewardsSelected.*' => ['integer', 'exists:rewards,id'],
@@ -70,12 +78,16 @@ class PackageForm extends Component
         $rewards = $validated['rewardsSelected'] ?? [];
 
         $quota = isset($validated['quota']) && $validated['quota'] !== '' ? (int) $validated['quota'] : null;
+        $hideQuota = (bool) ($validated['hide_quota'] ?? false);
+        $status = $validated['status'] ?? Package::STATUS_ACTIVE;
 
         if ($this->package?->exists) {
             $this->package->update([
                 'name' => $validated['name'],
                 'price' => $validated['price'],
                 'quota' => $quota,
+                'hide_quota' => $hideQuota,
+                'status' => $status,
                 'sort_order' => $sortOrder,
             ]);
             $existingPivot = $this->package->rewards->keyBy('id')->map(fn ($r) => $r->pivot->photo_reward)->all();
@@ -89,6 +101,8 @@ class PackageForm extends Component
                 'name' => $validated['name'],
                 'price' => $validated['price'],
                 'quota' => $quota,
+                'hide_quota' => $hideQuota,
+                'status' => $status,
                 'sort_order' => $sortOrder,
             ]);
             if (! empty($rewards)) {

@@ -26,7 +26,11 @@ class RolesAndPermissionsSeeder extends Seeder
             'mc.create','mc.read','mc.update','mc.delete',
             'user.create','user.read','user.update','user.delete',
             'track.create','track.read','track.update','track.delete',
+            'checkin.create','checkin.read','checkin.update','checkin.delete',
             'reward.create','reward.read','reward.update','reward.delete',
+            'team.create','team.read','team.update','team.delete',
+            'account.create','account.read','account.update','account.delete',
+            'payment.read',
         ];
 
         $guard = config('auth.defaults.guard');
@@ -44,6 +48,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $superAdmin->syncPermissions(Permission::all());
         $admin->syncPermissions([
             'rider.create','rider.read','rider.update','rider.delete',
+            'user.create','user.read','user.update','user.delete',
             'event.create','event.read','event.update','event.delete',
             'bracket.create','bracket.read','bracket.update','bracket.delete',
             'bracket_level.create','bracket_level.read','bracket_level.update','bracket_level.delete',
@@ -54,20 +59,20 @@ class RolesAndPermissionsSeeder extends Seeder
             'level.create','level.read','level.update','level.delete',
             'mc.create','mc.read','mc.update','mc.delete',
             'track.create','track.read','track.update','track.delete',
+            'checkin.create','checkin.read','checkin.update','checkin.delete',
             'reward.create','reward.read','reward.update','reward.delete',
+            'team.create','team.read','team.update','team.delete',
+            'account.create','account.read','account.update','account.delete',
+            'payment.read',
         ]);
         $organizer->syncPermissions([
             'event.create','event.read','event.update','event.delete',
             'bracket.create','bracket.read','bracket.update','bracket.delete',
             'bracket_level.create','bracket_level.read','bracket_level.update','bracket_level.delete',
             'package.create','package.read','package.update','package.delete',
-            'location.create','location.read','location.update','location.delete',
-            'organizer.create','organizer.read','organizer.update','organizer.delete',
-            'rc.create','rc.read','rc.update','rc.delete',
-            'level.create','level.read','level.update','level.delete',
-            'mc.create','mc.read','mc.update','mc.delete',
             'track.create','track.read','track.update','track.delete',
-            'reward.create','reward.read','reward.update','reward.delete',
+            'checkin.create','checkin.read','checkin.update','checkin.delete',
+            'payment.read',
         ]);
         $committee->syncPermissions([
             'event.create','event.read','event.update','event.delete',
@@ -80,8 +85,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'level.create','level.read','level.update','level.delete',
             'mc.create','mc.read','mc.update','mc.delete',
             'track.create','track.read','track.update','track.delete',
+            'checkin.create','checkin.read','checkin.update','checkin.delete',
             'reward.create','reward.read','reward.update','reward.delete',
+            'team.create','team.read','team.update','team.delete',
+            'account.create','account.read','account.update','account.delete',
         ]);
-        $member->syncPermissions(['rider.read','event.read','location.read','organizer.read','rc.read','bracket.read','bracket_level.read','package.read','level.read','mc.read','track.read','reward.read']);
     }
 }

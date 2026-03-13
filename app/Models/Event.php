@@ -55,7 +55,9 @@ class Event extends Model
         'start_at',
         'end_at',
         'location_id',
+        'account_id',
         'poster',
+        'size_chart',
         'status',
         'registration_opens_at',
         'registration_closes_at',
@@ -66,6 +68,14 @@ class Event extends Model
     public function posterUrl(): ?string
     {
         return $this->poster ? Storage::disk('public')->url($this->poster) : null;
+    }
+
+    public function sizeChartUrl(): ?string
+    {
+        if (! $this->size_chart) {
+            return null;
+        }
+        return str_starts_with($this->size_chart, 'http') ? $this->size_chart : Storage::disk('public')->url($this->size_chart);
     }
 
     protected function casts(): array
@@ -116,6 +126,11 @@ class Event extends Model
         return $this->belongsTo(Location::class);
     }
 
+    public function account(): BelongsTo
+    {
+        return $this->belongsTo(Account::class);
+    }
+
     public function organizer(): BelongsTo
     {
         return $this->belongsTo(Organizer::class);
@@ -162,6 +177,11 @@ class Event extends Model
     public function codeAccess(): HasMany
     {
         return $this->hasMany(EventCodeAccess::class, 'event_id');
+    }
+
+    public function checkins(): HasMany
+    {
+        return $this->hasMany(EventCheckin::class, 'event_id');
     }
 
     public function isCategoryUmur(): bool

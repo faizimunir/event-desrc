@@ -14,6 +14,7 @@ class Media extends Model
     public $incrementing = false;
 
     protected $fillable = [
+        'id',
         'model_type',
         'model_id',
         'collection',
@@ -34,7 +35,7 @@ class Media extends Model
     {
         static::creating(function (Media $media) {
             if (empty($media->id)) {
-                $media->id = (string) Str::uuid();
+                $media->id = (string) Str::ulid();
             }
         });
     }

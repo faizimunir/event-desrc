@@ -67,6 +67,12 @@ class User extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
+    /** Organizer-organizer yang dikelola user ini (admin organizer). */
+    public function managedOrganizers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Organizer::class, 'user_id');
+    }
+
     /** Cek apakah akun sudah aktivasi (bisa login dengan email + password). */
     public function isActivated(): bool
     {

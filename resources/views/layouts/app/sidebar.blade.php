@@ -39,10 +39,22 @@
                     {{ __('Events') }}
                 </flux:sidebar.item>
                 @endcanAs
+                @canAs('payment.read')
+                <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"
+                    wire:navigate>
+                    {{ __('Payments') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('rider.read')
                 <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
                     wire:navigate>
                     {{ __('Riders') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('account.read')
+                <flux:sidebar.item icon="building-library" :href="route('accounts.index')" :current="request()->routeIs('accounts.*')"
+                    wire:navigate>
+                    {{ __('Accounts') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('location.read')
@@ -67,6 +79,12 @@
                 <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
                     wire:navigate>
                     {{ __('Organizers') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('team.read')
+                <flux:sidebar.item icon="user-group" :href="route('teams.index')" :current="request()->routeIs('teams.*')"
+                    wire:navigate>
+                    {{ __('Teams') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('mc.read')

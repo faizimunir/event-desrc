@@ -13,12 +13,19 @@ class Registration extends Model
         return $this->hasOne(Order::class);
     }
 
+    public function ticket(): HasOne
+    {
+        return $this->hasOne(Ticket::class);
+    }
+
     public const STATUS_PENDING = 'pending';
 
+    /** Approved = data rider lolos verifikasi admin (bukan pembayaran). */
     public const STATUS_APPROVED = 'approved';
 
     public const STATUS_REJECTED = 'rejected';
 
+    /** Cancelled = peserta tidak jadi datang (mis. anak sakit). */
     public const STATUS_CANCELLED = 'cancelled';
 
     public const STATUSES = [
@@ -31,11 +38,20 @@ class Registration extends Model
     protected $fillable = [
         'event_id',
         'rider_id',
+        'team_ids',
         'bracket_id',
         'package_id',
         'status',
         'number_plate',
+        'jersey_size',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'team_ids' => 'array',
+        ];
+    }
 
     public function event(): BelongsTo
     {
@@ -60,6 +76,11 @@ class Registration extends Model
     public function payment(): HasOne
     {
         return $this->hasOne(Payment::class);
+    }
+
+    public function checkin(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(EventCheckin::class, 'registration_id');
     }
 
     public function isPending(): bool
@@ -93,7 +114,7 @@ class Registration extends Model
         };
     }
 
-    /** Count registrations that consume quota (pending + approved). */
+    /** Count registrations that consume quota (pending + approved). Cancelled releases slot. */
     public function scopeCountsTowardQuota($query): void
     {
         $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_APPROVED]);

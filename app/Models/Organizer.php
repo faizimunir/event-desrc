@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class Organizer extends Model
@@ -12,9 +13,34 @@ class Organizer extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'link',
     ];
+
+    /**
+     * User (admin organizer) yang berhak mengelola organizer dan event-eventnya.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Event-event yang dimiliki organizer ini.
+     */
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class);
+    }
+
+    /**
+     * Team-team yang dimiliki organizer ini.
+     */
+    public function teams(): HasMany
+    {
+        return $this->hasMany(Team::class);
+    }
 
     public function initials(): string
     {
@@ -25,10 +51,4 @@ class Organizer extends Model
             ->implode('');
     }
 
-    public function riders(): BelongsToMany
-    {
-        return $this->belongsToMany(Rider::class, 'organizer_rider')
-            ->withPivot('is_primary')
-            ->withTimestamps();
-    }
 }

@@ -9,11 +9,17 @@ class OrganizerPolicy
 {
     public function update(User $user, Organizer $organizer): bool
     {
-        return $user->canAs('organizer.update');
+        if ($user->canAs('organizer.update')) {
+            return true;
+        }
+        return $organizer->user_id !== null && $organizer->user_id === $user->id;
     }
 
     public function delete(User $user, Organizer $organizer): bool
     {
-        return $user->canAs('organizer.delete');
+        if ($user->canAs('organizer.delete')) {
+            return true;
+        }
+        return $organizer->user_id !== null && $organizer->user_id === $user->id;
     }
 }

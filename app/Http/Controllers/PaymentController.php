@@ -2,29 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\PaymentLinkMail;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Services\TicketService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\View;
 use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
 {
     /**
-     * Public: form bayar manual — verifikasi order_id (+ WhatsApp jika perlu), tampilkan rekening & form upload bukti.
+     * Public: form bayar manual — verifikasi order_code (+ WhatsApp jika perlu), tampilkan rekening & form upload bukti.
      */
     public function create(Request $request)
     {
         $registration = null;
+        $orderExpiredOrCancelled = false;
         $bank = Payment::getManualBankInfo();
-        $orderId = $request->old('order_id', $request->query('order_id'));
+        $orderCode = $request->old('order_code', $request->query('order_code'));
         $whatsapp = $request->old('whatsapp', $request->query('whatsapp'));
 
-        if ($orderId) {
-            $order = Order::with(['registration.event', 'registration.rider.user', 'registration.bracket', 'registration.package'])
-                ->find($orderId);
+        if ($orderCode) {
+            $order = Order::with(['registration.event.account', 'registration.rider.user', 'registration.bracket', 'registration.package'])
+                ->where('order_code', $orderCode)->first();
+            if ($order && ($order->isExpired() || $order->isCancelled())) {
+                $orderExpiredOrCancelled = true;
+                $order = null;
+            }
             if ($order) {
                 $reg = $order->registration;
                 $normalized = $whatsapp ? WhacenterService::normalizeWhatsApp($whatsapp) : null;
@@ -35,24 +44,62 @@ class PaymentController extends Controller
                     if (! $whatsapp && $reg->rider->user->whatsapp) {
                         $whatsapp = $reg->rider->user->whatsapp;
                     }
+                    // Konfirmasi order (batas 15 menit sudah terlewati dengan klik Pay now)
+                    if (! $order->confirmed_at) {
+                        $order->update([
+                            'confirmed_at' => now(),
+                            'expired_at' => null,
+                        ]);
+                        $this->sendPaymentLinkNotifications($order, $reg);
+                    }
+                    // Buat payment pending dengan batas upload bukti 30 menit
+                    $payment = $reg->payment;
+                    if (! $payment) {
+                        $payment = Payment::create([
+                            'registration_id' => $reg->id,
+                            'amount' => $reg->package?->price ?? 0,
+                            'status' => Payment::STATUS_PENDING,
+                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
+                        ]);
+                    } elseif ($payment->isPending() && ! $payment->expires_at) {
+                        $payment->update([
+                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
+                        ]);
+                    } elseif ($payment->isExpired() || $payment->isCancelled() || $payment->isFailed()) {
+                        $payment->update([
+                            'status' => Payment::STATUS_PENDING,
+                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
+                            'transfer_proof_path' => null,
+                            'admin_notes' => null,
+                            'reviewed_at' => null,
+                            'reviewed_by' => null,
+                        ]);
+                    }
                 }
             }
         }
 
-        return view('payments.create', compact('registration', 'bank', 'orderId', 'whatsapp'));
+        $account = $registration?->event?->account;
+
+        return view('payments.create', compact('registration', 'bank', 'account', 'orderCode', 'whatsapp', 'orderExpiredOrCancelled'));
     }
 
     /**
-     * Public: verifikasi order_id + whatsapp (POST untuk cek, lalu redirect ke form dengan data).
+     * Public: verifikasi order_code + whatsapp (POST untuk cek, lalu redirect ke form dengan data).
      */
     public function verify(Request $request)
     {
         $validated = $request->validate([
-            'order_id' => ['required', 'integer', 'exists:orders,id'],
+            'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
         ]);
 
-        $order = Order::with('registration.rider.user')->findOrFail($validated['order_id']);
+        $order = Order::with('registration.rider.user')->where('order_code', $validated['order_code'])->firstOrFail();
+        if ($order->isExpired() || $order->isCancelled()) {
+            return redirect()->route('payment.create')
+                ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
+                ->withInput();
+        }
         $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
@@ -62,7 +109,7 @@ class PaymentController extends Controller
         }
 
         return redirect()->route('payment.create', [
-            'order_id' => $order->id,
+            'order_code' => $order->order_code,
             'whatsapp' => $request->input('whatsapp'),
         ])->withInput();
     }
@@ -73,12 +120,17 @@ class PaymentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'order_id' => ['required', 'integer', 'exists:orders,id'],
+            'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
             'transfer_proof' => ['required', 'file', 'image', 'max:5120'], // 5MB
         ]);
 
-        $order = Order::with('registration.rider.user', 'registration.package')->findOrFail($validated['order_id']);
+        $order = Order::with('registration.rider.user', 'registration.package')->where('order_code', $validated['order_code'])->firstOrFail();
+        if ($order->isExpired() || $order->isCancelled()) {
+            return redirect()->route('payment.create')
+                ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
+                ->withInput();
+        }
         $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
@@ -92,10 +144,16 @@ class PaymentController extends Controller
         $payment = $registration->payment;
 
         if ($payment) {
-            if (! $payment->isPending()) {
-                return redirect()->route('payment.create', ['order_id' => $order->id])
+            if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()) {
+                return redirect()->route('payment.create', ['order_code' => $order->order_code])
                     ->with('error', __('This payment has already been processed.'))
                     ->withInput();
+            }
+            if ($payment->isExpired()) {
+                $payment->status = Payment::STATUS_PENDING;
+                $payment->admin_notes = null;
+                $payment->reviewed_at = null;
+                $payment->reviewed_by = null;
             }
             if ($payment->transfer_proof_path && Storage::disk('public')->exists($payment->transfer_proof_path)) {
                 Storage::disk('public')->delete($payment->transfer_proof_path);
@@ -105,6 +163,7 @@ class PaymentController extends Controller
             $payment->registration_id = $registration->id;
             $payment->amount = $amount;
             $payment->status = Payment::STATUS_PENDING;
+            $payment->expires_at = now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES);
         }
 
         $path = $request->file('transfer_proof')->store('payments/proofs', 'public');
@@ -115,7 +174,7 @@ class PaymentController extends Controller
         $payment->save();
 
         return redirect()->route('payment.create', [
-            'order_id' => $order->id,
+            'order_code' => $order->order_code,
             'whatsapp' => $request->input('whatsapp'),
         ])->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
     }
@@ -146,8 +205,10 @@ class PaymentController extends Controller
     {
         abort_unless(auth()->user()->canAs('event.update'), 403);
 
+        $registration = $payment->registration;
+
         if (! $payment->isPending()) {
-            return redirect()->route('payments.index')
+            return redirect()->route('events.registrations.show', [$registration->event, $registration])
                 ->with('error', __('Payment is not pending.'));
         }
 
@@ -156,13 +217,17 @@ class PaymentController extends Controller
         ]);
 
         $payment->update([
-            'status' => Payment::STATUS_APPROVED,
+            'status' => Payment::STATUS_SUCCESS,
             'admin_notes' => $validated['admin_notes'] ?? null,
             'reviewed_at' => now(),
             'reviewed_by' => auth()->id(),
         ]);
 
-        return redirect()->route('payments.index')
+        $payment->registration->order?->update(['status' => Order::STATUS_PAID]);
+
+        TicketService::ensureTicketForRegistration($payment->registration);
+
+        return redirect()->route('events.registrations.show', [$registration->event, $registration])
             ->with('status', __('Payment approved.'));
     }
 
@@ -173,8 +238,10 @@ class PaymentController extends Controller
     {
         abort_unless(auth()->user()->canAs('event.update'), 403);
 
+        $registration = $payment->registration;
+
         if (! $payment->isPending()) {
-            return redirect()->route('payments.index')
+            return redirect()->route('events.registrations.show', [$registration->event, $registration])
                 ->with('error', __('Payment is not pending.'));
         }
 
@@ -183,13 +250,69 @@ class PaymentController extends Controller
         ]);
 
         $payment->update([
-            'status' => Payment::STATUS_REJECTED,
+            'status' => Payment::STATUS_FAILED,
             'admin_notes' => $validated['admin_notes'] ?? null,
             'reviewed_at' => now(),
             'reviewed_by' => auth()->id(),
         ]);
 
-        return redirect()->route('payments.index')
+        return redirect()->route('events.registrations.show', [$registration->event, $registration])
             ->with('status', __('Payment rejected.'));
+    }
+
+    /**
+     * Admin: tandai payment expired dan buat order baru (order_code baru). Order lama tidak dipakai lagi.
+     */
+    public function expire(Request $request, Payment $payment)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+
+        if ($payment->isSuccess()) {
+            return redirect()->route('payments.index')
+                ->with('error', __('Cannot expire a successful payment.'));
+        }
+
+        $registration = $payment->registration;
+
+        $payment->update(['status' => Payment::STATUS_EXPIRED]);
+
+        $newOrder = Order::createNewOrderForRegistration($registration);
+
+        return redirect()->route('payments.index')
+            ->with('status', __('Payment marked as expired. New order code: :order_code. Send new payment link to the customer.', ['order_code' => $newOrder->order_code]))
+            ->with('new_order_code', $newOrder->order_code);
+    }
+
+    /**
+     * Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay.
+     */
+    private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
+    {
+        $user = $reg->rider->user;
+        if (! $user) {
+            return;
+        }
+
+        $paymentLinkUrl = route('payment.create', [
+            'order_code' => $order->order_code,
+            'whatsapp' => $user->whatsapp ?? '',
+        ]);
+        $eventTitle = $reg->event->title ?? config('app.name');
+        $recipientName = $user->name ?: $reg->rider->name;
+
+        if ($user->whatsapp) {
+            $waMessage = trim(View::make('whatsapp.payment-link', [
+                'recipientName' => $recipientName,
+                'eventTitle' => $eventTitle,
+                'registration' => $reg->loadMissing(['rider', 'bracket', 'package']),
+                'paymentLinkUrl' => $paymentLinkUrl,
+                'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
+            ])->render());
+            app(WhacenterService::class)->sendMessage($user->whatsapp, $waMessage);
+        }
+
+        if ($user->email) {
+            Mail::to($user->email)->send(new PaymentLinkMail($paymentLinkUrl, $eventTitle, $recipientName));
+        }
     }
 }
