@@ -14,7 +14,9 @@ class OrganizerPendingDigestCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'organizers:pending-digest';
+    protected $signature = 'organizers:pending-digest
+                            {--check : Hanya cek data (tampilkan nomor WA admin, tidak kirim)}
+                            {--hours=1 : Jangka waktu (jam) untuk data pending}';
 
     /**
      * The console command description.
@@ -28,41 +30,61 @@ class OrganizerPendingDigestCommand extends Command
      */
     public function handle(WhacenterService $whacenter): int
     {
-        if (! config('services.whacenter.device_id')) {
+        $checkOnly = (bool) $this->option('check');
+        $hours = max(1, (int) $this->option('hours'));
+        $since = now()->subHours($hours);
+
+        if (! config('services.whacenter.device_id') && ! $checkOnly) {
             $this->warn('WHACENTER_DEVICE_ID belum di-set, skip digest.');
             return self::SUCCESS;
         }
 
-        $since = now()->subHour();
-
-        // Pending orders (status pending_payment) yang baru dibuat dalam 1 jam terakhir
+        // Pending orders (status pending_payment) yang baru dibuat dalam N jam terakhir
         $orders = Order::query()
             ->pendingPayment()
             ->where('created_at', '>=', $since)
             ->with(['registration.event.organizer.user'])
             ->get();
 
-        // Pending payments yang baru dibuat dalam 1 jam terakhir
+        // Pending payments yang baru dibuat dalam N jam terakhir
         $payments = Payment::query()
             ->where('status', Payment::STATUS_PENDING)
             ->where('created_at', '>=', $since)
             ->with(['registration.event.organizer.user'])
             ->get();
 
+        $this->info("Data: {$orders->count()} pending order(s), {$payments->count()} pending payment(s) (dalam {$hours} jam terakhir).");
+
         if ($orders->isEmpty() && $payments->isEmpty()) {
-            $this->info('Tidak ada pending order/payment baru dalam 1 jam terakhir.');
+            $this->info('Tidak ada pending order/payment baru dalam jangka waktu tersebut.');
             return self::SUCCESS;
+        }
+
+        // Diagnostik: tampilkan event -> organizer -> user -> whatsapp untuk setiap order/payment
+        $seen = [];
+        foreach ($orders as $order) {
+            $this->logAdminLookup($order->registration?->event, $order->id, 'order', $seen);
+        }
+        foreach ($payments as $payment) {
+            $this->logAdminLookup($payment->registration?->event, $payment->id, 'payment', $seen);
         }
 
         // Group per admin organizer (user_id)
         $byOrganizer = [];
+        $skippedNoUser = 0;
+        $skippedNoWhatsapp = 0;
 
         foreach ($orders as $order) {
             $event = $order->registration?->event;
             $organizer = $event?->organizer;
             $user = $organizer?->user;
 
-            if (! $user || ! $user->whatsapp) {
+            if (! $user) {
+                $skippedNoUser++;
+                continue;
+            }
+            if (empty(trim((string) $user->whatsapp))) {
+                $skippedNoWhatsapp++;
                 continue;
             }
 
@@ -82,7 +104,12 @@ class OrganizerPendingDigestCommand extends Command
             $organizer = $event?->organizer;
             $user = $organizer?->user;
 
-            if (! $user || ! $user->whatsapp) {
+            if (! $user) {
+                $skippedNoUser++;
+                continue;
+            }
+            if (empty(trim((string) $user->whatsapp))) {
+                $skippedNoWhatsapp++;
                 continue;
             }
 
@@ -97,8 +124,28 @@ class OrganizerPendingDigestCommand extends Command
             $byOrganizer[$key]['events'][$eventKey]['payments'] = ($byOrganizer[$key]['events'][$eventKey]['payments'] ?? 0) + 1;
         }
 
+        $this->info("Organizer tanpa user_id: {$skippedNoUser} item di-skip. User tanpa WhatsApp: {$skippedNoWhatsapp} item di-skip.");
+
+        if ($checkOnly) {
+            $this->newLine();
+            $this->info('--- Mode --check: tidak mengirim WA ---');
+            if ($byOrganizer === []) {
+                $this->warn('Tidak ada admin event dengan nomor WhatsApp yang ketemu. Pastikan: Event punya organizer_id, Organizer punya user_id, User punya whatsapp diisi.');
+            } else {
+                $this->table(
+                    ['User ID', 'Nama', 'WhatsApp', 'Event(s)'],
+                    collect($byOrganizer)->map(function ($data) {
+                        $u = $data['user'];
+                        $eventTitles = collect($data['events'])->pluck('event.title')->filter()->unique()->values()->join(', ');
+                        return [$u->id, $u->name ?? '-', $u->whatsapp ?? '(kosong)', $eventTitles ?: '-'];
+                    })->values()->all()
+                );
+            }
+            return self::SUCCESS;
+        }
+
         if ($byOrganizer === []) {
-            $this->info('Tidak ada organizer dengan WhatsApp untuk dikirimi digest.');
+            $this->warn('Tidak ada organizer dengan WhatsApp untuk dikirimi digest. Jalankan dengan --check untuk cek data.');
             return self::SUCCESS;
         }
 
@@ -159,5 +206,25 @@ class OrganizerPendingDigestCommand extends Command
         $this->info("Total digest terkirim: {$totalSent}");
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Log diagnostik: event -> organizer -> user -> whatsapp (per event, sekali saja).
+     */
+    private function logAdminLookup(?\App\Models\Event $event, int $itemId, string $type, array &$seen): void
+    {
+        if (! $event) {
+            $this->line("  [{$type} #{$itemId}] Event: (null)");
+            return;
+        }
+        $key = $event->id;
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $organizer = $event->organizer;
+        $user = $organizer?->user;
+        $wa = $user && trim((string) $user->whatsapp) !== '' ? $user->whatsapp : '(kosong/tidak ada)';
+        $this->line("  Event: {$event->title} (id={$event->id}) | Organizer: " . ($organizer?->name ?? 'null') . " (id=" . ($organizer?->id ?? 'null') . ") | User: " . ($user?->name ?? 'null') . " (id=" . ($user?->id ?? 'null') . ") | WA: {$wa}");
     }
 }

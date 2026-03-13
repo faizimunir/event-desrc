@@ -45,7 +45,7 @@ test('super_admin can create user with roles', function () {
     $response = $this->actingAs($user)->post(route('users.store'), [
         'name' => 'New User',
         'email' => 'new@example.com',
-        'phone' => '08123456789',
+        'whatsapp' => '08123456789',
         'password' => 'Password123!',
         'password_confirmation' => 'Password123!',
         'roles' => ['member'],

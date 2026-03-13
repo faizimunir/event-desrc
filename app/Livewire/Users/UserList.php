@@ -46,7 +46,7 @@ class UserList extends Component
                 $q->where(function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
                         ->orWhere('email', 'like', '%'.$this->search.'%')
-                        ->orWhere('phone', 'like', '%'.$this->search.'%');
+                        ->orWhere('whatsapp', 'like', '%'.$this->search.'%');
                 });
             })
             ->when($this->roleFilter !== '', fn ($q) => $q->whereHas('roles', fn ($q) => $q->where('name', $this->roleFilter)))

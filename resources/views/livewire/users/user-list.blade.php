@@ -3,7 +3,7 @@
         <flux:input
             wire:model.live.debounce.500ms="search"
             type="search"
-            :placeholder="__('Search by name, email, phone…')"
+            :placeholder="__('Search by name, email, WhatsApp…')"
             class="min-w-0 flex-1"
         />
         <flux:select wire:model.live="roleFilter" :placeholder="__('All roles')" class="w-full sm:w-48">
@@ -19,7 +19,7 @@
                 <tr>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Name') }}</th>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Email') }}</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Phone') }}</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('WhatsApp') }}</th>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Roles') }}</th>
                 </tr>
             </thead>
@@ -42,7 +42,7 @@
                     @endcanAs
                         <td class="whitespace-nowrap px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $user->name }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{{ $user->email ?? '—' }}</td>
-                        <td class="whitespace-nowrap px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{{ $user->phone ?? '—' }}</td>
+                        <td class="whitespace-nowrap px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{{ $user->whatsapp ?? '—' }}</td>
                         <td class="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
                             @foreach ($user->roles as $role)
                                 <flux:badge color="zinc" class="me-1" size="sm">{{ $role->name }}</flux:badge>

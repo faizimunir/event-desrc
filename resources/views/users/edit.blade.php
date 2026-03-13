@@ -21,8 +21,8 @@
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
 
-            <flux:input name="phone" type="text" :label="__('Phone (WA)')" :value="old('phone', $user->phone)" />
-            @error('phone')
+            <flux:input name="whatsapp" type="text" :label="__('WhatsApp')" :value="old('whatsapp', $user->whatsapp)" />
+            @error('whatsapp')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
 

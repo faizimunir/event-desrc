@@ -32,7 +32,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users,email'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'whatsapp' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', 'exists:roles,name'],
@@ -41,7 +41,7 @@ class UserController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'] ?: null,
-            'phone' => $validated['phone'] ?: null,
+            'whatsapp' => $validated['whatsapp'] ?: null,
             'password' => $validated['password'],
         ]);
 
@@ -71,7 +71,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'whatsapp' => ['nullable', 'string', 'max:50'],
             'password' => ['nullable', 'string', 'confirmed', Password::defaults()],
             'roles' => ['nullable', 'array'],
             'roles.*' => ['string', 'exists:roles,name'],
@@ -80,7 +80,7 @@ class UserController extends Controller
         $user->fill([
             'name' => $validated['name'],
             'email' => $validated['email'] ?: null,
-            'phone' => $validated['phone'] ?: null,
+            'whatsapp' => $validated['whatsapp'] ?: null,
         ]);
 
         if (! empty($validated['password'])) {
