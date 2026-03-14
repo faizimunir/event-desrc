@@ -42,11 +42,11 @@
             @error('quota')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
+            <flux:checkbox name="hide_quota" value="1" :checked="old('hide_quota', false)" :label="__('Hide quota')" />
 
             <div>
                 <flux:label class="mb-2 block">{{ __('Rule type (classification)') }}</flux:label>
-                <flux:select name="rule_type" x-model="ruleType" class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100">
-                    <flux:select.option value="">{{ __('— None —') }}</flux:select.option>
+                <flux:select name="rule_type" :placeholder="__('Rule type')" x-model="ruleType" class="w-full">
                     <option value="age" {{ (old('rule_type', $event->isCategoryUmur() ? 'age' : 'birth_year') === 'age') ? 'selected' : '' }}>{{ __('Age') }}</option>
                     <option value="birth_year" {{ (old('rule_type', $event->isCategoryUmur() ? 'age' : 'birth_year') === 'birth_year') ? 'selected' : '' }}>{{ __('Birth year') }}</option>
                 </flux:select>

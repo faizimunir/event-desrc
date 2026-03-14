@@ -26,7 +26,6 @@
             <div>
                 <flux:label class="mb-2 block">{{ __('Gender rule') }}</flux:label>
                 <flux:select name="gender_rule" :placeholder="__('No restriction')" class="w-full">
-                    <flux:select.option value="">{{ __('— No restriction —') }}</flux:select.option>
                     <flux:select.option value="boys" :selected="old('gender_rule', $bracket->gender_rule) === 'boys'">{{ __('Boys') }}</flux:select.option>
                     <flux:select.option value="girls" :selected="old('gender_rule', $bracket->gender_rule) === 'girls'">{{ __('Girls') }}</flux:select.option>
                 </flux:select>
@@ -35,22 +34,11 @@
                 @enderror
             </div>
 
-            <div>
-                <flux:label class="mb-2 block">{{ __('Rule type (classification)') }}</flux:label>
-                <select name="rule_type" x-model="ruleType" class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100">
-                    <option value="">{{ __('— None —') }}</option>
-                    <option value="age" {{ old('rule_type', $bracket->rule_type) === 'age' ? 'selected' : '' }}>{{ __('Age') }}</option>
-                    <option value="birth_year" {{ old('rule_type', $bracket->rule_type) === 'birth_year' ? 'selected' : '' }}>{{ __('Birth year') }}</option>
-                </select>
-                @error('rule_type')
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-                @enderror
-            </div>
-
             <flux:input name="quota" type="number" :label="__('Quota')" :value="old('quota', $bracket->quota)" min="1" placeholder="{{ __('Max riders') }}" />
             @error('quota')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
+            <flux:checkbox name="hide_quota" value="1" :checked="old('hide_quota', $bracket->hide_quota)" :label="__('Hide quota')" />
 
             <div x-show="ruleType === 'age'" x-cloak class="space-y-4 rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                 <h3 class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('Age range') }}</h3>
@@ -66,6 +54,17 @@
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
                 @enderror
                 @error('age_ref_date')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <flux:label class="mb-2 block">{{ __('Rule type (classification)') }}</flux:label>
+                <flux:select name="rule_type" :placeholder="__('Rule type')" x-model="ruleType" class="w-full">
+                    <flux:select.option value="age" :selected="(old('rule_type', $bracket->rule_type) ?? '') === 'age'">{{ __('Age') }}</flux:select.option>
+                    <flux:select.option value="birth_year" :selected="(old('rule_type', $bracket->rule_type) ?? '') === 'birth_year'">{{ __('Birth year') }}</flux:select.option>
+                </flux:select>
+                @error('rule_type')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
                 @enderror
             </div>

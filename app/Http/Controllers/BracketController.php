@@ -35,6 +35,7 @@ class BracketController extends Controller
             'age_max' => $request->input('age_max') !== '' && $request->input('age_max') !== null ? (int) $request->input('age_max') : null,
             'age_ref_date' => $request->input('age_ref_date') ?: null,
             'quota' => $request->input('quota') !== '' && $request->input('quota') !== null ? (int) $request->input('quota') : null,
+            'hide_quota' => $request->boolean('hide_quota'),
         ]);
 
         $validated = $request->validate([
@@ -47,9 +48,11 @@ class BracketController extends Controller
             'age_max' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_min', 'required_if:rule_type,age'],
             'age_ref_date' => ['nullable', 'date', 'required_if:rule_type,age'],
             'quota' => ['nullable', 'integer', 'min:1'],
+            'hide_quota' => ['boolean'],
         ]);
 
         $validated = $this->normalizeBracketRules($validated);
+        $validated['hide_quota'] = $request->boolean('hide_quota');
         $event->brackets()->create($validated);
 
         return redirect()->route('events.brackets.index', $event)->with('status', __('Bracket created.'));
@@ -79,6 +82,7 @@ class BracketController extends Controller
             'age_max' => $request->input('age_max') !== '' && $request->input('age_max') !== null ? (int) $request->input('age_max') : null,
             'age_ref_date' => $request->input('age_ref_date') ?: null,
             'quota' => $request->input('quota') !== '' && $request->input('quota') !== null ? (int) $request->input('quota') : null,
+            'hide_quota' => $request->boolean('hide_quota'),
         ]);
 
         $validated = $request->validate([
@@ -91,9 +95,11 @@ class BracketController extends Controller
             'age_max' => ['nullable', 'integer', 'min:0', 'max:120', 'gte:age_min', 'required_if:rule_type,age'],
             'age_ref_date' => ['nullable', 'date', 'required_if:rule_type,age'],
             'quota' => ['nullable', 'integer', 'min:1'],
+            'hide_quota' => ['boolean'],
         ]);
 
         $validated = $this->normalizeBracketRules($validated);
+        $validated['hide_quota'] = $request->boolean('hide_quota');
         $bracket->update($validated);
 
         return redirect()->route('events.brackets.index', $event)->with('status', __('Bracket updated.'));

@@ -61,10 +61,12 @@
                         @php $remaining = $b->remainingQuota(); @endphp
                         <option value="{{ $b->id }}" @if ($remaining !== null && $remaining <= 0) disabled @endif>
                             {{ $b->name }}
-                            @if ($remaining !== null)
-                                ({{ __(':count slot(s) left', ['count' => $remaining]) }})
-                            @else
-                                ({{ __('Open') }})
+                            @if (!$b->hide_quota)
+                                @if ($remaining !== null)
+                                    ({{ __(':count slot(s) left', ['count' => $remaining]) }})
+                                @else
+                                    ({{ __('Open') }})
+                                @endif
                             @endif
                         </option>
                     @endforeach

@@ -6,6 +6,12 @@
             :placeholder="__('Search by name…')"
             class="min-w-0 flex-1"
         />
+        @canAs('bracket.update')
+            <flux:field variant="inline" class="shrink-0">
+                <flux:label class="mb-0">{{ __('Hide quota for all brackets') }}</flux:label>
+                <flux:switch wire:model.live="hideAllQuota" />
+            </flux:field>
+        @endcanAs
     </div>
 
     <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">

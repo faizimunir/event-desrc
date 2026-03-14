@@ -32,6 +32,7 @@ class Bracket extends Model
         'age_max',
         'age_ref_date',
         'quota',
+        'hide_quota',
     ];
 
     protected function casts(): array
@@ -39,6 +40,7 @@ class Bracket extends Model
         return [
             'age_ref_date' => 'date',
             'quota' => 'integer',
+            'hide_quota' => 'boolean',
         ];
     }
 

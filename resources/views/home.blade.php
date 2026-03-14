@@ -56,7 +56,7 @@
                                         </div>
                                     @endif
                                     <div class="absolute bottom-2 right-2">
-                                        <flux:badge variant="solid" color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveDone() ? 'zinc' : 'blue') }}" size="sm">{{ $event->effective_status_label }}</flux:badge>
+                                        <flux:badge variant="solid" color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}" size="sm">{{ $event->effective_status_label }}</flux:badge>
                                     </div>
                                 </div>
                                 <div class="p-5">

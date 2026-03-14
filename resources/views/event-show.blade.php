@@ -238,7 +238,7 @@
                                     <li>
                                         <flux:badge color="zinc" size="sm">
                                             {{ $bracket->name }}
-                                            @if ($remaining !== null)
+                                            @if (!$bracket->hide_quota && $remaining !== null)
                                                 <span
                                                     class="ml-1 text-zinc-500">({{ $remaining }}/{{ $bracket->quota }})</span>
                                             @endif
@@ -403,19 +403,22 @@
                                     class="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                                     {{ __('Registration') }}</h2>
                                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                    @if ($event->isRegistrationOpen())
+                                    @if ($event->isEffectiveOpenRegist())
                                         {{ __('Registration open until :date', ['date' => $event->registration_closes_at?->format('d F Y H:i') ?? '—']) }}
-                                    @else
+                                    @elseif ($event->isEffectivePublished())
                                         {{ __('Early registration') }} —
                                         {{ __('Registration opens on :date', ['date' => $event->registration_opens_at?->format('d F Y H:i') ?? '—']) }}
+                                    @elseif ($event->isEffectiveClosedRegist() || $event->isEffectiveDone())
+                                        {{ __('Registration closed') }}
+                                        @if ($event->registration_closes_at)
+                                            — {{ __('Closed on :date', ['date' => $event->registration_closes_at->format('d F Y H:i')]) }}
+                                        @endif
+                                    @else
+                                        {{ $event->effective_status_label }}
                                     @endif
                                 </p>
                             </div>
-                            @if ($event->isRegistrationOpen())
-                                <flux:badge color="green" size="sm">{{ __('Open') }}</flux:badge>
-                            @else
-                                <flux:badge color="blue" size="sm">{{ __('Early access') }}</flux:badge>
-                            @endif
+                            <flux:badge variant="solid" color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveDone() || $event->isEffectiveClosedRegist() ? 'zinc' : 'blue') }}" size="sm">{{ $event->isEffectiveOpenRegist() ? __('Open') : ($event->isEffectivePublished() ? __('Early access') : $event->effective_status_label) }}</flux:badge>
                         </div>
 
                         <div class="mt-6">
@@ -428,6 +431,7 @@
                                         $quota = $bracket->quota;
                                         $remaining = $bracket->remainingQuota();
                                         $isFull = $remaining !== null && $remaining <= 0;
+                                        $showQuota = !$bracket->hide_quota && $quota !== null;
                                         $progressPct = $quota
                                             ? min(100, (int) round(($registered / max(1, $quota)) * 100))
                                             : 0;
@@ -449,7 +453,7 @@
                                             @endif
                                         </div>
 
-                                        @if ($quota !== null)
+                                        @if ($showQuota)
                                             <div
                                                 class="mt-3 h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
                                                 <div class="h-full bg-amber-500" style="width: {{ $progressPct }}%">
@@ -458,7 +462,7 @@
                                             <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                                 {{ __(':used / :quota registered', ['used' => $registered, 'quota' => $quota]) }}
                                             </p>
-                                        @else
+                                        @elseif (!$bracket->hide_quota)
                                             <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                                 {{ __('Unlimited quota') }}</p>
                                         @endif

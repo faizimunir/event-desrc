@@ -245,17 +245,27 @@ class Event extends Model
     /**
      * Status efektif berdasarkan tanggal: otomatis open_regist saat registration_opens_at lewat,
      * otomatis closed_regist saat registration_closes_at lewat.
+     * Constraint: registration_closes_at didahulukan agar status tidak tetap open_regist setelah tutup.
      */
     public function getEffectiveStatusAttribute(): string
     {
         $now = now();
 
+        // Sudah lewat registration_closes_at → closed_regist (untuk published/open_regist)
+        if ($this->registration_closes_at && $now->gte($this->registration_closes_at)) {
+            if ($this->status === self::STATUS_PUBLISHED || $this->status === self::STATUS_OPEN_REGIST) {
+                return self::STATUS_CLOSED_REGIST;
+            }
+        }
+
+        // Published + registration_opens_at sudah lewat → open_regist
         if ($this->status === self::STATUS_PUBLISHED
             && $this->registration_opens_at
             && $now->gte($this->registration_opens_at)) {
             return self::STATUS_OPEN_REGIST;
         }
 
+        // Open_regist + registration_closes_at sudah lewat (status manual) → closed_regist
         if ($this->status === self::STATUS_OPEN_REGIST
             && $this->registration_closes_at
             && $now->gte($this->registration_closes_at)) {
@@ -308,13 +318,12 @@ class Event extends Model
         return $this->effective_status === self::STATUS_DONE;
     }
 
-    /** Apakah pendaftaran sedang dibuka (berdasarkan tanggal). */
+    /**
+     * Apakah pendaftaran sedang dibuka.
+     * Constraint: mengikuti effective_status (registration_opens_at / registration_closes_at sudah diperhitungkan di effective_status).
+     */
     public function isRegistrationOpen(): bool
     {
-        if (!$this->registration_opens_at || !$this->registration_closes_at) {
-            return $this->isEffectiveOpenRegist();
-        }
-        $now = now();
-        return $now->gte($this->registration_opens_at) && $now->lt($this->registration_closes_at);
+        return $this->isEffectiveOpenRegist();
     }
 }
