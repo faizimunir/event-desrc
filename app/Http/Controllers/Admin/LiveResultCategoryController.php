@@ -20,7 +20,7 @@ class LiveResultCategoryController extends Controller
      */
     public function index(Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('view', $event);
 
         $this->reorderCategories($event);
@@ -35,7 +35,7 @@ class LiveResultCategoryController extends Controller
 
     public function fetchSheets(Request $request, Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
 
         $request->validate([
             'spreadsheet_id' => 'required|string',
@@ -59,7 +59,7 @@ class LiveResultCategoryController extends Controller
 
     public function store(Request $request, Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
         $validated = $request->validate([
@@ -86,7 +86,7 @@ class LiveResultCategoryController extends Controller
 
     public function update(Request $request, Event $event, LiveResultCategory $liveResultCategory)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
         if ($liveResultCategory->event_id !== $event->id) {
@@ -111,7 +111,7 @@ class LiveResultCategoryController extends Controller
 
     public function destroy(Event $event, LiveResultCategory $liveResultCategory)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
         if ($liveResultCategory->event_id !== $event->id) {
@@ -128,7 +128,7 @@ class LiveResultCategoryController extends Controller
 
     public function syncCategory(Event $event, LiveResultCategory $liveResultCategory)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
         if ($liveResultCategory->event_id !== $event->id) {
@@ -161,7 +161,7 @@ class LiveResultCategoryController extends Controller
 
     public function syncAll(Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
         $categories = LiveResultCategory::where('event_id', $event->id)
@@ -198,7 +198,7 @@ class LiveResultCategoryController extends Controller
      */
     public function printPreview(Request $request, Event $event, LiveResultCategory $liveResultCategory)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('view', $event);
         if ($liveResultCategory->event_id !== $event->id) {
             abort(404);
@@ -248,7 +248,7 @@ class LiveResultCategoryController extends Controller
      */
     public function printCenter()
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        abort_unless(auth()->user()->canAs('access_print_center'), 403);
 
         $events = Event::with(['liveResultCategories' => function ($query) {
             $query->where('is_active', true)
@@ -266,7 +266,7 @@ class LiveResultCategoryController extends Controller
      */
     public function printCenterPreview(Request $request)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        abort_unless(auth()->user()->canAs('access_print_center'), 403);
 
         $request->validate(['event_id' => 'required|exists:events,id']);
 

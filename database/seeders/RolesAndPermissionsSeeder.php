@@ -31,6 +31,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'team.create','team.read','team.update','team.delete',
             'account.create','account.read','account.update','account.delete',
             'payment.read',
+            'manage_live_results',
+            'access_print_center',
         ];
 
         $guard = config('auth.defaults.guard');
@@ -64,6 +66,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'team.create','team.read','team.update','team.delete',
             'account.create','account.read','account.update','account.delete',
             'payment.read',
+            'manage_live_results',
+            'access_print_center',
         ]);
         $organizer->syncPermissions([
             'event.create','event.read','event.update','event.delete',
@@ -73,6 +77,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'track.create','track.read','track.update','track.delete',
             'checkin.create','checkin.read','checkin.update','checkin.delete',
             'payment.read',
+            'manage_live_results',
+            'access_print_center',
         ]);
         $committee->syncPermissions([
             'event.create','event.read','event.update','event.delete',

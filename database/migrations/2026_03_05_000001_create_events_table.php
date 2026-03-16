@@ -22,6 +22,7 @@ return new class extends Migration
             $table->foreignId('location_id')->nullable()->constrained()->nullOnDelete();
             $table->string('poster')->nullable();
             $table->string('status')->default('draft');
+            $table->boolean('has_live_result')->default(false);
             $table->dateTime('registration_opens_at')->nullable();
             $table->dateTime('registration_closes_at')->nullable();
             $table->timestamps();

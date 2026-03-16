@@ -34,7 +34,7 @@
                 @canAs('checkin.read')
                     <flux:tab name="checkin" :selected="$firstTab === 'checkin'" icon="check-badge">{{ __('Check-in') }}</flux:tab>
                 @endcanAs
-                @canAs('event.read')
+                @canAs('manage_live_results')
                     <flux:tab name="live-result" :selected="$firstTab === 'live-result'" icon="chart-bar">{{ __('Kelola Live Result') }}</flux:tab>
                 @endcanAs
             </flux:tabs>
@@ -232,7 +232,7 @@
                 </flux:tab.panel>
             @endcanAs
 
-            @canAs('event.read')
+            @canAs('manage_live_results')
                 <flux:tab.panel name="live-result" :selected="$firstTab === 'live-result'">
                     @include('admin.live-result-categories.partials.manage', ['event' => $event, 'categories' => $categories])
                 </flux:tab.panel>

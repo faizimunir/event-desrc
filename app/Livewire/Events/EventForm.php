@@ -121,11 +121,20 @@ class EventForm extends Component
             abort_unless(auth()->user()->canAs('event.create'), 403);
         }
 
+        $user = auth()->user();
+
         $this->organizer_id = $this->organizer_id ?: null;
         $this->racing_committee_id = $this->racing_committee_id ?: null;
         $this->master_of_ceremony_id = $this->master_of_ceremony_id ?: null;
         $this->location_id = $this->location_id ?: null;
         $this->account_id = $this->account_id ?: null;
+
+        if (! $this->event && $this->organizer_id === null && ! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+            $autoOrganizerId = Organizer::where('user_id', $user->id)->value('id');
+            if ($autoOrganizerId) {
+                $this->organizer_id = (string) $autoOrganizerId;
+            }
+        }
 
         $rules = [
             'title' => ['required', 'string', 'max:255'],

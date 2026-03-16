@@ -69,6 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('events/{event}/live-result-categories/{liveResultCategory}/print', [LiveResultCategoryController::class, 'printPreview'])->name('events.live-result-categories.print');
     Route::post('events/{event}/live-result-categories/{liveResultCategory}/sync', [LiveResultCategoryController::class, 'syncCategory'])->name('events.live-result-categories.sync');
     Route::post('events/{event}/live-result-categories-sync-all', [LiveResultCategoryController::class, 'syncAll'])->name('events.live-result-categories.sync-all');
+    Route::post('events/{event}/live-result-flag', [EventController::class, 'updateLiveResultFlag'])->name('events.live-result.flag');
     Route::get('print-center', [LiveResultCategoryController::class, 'printCenter'])->name('print-center.index');
     Route::get('print-center/preview', [LiveResultCategoryController::class, 'printCenterPreview'])->name('print-center.preview');
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
