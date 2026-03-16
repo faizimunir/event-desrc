@@ -9,12 +9,37 @@
     <flux:sidebar sticky collapsible
         class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
-            <flux:sidebar.brand
-                href="#"
-                logo="https://fluxui.dev/img/demo/logo.png"
-                logo:dark="https://fluxui.dev/img/demo/dark-mode-logo.png"
-                name="Acme Inc."
-            />
+            <flux:sidebar.brand href="{{ route('dashboard') }}" class="flex items-center">
+                <x-slot name="logo">
+                    {{-- Logo utama (sidebar lebar) --}}
+                    <div class="flex items-center justify-center in-data-flux-sidebar-collapsed-desktop:hidden">
+                        <img
+                            src="{{ asset('logo-light.webp') }}"
+                            alt="Logo"
+                            class="h-6 w-auto dark:hidden"
+                        >
+                        <img
+                            src="{{ asset('logo-dark.webp') }}"
+                            alt="Logo"
+                            class="h-6 w-auto hidden dark:block"
+                        >
+                    </div>
+
+                    {{-- Logo kecil untuk sidebar collapsed --}}
+                    <div class="hidden in-data-flux-sidebar-collapsed-desktop:block">
+                        <img
+                            src="{{ asset('toogle-light.webp') }}"
+                            alt="Logo"
+                            class="h-5 w-auto dark:hidden"
+                        >
+                        <img
+                            src="{{ asset('toogle-dark.webp') }}"
+                            alt="Logo"
+                            class="h-5 w-auto hidden dark:block"
+                        >
+                    </div>
+                </x-slot>
+            </flux:sidebar.brand>
             <flux:sidebar.collapse class="in-data-flux-sidebar-on-desktop:not-in-data-flux-sidebar-collapsed-desktop:-mr-2" />
         </flux:sidebar.header>
 
