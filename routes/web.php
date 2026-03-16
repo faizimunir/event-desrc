@@ -115,9 +115,9 @@ Route::post('{event}/register', [RegistrationController::class, 'store'])->name(
 // Early registration: verify access code (modal on event-show)
 Route::post('early-access/{event:slug}', [EventController::class, 'verifyEarlyAccess'])->name('events.early-access.verify');
 
-// Live Result (public) — must be before catch-all {event:slug}
+// Live Result (public) — akses langsung via slug: desrc.id/{slug}
 Route::get('live-result', [LiveResultController::class, 'index'])->name('live-result.index');
-Route::get('live-result/{event:slug}', [LiveResultController::class, 'show'])->name('live-result.show');
+Route::get('/{event:slug}', [LiveResultController::class, 'show'])->name('live-result.show');
 
-// Public event by slug: desrc.id/{slug} (must be last so it doesn't override named routes)
-Route::get('/{event:slug}', [EventController::class, 'showBySlug'])->name('events.public.show');
+// Public event by slug: desrc.id/event/{slug} (diletakkan setelah live result agar slug utama dipakai untuk live result)
+Route::get('event/{event:slug}', [EventController::class, 'showBySlug'])->name('events.public.show');
