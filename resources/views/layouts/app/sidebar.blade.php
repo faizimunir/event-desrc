@@ -63,6 +63,8 @@
                     wire:navigate>
                     {{ __('Events') }}
                 </flux:sidebar.item>
+                @endcanAs
+                @canAs('access_print_center')
                 <flux:sidebar.item icon="printer" :href="route('print-center.index')" :current="request()->routeIs('print-center.*')"
                     wire:navigate>
                     {{ __('Print Center') }}

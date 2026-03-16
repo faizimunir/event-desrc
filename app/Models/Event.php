@@ -60,6 +60,7 @@ class Event extends Model
         'logo_url',
         'size_chart',
         'status',
+        'has_live_result',
         'registration_opens_at',
         'registration_closes_at',
     ];
@@ -107,6 +108,7 @@ class Event extends Model
             'end_at' => 'datetime',
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
+            'has_live_result' => 'boolean',
         ];
     }
 

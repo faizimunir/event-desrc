@@ -176,4 +176,22 @@ class EventController extends Controller
 
         return redirect()->route('events.index')->with('status', __('Event deleted.'));
     }
+
+    public function updateLiveResultFlag(Request $request, Event $event)
+    {
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
+        $this->authorize('update', $event);
+
+        $validated = $request->validate([
+            'has_live_result' => ['required', 'boolean'],
+        ]);
+
+        $event->update([
+            'has_live_result' => (bool) $validated['has_live_result'],
+        ]);
+
+        return redirect()
+            ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
+            ->with('status', __('Live Result setting updated.'));
+    }
 }

@@ -5,7 +5,37 @@
     <flux:callout variant="danger" class="rounded-lg mb-4">{{ session('error') }}</flux:callout>
 @endif
 
-@canAs('event.update')
+@canAs('manage_live_results')
+    <div class="mb-6">
+        <form method="POST" action="{{ route('events.live-result.flag', $event) }}" class="flex flex-col gap-2 max-w-md">
+            @csrf
+            <flux:label class="mb-1 block">{{ __('Live Result') }}</flux:label>
+            <flux:select name="has_live_result" class="w-full">
+                <flux:select.option value="1" :selected="$event->has_live_result">
+                    {{ __('Ya, tampilkan di Live Result') }}
+                </flux:select.option>
+                <flux:select.option value="0" :selected="! $event->has_live_result">
+                    {{ __('Tidak pakai Live Result') }}
+                </flux:select.option>
+            </flux:select>
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('Jika dinonaktifkan, event ini tidak akan muncul di halaman Live Result publik.') }}
+            </p>
+            <flux:button type="submit" variant="primary" size="sm" class="mt-2 w-fit">
+                {{ __('Simpan Pengaturan') }}
+            </flux:button>
+        </form>
+    </div>
+@endcanAs
+
+@if (! $event->has_live_result)
+    <flux:callout variant="neutral" class="rounded-lg mb-4">
+        {{ __('Fitur Live Result belum diaktifkan untuk event ini. Aktifkan terlebih dahulu di atas untuk mengelola kategori dan menampilkan di halaman publik.') }}
+    </flux:callout>
+@endif
+
+@if ($event->has_live_result)
+@canAs('manage_live_results')
     @if($categories->count() > 0)
         <div class="mb-4 flex flex-wrap items-center gap-2">
             <form method="POST" action="{{ route('events.live-result-categories.sync-all', $event) }}" class="inline">
@@ -68,7 +98,7 @@
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead class="bg-zinc-50 dark:bg-zinc-900">
                     <tr>
-                        @canAs('event.update')
+                        @canAs('manage_live_results')
                             <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Sync') }}</th>
                         @endcanAs
                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Print') }}</th>
@@ -85,7 +115,7 @@
                 <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
                     @foreach($categories as $category)
                         <tr>
-                            @canAs('event.update')
+                            @canAs('manage_live_results')
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     @if($category->selected_sheets && count($category->selected_sheets) > 0)
                                         <form method="POST" action="{{ route('events.live-result-categories.sync', [$event, $category]) }}" class="inline">
@@ -161,6 +191,8 @@
     @endif
 </div>
 
+@endif
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.print-preview-btn').forEach(function(btn) {
@@ -176,7 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-@canAs('event.update')
+@canAs('manage_live_results')
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const fetchBtn = document.getElementById('fetch-sheets-btn');

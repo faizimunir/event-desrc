@@ -18,6 +18,7 @@ class LiveResultController extends Controller
     {
         $events = Event::with('location')
             ->visibleOnHomePage()
+            ->where('has_live_result', true)
             ->orderBy('start_at', 'desc')
             ->get();
 
@@ -26,7 +27,7 @@ class LiveResultController extends Controller
 
     public function show(Request $request, Event $event)
     {
-        if ($event->isDraft()) {
+        if ($event->isDraft() || ! $event->has_live_result) {
             abort(404);
         }
 
