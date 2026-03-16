@@ -34,6 +34,9 @@
                 @canAs('checkin.read')
                     <flux:tab name="checkin" :selected="$firstTab === 'checkin'" icon="check-badge">{{ __('Check-in') }}</flux:tab>
                 @endcanAs
+                @canAs('event.read')
+                    <flux:tab name="live-result" :selected="$firstTab === 'live-result'" icon="chart-bar">{{ __('Kelola Live Result') }}</flux:tab>
+                @endcanAs
             </flux:tabs>
 
             <flux:tab.panel name="overview" :selected="$firstTab === 'overview'">
@@ -226,6 +229,12 @@
             @canAs('checkin.read')
                 <flux:tab.panel name="checkin" :selected="$firstTab === 'checkin'">
                     <livewire:events.event-checkin-list :event="$event" />
+                </flux:tab.panel>
+            @endcanAs
+
+            @canAs('event.read')
+                <flux:tab.panel name="live-result" :selected="$firstTab === 'live-result'">
+                    @include('admin.live-result-categories.partials.manage', ['event' => $event, 'categories' => $categories])
                 </flux:tab.panel>
             @endcanAs
 

@@ -169,6 +169,43 @@
         </div>
 
         <div>
+            <flux:label class="mb-2 block">{{ __('Logo (for Live Result)') }}</flux:label>
+            <flux:file-upload wire:model="logo" :label="__('Upload logo')">
+                <flux:file-upload.dropzone
+                    heading="{{ __('Drop file or click to browse') }}"
+                    text="{{ __('JPG, PNG, GIF up to 5MB') }}"
+                    with-progress
+                    inline
+                />
+            </flux:file-upload>
+            @error('logo')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+            <div class="mt-4 flex flex-col gap-2">
+                @if ($logo)
+                    <flux:file-item
+                        :heading="$logo->getClientOriginalName()"
+                        :image="$logo->temporaryUrl()"
+                        :size="$logo->getSize()"
+                    >
+                        <x-slot name="actions">
+                            <flux:button type="button" variant="ghost" size="sm" icon="x-mark" wire:click="removeLogo" />
+                        </x-slot>
+                    </flux:file-item>
+                @elseif ($event?->logoUrl())
+                    <flux:file-item
+                        heading="{{ __('Current logo') }}"
+                        :image="$event->logoUrl()"
+                    >
+                        <x-slot name="actions">
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Replace by uploading above') }}</span>
+                        </x-slot>
+                    </flux:file-item>
+                @endif
+            </div>
+        </div>
+
+        <div>
             <flux:label class="mb-2 block">{{ __('Size chart') }}</flux:label>
             <flux:file-upload wire:model="sizeChart" :label="__('Upload size chart')">
                 <flux:file-upload.dropzone

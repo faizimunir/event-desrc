@@ -21,20 +21,25 @@ class EventController extends Controller
         abort_unless(auth()->user()->canAs('event.read'), 403);
         $this->authorize('view', $event);
 
-        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'liveResultCategories']);
+
+        $categories = $event->liveResultCategories()
+            ->orderBy('order')
+            ->orderByRaw('LOWER(title) ASC')
+            ->get();
 
         $codes = collect();
         if (auth()->user()->canAs('event.update')) {
             $codes = $event->codeAccess()->orderBy('created_at', 'desc')->get();
         }
 
-        $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'checkin'];
+        $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'checkin', 'live-result'];
         $requestedTab = request('tab');
         $firstTab = in_array($requestedTab, $validTabs, true)
             ? $requestedTab
             : 'overview';
 
-        return view('events.show', compact('event', 'codes', 'firstTab'));
+        return view('events.show', compact('event', 'codes', 'categories', 'firstTab'));
     }
 
     /**

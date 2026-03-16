@@ -61,6 +61,8 @@ class EventForm extends Component
 
     public $poster = null;
 
+    public $logo = null;
+
     public $sizeChart = null;
 
     public function mount(?Event $event = null): void
@@ -100,6 +102,11 @@ class EventForm extends Component
         $this->poster = null;
     }
 
+    public function removeLogo(): void
+    {
+        $this->logo = null;
+    }
+
     public function removeSizeChart(): void
     {
         $this->sizeChart = null;
@@ -135,6 +142,7 @@ class EventForm extends Component
             'location_id' => ['nullable'],
             'account_id' => ['nullable', 'integer', 'exists:accounts,id'],
             'poster' => ['nullable', 'image', 'max:10240'],
+            'logo' => ['nullable', 'image', 'max:5120'],
             'sizeChart' => ['nullable', 'image', 'max:10240'],
         ];
         if ($this->registration_opens_at && $this->registration_closes_at) {
@@ -156,6 +164,15 @@ class EventForm extends Component
                 Storage::disk('public')->delete($posterPath);
             }
             $posterPath = $this->poster->store('events/posters', 'public');
+        }
+
+        $logoPath = $this->event?->logo_url;
+
+        if ($this->logo) {
+            if ($logoPath && Storage::disk('public')->exists($logoPath)) {
+                Storage::disk('public')->delete($logoPath);
+            }
+            $logoPath = $this->logo->store('events/logos', 'public');
         }
 
         $sizeChartPath = $this->event?->size_chart;
@@ -186,6 +203,7 @@ class EventForm extends Component
                 'location_id' => $locationId,
                 'account_id' => $accountId,
                 'poster' => $posterPath ?? $this->event->poster,
+                'logo_url' => $logoPath ?? $this->event->logo_url,
                 'size_chart' => $sizeChartPath ?? $this->event->size_chart,
             ]);
             $this->redirect(route('events.show', $this->event), navigate: true);
@@ -205,6 +223,7 @@ class EventForm extends Component
                 'location_id' => $locationId,
                 'account_id' => $accountId,
                 'poster' => $posterPath,
+                'logo_url' => $logoPath ?? null,
                 'size_chart' => $sizeChartPath ?? null,
             ]);
             $this->redirect(route('events.index'), navigate: true);
