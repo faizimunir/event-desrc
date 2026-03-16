@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -34,6 +35,22 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureActiveRoleGate();
         $this->registerCanAsBladeDirectives();
+        $this->configureVitePreload();
+    }
+
+    /**
+     * Nonaktifkan preload untuk CSS agar tidak ada warning "preloaded but not used"
+     * dan tidak memboroskan memory/bandwidth. CSS tetap dimuat via <link rel="stylesheet">.
+     */
+    protected function configureVitePreload(): void
+    {
+        Vite::usePreloadTagAttributes(function (string $src, string $url, ?array $chunk, ?array $manifest) {
+            if (str_ends_with($url, '.css')) {
+                return false;
+            }
+
+            return [];
+        });
     }
 
     protected function registerNavbarViewComposer(): void

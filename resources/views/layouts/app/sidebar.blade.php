@@ -38,6 +38,10 @@
                     wire:navigate>
                     {{ __('Events') }}
                 </flux:sidebar.item>
+                <flux:sidebar.item icon="printer" :href="route('print-center.index')" :current="request()->routeIs('print-center.*')"
+                    wire:navigate>
+                    {{ __('Print Center') }}
+                </flux:sidebar.item>
                 @endcanAs
                 @canAs('payment.read')
                 <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"

@@ -6,6 +6,7 @@
 
     <flux:navbar class="-mb-px max-lg:hidden">
         <flux:navbar.item icon="calendar" href="{{ route('home') }}#events">Events</flux:navbar.item>
+        <flux:navbar.item icon="chart-bar" href="{{ route('live-result.index') }}" wire:navigate class="!bg-orange-500 !text-white hover:!bg-orange-600 focus:!ring-orange-500 dark:!bg-orange-500 dark:hover:!bg-orange-600">{{ __('Live Result') }}</flux:navbar.item>
     </flux:navbar>
 
     <flux:spacer />
@@ -67,6 +68,7 @@
     <flux:sidebar.nav>
         <flux:sidebar.item icon="home" href="{{ route('home') }}" :current="request()->routeIs('home')">Home</flux:sidebar.item>
         <flux:sidebar.item icon="calendar" href="{{ route('home') }}#events">Events</flux:sidebar.item>
+        <flux:sidebar.item icon="chart-bar" href="{{ route('live-result.index') }}" wire:navigate :current="request()->routeIs('live-result.*')" class="data-[current]:!bg-orange-500 data-[current]:!text-white">{{ __('Live Result') }}</flux:sidebar.item>
         <flux:sidebar.item icon="shopping-bag" href="{{ route('orders.index') }}" :current="request()->routeIs('orders.*')">{{ __('My orders') }}</flux:sidebar.item>
         @auth
             <flux:sidebar.item icon="squares-2x2" href="{{ route('dashboard') }}" wire:navigate>Dashboard</flux:sidebar.item>

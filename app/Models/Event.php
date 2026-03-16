@@ -57,6 +57,7 @@ class Event extends Model
         'location_id',
         'account_id',
         'poster',
+        'logo_url',
         'size_chart',
         'status',
         'registration_opens_at',
@@ -67,7 +68,28 @@ class Event extends Model
 
     public function posterUrl(): ?string
     {
-        return $this->poster ? Storage::disk('public')->url($this->poster) : null;
+        if (! $this->poster) {
+            return null;
+        }
+        $path = '/storage/'.ltrim($this->poster, '/');
+        if (app()->runningInConsole() || ! request()) {
+            return rtrim(config('app.url'), '/').$path;
+        }
+
+        return request()->getSchemeAndHttpHost().$path;
+    }
+
+    public function logoUrl(): ?string
+    {
+        if (! $this->logo_url) {
+            return null;
+        }
+        $path = '/storage/'.ltrim($this->logo_url, '/');
+        if (app()->runningInConsole() || ! request()) {
+            return rtrim(config('app.url'), '/').$path;
+        }
+
+        return request()->getSchemeAndHttpHost().$path;
     }
 
     public function sizeChartUrl(): ?string
@@ -182,6 +204,11 @@ class Event extends Model
     public function checkins(): HasMany
     {
         return $this->hasMany(EventCheckin::class, 'event_id');
+    }
+
+    public function liveResultCategories(): HasMany
+    {
+        return $this->hasMany(LiveResultCategory::class);
     }
 
     public function isCategoryUmur(): bool

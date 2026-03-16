@@ -36,10 +36,16 @@
                             {{ $event->title }}</flux:breadcrumbs.item>
                     </flux:breadcrumbs>
                 </nav>
-                <flux:button variant="filled" size="sm" href="{{ route('home') }}#events" wire:navigate
-                    icon="arrow-left" class="shrink-0">
-                    {{ __('Back') }}
-                </flux:button>
+                <div class="flex items-center gap-2 shrink-0">
+                    <flux:button variant="filled" size="sm" href="{{ route('live-result.show', $event->slug) }}" wire:navigate
+                        icon="chart-bar" class="!bg-orange-500 hover:!bg-orange-600 focus:!ring-orange-500 dark:!bg-orange-500 dark:hover:!bg-orange-600">
+                        {{ __('Live Result') }}
+                    </flux:button>
+                    <flux:button variant="filled" size="sm" href="{{ route('home') }}#events" wire:navigate
+                        icon="arrow-left">
+                        {{ __('Back') }}
+                    </flux:button>
+                </div>
             </div>
 
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-0 grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)] lg:grid-rows-2 lg:gap-4">
@@ -55,10 +61,16 @@
                                 class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent lg:hidden">
                             </div>
 
-                            <flux:button variant="primary" size="sm" href="{{ route('home') }}#events"
-                                wire:navigate icon="arrow-left" class="absolute left-0 top-0 z-10 m-3 lg:hidden">
-                                {{ __('Back') }}
-                            </flux:button>
+                            <div class="absolute left-0 right-0 top-0 z-10 m-3 flex justify-between gap-2 lg:hidden">
+                                <flux:button variant="primary" size="sm" href="{{ route('home') }}#events"
+                                    wire:navigate icon="arrow-left">
+                                    {{ __('Back') }}
+                                </flux:button>
+                                <flux:button variant="filled" size="sm" href="{{ route('live-result.show', $event->slug) }}"
+                                    wire:navigate icon="chart-bar" class="!bg-orange-500 hover:!bg-orange-600">
+                                    {{ __('Live Result') }}
+                                </flux:button>
+                            </div>
 
                             <div class="absolute inset-0 flex flex-col justify-end p-4 pb-8 lg:hidden">
                                 <h1 class="text-2xl font-bold text-white drop-shadow-lg">{{ $event->title }}</h1>

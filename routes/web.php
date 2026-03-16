@@ -23,6 +23,8 @@ use App\Http\Controllers\SwitchRoleController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\Events\EventCheckinController;
+use App\Http\Controllers\LiveResultController;
+use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -59,6 +61,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/checkins', [EventCheckinController::class, 'store'])->name('events.checkins.store');
     Route::put('events/{event}/checkins/{checkin}', [EventCheckinController::class, 'update'])->name('events.checkins.update');
     Route::delete('events/{event}/checkins/{checkin}', [EventCheckinController::class, 'destroy'])->name('events.checkins.destroy');
+    Route::get('events/{event}/live-result-categories', [LiveResultCategoryController::class, 'index'])->name('events.live-result-categories.index');
+    Route::post('events/{event}/live-result-categories', [LiveResultCategoryController::class, 'store'])->name('events.live-result-categories.store');
+    Route::post('events/{event}/live-result-categories/fetch-sheets', [LiveResultCategoryController::class, 'fetchSheets'])->name('events.live-result-categories.fetch-sheets');
+    Route::put('events/{event}/live-result-categories/{liveResultCategory}', [LiveResultCategoryController::class, 'update'])->name('events.live-result-categories.update');
+    Route::delete('events/{event}/live-result-categories/{liveResultCategory}', [LiveResultCategoryController::class, 'destroy'])->name('events.live-result-categories.destroy');
+    Route::get('events/{event}/live-result-categories/{liveResultCategory}/print', [LiveResultCategoryController::class, 'printPreview'])->name('events.live-result-categories.print');
+    Route::post('events/{event}/live-result-categories/{liveResultCategory}/sync', [LiveResultCategoryController::class, 'syncCategory'])->name('events.live-result-categories.sync');
+    Route::post('events/{event}/live-result-categories-sync-all', [LiveResultCategoryController::class, 'syncAll'])->name('events.live-result-categories.sync-all');
+    Route::get('print-center', [LiveResultCategoryController::class, 'printCenter'])->name('print-center.index');
+    Route::get('print-center/preview', [LiveResultCategoryController::class, 'printCenterPreview'])->name('print-center.preview');
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
     Route::post('registrations/{registration}/approve-all', [RegistrationController::class, 'approveAll'])->name('registrations.approve-all');
     Route::resource('accounts', AccountController::class)->except(['show']);
@@ -101,6 +113,10 @@ Route::post('{event}/register', [RegistrationController::class, 'store'])->name(
 
 // Early registration: verify access code (modal on event-show)
 Route::post('early-access/{event:slug}', [EventController::class, 'verifyEarlyAccess'])->name('events.early-access.verify');
+
+// Live Result (public) — must be before catch-all {event:slug}
+Route::get('live-result', [LiveResultController::class, 'index'])->name('live-result.index');
+Route::get('live-result/{event:slug}', [LiveResultController::class, 'show'])->name('live-result.show');
 
 // Public event by slug: desrc.id/{slug} (must be last so it doesn't override named routes)
 Route::get('/{event:slug}', [EventController::class, 'showBySlug'])->name('events.public.show');

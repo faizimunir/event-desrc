@@ -40,4 +40,8 @@ return [
         'base_url' => env('WHACENTER_BASE_URL', 'https://app.whacenter.com'),
     ],
 
+    'google_sheets' => [
+        'api_key' => env('GOOGLE_SHEETS_API_KEY'),
+    ],
+
 ];
