@@ -40,5 +40,44 @@
         ])
     </flux:main>
     @fluxScripts
+    <script>
+        (function () {
+            const pingUrl = @json(route('live-result.ping', $event->slug));
+            const pollIntervalMs = 10000;
+
+            let etag = null;
+            let inFlight = false;
+
+            async function poll() {
+                if (inFlight) return;
+                inFlight = true;
+                try {
+                    const headers = {};
+                    if (etag) headers['If-None-Match'] = etag;
+                    const res = await fetch(pingUrl, { headers, cache: 'no-store' });
+
+                    if (res.status === 304) return;
+
+                    const newEtag = res.headers.get('ETag');
+                    const hadEtag = !!etag;
+                    if (newEtag) etag = newEtag;
+
+                    if (!res.ok) return;
+
+                    // First successful call just seeds ETag (no reload).
+                    // Next 200 means version changed => reload to show newest data.
+                    if (hadEtag) {
+                        window.location.reload();
+                    }
+                } catch (e) {
+                    // silent: jangan ganggu UX, coba lagi di interval berikutnya
+                } finally {
+                    inFlight = false;
+                }
+            }
+
+            setInterval(poll, pollIntervalMs);
+        })();
+    </script>
 </body>
 </html>

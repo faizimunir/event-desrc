@@ -8,6 +8,7 @@ use App\Models\LiveResultCategory;
 use App\Services\GoogleSheetsService;
 use App\Services\LiveResultSheetParser;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class LiveResultCategoryController extends Controller
 {
@@ -153,6 +154,7 @@ class LiveResultCategoryController extends Controller
         }
 
         $liveResultCategory->update(['last_sync' => now()]);
+        Cache::put("live_result:event:{$event->id}:version", (string) now()->toISOString(), now()->addDays(30));
 
         return redirect()
             ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
@@ -187,6 +189,8 @@ class LiveResultCategoryController extends Controller
             }
             $category->update(['last_sync' => now()]);
         }
+
+        Cache::put("live_result:event:{$event->id}:version", (string) now()->toISOString(), now()->addDays(30));
 
         return redirect()
             ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
