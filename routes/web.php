@@ -117,6 +117,7 @@ Route::post('early-access/{event:slug}', [EventController::class, 'verifyEarlyAc
 
 // Live Result (public) — akses langsung via slug: desrc.id/{slug}
 Route::get('live-result', [LiveResultController::class, 'index'])->name('live-result.index');
+Route::get('{event:slug}/live-result/ping', [LiveResultController::class, 'ping'])->name('live-result.ping');
 Route::get('/{event:slug}', [LiveResultController::class, 'show'])->name('live-result.show');
 
 // Public event by slug: desrc.id/event/{slug} (diletakkan setelah live result agar slug utama dipakai untuk live result)
