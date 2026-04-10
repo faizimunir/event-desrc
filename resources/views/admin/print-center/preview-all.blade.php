@@ -7,17 +7,20 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Arial', sans-serif; font-size: 8pt; line-height: 1.15; color: #000; background: #fff; }
-        .print-header { display: table; width: 100%; margin-bottom: 5px; padding-bottom: 3px; border-bottom: 1.5px solid #000; page-break-inside: avoid; page-break-after: avoid; }
-        .print-header-left { display: table-cell; width: 20%; vertical-align: middle; }
-        .print-header-right { display: table-cell; width: 80%; vertical-align: middle; text-align: right; padding-left: 15px; }
-        .print-header .logo { max-height: 80px; max-width: 200px; object-fit: contain; }
-        .print-header .event-title { font-size: 14pt; font-weight: bold; margin-bottom: 2px; line-height: 1.2; }
-        .print-header .event-info { font-size: 8pt; color: #333; line-height: 1.2; }
+        .print-header { display: table; width: 100%; table-layout: fixed; margin-bottom: 5px; padding-bottom: 3px; border-bottom: 1.5px solid #000; page-break-inside: avoid; page-break-after: avoid; }
+        .print-header-left { display: table-cell; width: 22%; vertical-align: middle; text-align: left; }
+        .print-header-center { display: table-cell; width: 56%; vertical-align: middle; text-align: center; padding: 0 10px; }
+        .print-header-right { display: table-cell; width: 22%; vertical-align: middle; text-align: right; }
+        .print-header .logo { object-fit: contain; display: inline-block; vertical-align: middle; }
+        .print-header .logo-event { max-height: 48px; max-width: 120px; }
+        .print-header .logo-drc { max-height: 32px; max-width: 110px; }
+        .print-header .event-title { font-size: 14pt; font-weight: bold; margin-bottom: 2px; line-height: 1.2; text-align: justify; text-align-last: center; -moz-text-align-last: center; }
+        .print-header .event-info { font-size: 8pt; color: #333; line-height: 1.2; text-align: center; }
         .category-section { margin-bottom: 15px; page-break-inside: avoid; }
         .round-info { text-align: center; margin-bottom: 5px; font-size: 10pt; font-weight: bold; page-break-after: avoid; page-break-inside: avoid; line-height: 1.2; }
         .group-container { margin-bottom: 6px; page-break-inside: avoid; }
         .group-title { font-size: 11pt; font-weight: bold; margin-bottom: 3px; padding-bottom: 2px; border-bottom: 1px solid #ccc; line-height: 1.2; }
-        .group-keterangan { font-size: 8pt; font-style: italic; color: #555; margin-bottom: 4px; padding: 3px; background-color: #f5f5f5; border-left: 2px solid #000; line-height: 1.2; }
+        .group-keterangan { font-size: 8pt; font-style: italic; color: #555; margin-bottom: 4px; padding: 3px; background-color: #f5f5f5; border-left: 2px solid #000; line-height: 1.2; page-break-inside: avoid; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 5px; page-break-inside: auto; }
         table thead { background-color: #f0f0f0; page-break-inside: avoid; page-break-after: avoid; }
         table thead th { border: 1px solid #000; padding: 3px; text-align: left; font-weight: bold; font-size: 7pt; line-height: 1.1; }
@@ -66,19 +69,7 @@
         @endif
 
         <div class="category-wrapper">
-            <div class="print-header">
-                <div class="print-header-left">
-                    @if($event->logoUrl())
-                        <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="logo">
-                    @endif
-                </div>
-                <div class="print-header-right">
-                    <div class="event-title">{{ $event->title }}</div>
-                    <div class="event-info">
-                        {{ $event->location?->name ?? '-' }} | {{ $event->start_at?->format('d M Y') ?? '-' }}
-                    </div>
-                </div>
-            </div>
+            @include('admin.partials.print-event-header-branded', ['event' => $event])
 
             <div class="round-info">{{ $category->title }} - {{ $selectedRound }}</div>
 
@@ -92,20 +83,11 @@
                     @if($groupIndex > 0 && $groupIndex % 2 === 0)
                         {{-- Header ulang setiap 2 grup --}}
                         <div style="page-break-before: always;"></div>
-                        <div class="print-header">
-                            <div class="print-header-left">
-                                @if($event->logoUrl())
-                                    <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="logo">
-                                @endif
-                            </div>
-                            <div class="print-header-right">
-                                <div class="event-title">{{ $event->title }}</div>
-                                <div class="event-info">
-                                    {{ $event->location?->name ?? '-' }} | {{ $event->start_at?->format('d M Y') ?? '-' }}
-                                </div>
-                            </div>
-                        </div>
+                        @include('admin.partials.print-event-header-branded', ['event' => $event])
                         <div class="round-info">{{ $category->title }} - {{ $selectedRound }}</div>
+                        @if(!empty($sheetData['keterangan']))
+                            <div class="group-keterangan" style="margin-bottom: 4px;"><strong>{{ __('Keterangan') }}:</strong> {{ $sheetData['keterangan'] }}</div>
+                        @endif
                     @endif
 
                     <div class="group-container">
