@@ -10,14 +10,14 @@
 @endif
 @if($registration->package)
 📦 *{{ __('Package') }}:* {{ $registration->package->name }}
-💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_price }}
+💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_payable_amount }}
 @endif
 
 {{ __('Please complete your payment by opening the link below (valid for :minutes minutes):', ['minutes' => $paymentProofDeadlineMinutes]) }}
 
 {!! $paymentLinkUrl !!}
 
-{{ __('After opening the link, transfer to the account shown and upload your transfer proof.') }}
+{{ __('After opening the link, use the exact transfer amount shown (package price plus a unique 3-digit code for manual bank transfer), then upload your proof if required.') }}
 
 {{ __('Thank you.') }}
 —

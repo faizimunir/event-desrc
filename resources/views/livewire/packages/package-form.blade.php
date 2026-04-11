@@ -9,6 +9,17 @@
         <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
     @enderror
 
+    <flux:input wire:model="admin_fee" type="number" step="0.01" min="0" :label="__('Website admin fee (IDR)')" />
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Platform revenue from this package. Set to 0 if none.') }}</p>
+    @error('admin_fee')
+        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+    @enderror
+
+    <flux:checkbox wire:model="admin_fee_included_in_price" :label="__('Admin fee is included in the registration price above')" />
+    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        {{ __('Checked: participant pays only the registration price (admin fee is taken from that amount). Unchecked: participant pays registration price plus admin fee at checkout.') }}
+    </p>
+
     <flux:input wire:model="quota" type="number" min="1" :label="__('Quota (early bird / limited)')" :placeholder="__('Optional')" />
     <flux:checkbox wire:model="hide_quota" :label="__('Hide quota')" />
     <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Optional. Limit how many participants can choose this package (e.g. early bird). Leave empty for no limit.') }}</p>

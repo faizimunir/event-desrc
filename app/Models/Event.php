@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -35,6 +36,16 @@ class Event extends Model
     /** Done: event telah usai */
     public const STATUS_DONE = 'done';
 
+    public const PAYMENT_MANUAL = 'manual';
+
+    /** QRIS / otomatis via Moota */
+    public const PAYMENT_QRIS = 'qris';
+
+    public const PAYMENT_METHODS = [
+        self::PAYMENT_MANUAL,
+        self::PAYMENT_QRIS,
+    ];
+
     public const STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_PUBLISHED,
@@ -55,7 +66,7 @@ class Event extends Model
         'start_at',
         'end_at',
         'location_id',
-        'account_id',
+        'payment_methods',
         'poster',
         'logo_url',
         'size_chart',
@@ -98,6 +109,7 @@ class Event extends Model
         if (! $this->size_chart) {
             return null;
         }
+
         return str_starts_with($this->size_chart, 'http') ? $this->size_chart : Storage::disk('public')->url($this->size_chart);
     }
 
@@ -109,6 +121,7 @@ class Event extends Model
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'has_live_result' => 'boolean',
+            'payment_methods' => 'array',
         ];
     }
 
@@ -150,9 +163,9 @@ class Event extends Model
         return $this->belongsTo(Location::class);
     }
 
-    public function account(): BelongsTo
+    public function accounts(): BelongsToMany
     {
-        return $this->belongsTo(Account::class);
+        return $this->belongsToMany(Account::class, 'event_account');
     }
 
     public function organizer(): BelongsTo
@@ -354,5 +367,29 @@ class Event extends Model
     public function isRegistrationOpen(): bool
     {
         return $this->isEffectiveOpenRegist();
+    }
+
+    /** @return list<string> */
+    public function normalizedPaymentMethods(): array
+    {
+        $m = $this->payment_methods;
+        if ($m === null || $m === []) {
+            return [self::PAYMENT_MANUAL, self::PAYMENT_QRIS];
+        }
+
+        return array_values(array_unique(array_values(array_filter(
+            $m,
+            fn ($v) => is_string($v) && in_array($v, self::PAYMENT_METHODS, true)
+        ))));
+    }
+
+    public function allowsManualPayment(): bool
+    {
+        return in_array(self::PAYMENT_MANUAL, $this->normalizedPaymentMethods(), true);
+    }
+
+    public function allowsQrisPayment(): bool
+    {
+        return in_array(self::PAYMENT_QRIS, $this->normalizedPaymentMethods(), true);
     }
 }

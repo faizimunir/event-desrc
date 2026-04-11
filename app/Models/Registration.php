@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Registration extends Model
@@ -73,9 +74,15 @@ class Registration extends Model
         return $this->belongsTo(Package::class);
     }
 
+    /** @deprecated Prefer $this->order?->payments; dipakai admin/export (percobaan terbaru). */
     public function payment(): HasOne
     {
-        return $this->hasOne(Payment::class);
+        return $this->hasOne(Payment::class)->latestOfMany('id');
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function checkin(): \Illuminate\Database\Eloquent\Relations\HasOne

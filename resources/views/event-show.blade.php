@@ -526,7 +526,17 @@
                                                 @endif
                                             </div>
                                             <div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                                                {{ $package->formatted_price }}</div>
+                                                {{ $package->formatted_payable_amount }}
+                                                @if ($package->hasAdminFee() && $package->adminFeeIsIncludedInPrice())
+                                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('Includes platform admin fee :fee', ['fee' => $package->formatted_admin_fee]) }}
+                                                    </span>
+                                                @elseif ($package->hasAdminFee() && ! $package->adminFeeIsIncludedInPrice())
+                                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('Registration :reg + admin :adm', ['reg' => $package->formatted_price, 'adm' => $package->formatted_admin_fee]) }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                             @if (!$package->hide_quota && $package->quota !== null)
                                                 @php $rem = $package->remainingQuota(); @endphp
                                                 <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

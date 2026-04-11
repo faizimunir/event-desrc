@@ -13,7 +13,7 @@
             <thead class="bg-zinc-50 dark:bg-zinc-800">
                 <tr>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Name') }}</th>
-                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Price') }}</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Participant pays') }}</th>
                     <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Quota') }}</th>
                 </tr>
             </thead>
@@ -35,7 +35,15 @@
                         <tr>
                     @endcanAs
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $package->name }}</td>
-                        <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $package->formatted_price }}</td>
+                        <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                            <span class="font-medium">{{ $package->formatted_payable_amount }}</span>
+                            @if ($package->hasAdminFee())
+                                <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Admin') }} {{ $package->formatted_admin_fee }}
+                                    · {{ $package->adminFeeIsIncludedInPrice() ? __('included in price') : __('added at checkout') }}
+                                </span>
+                            @endif
+                        </td>
                         <td class="px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">
                             @if ($package->quota !== null)
                                 @php $rem = $package->remainingQuota(); @endphp

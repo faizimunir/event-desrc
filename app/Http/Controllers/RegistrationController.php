@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\RegistrationQuotaHttpException;
+use App\Models\Bracket;
 use App\Models\Event;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\Registration;
-use App\Services\TicketService;
 use App\Models\Rider;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\MediaService;
+use App\Services\QuotaReservationService;
 use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
+use App\Services\TicketService;
 use App\Services\WhacenterService;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -160,6 +164,7 @@ class RegistrationController extends Controller
             if ($useRiderId === null) {
                 $rider->delete();
             }
+
             return redirect()->route('events.public.show', $event->slug)->withErrors(['dob' => $eligibility['message']])->withInput();
         }
 
@@ -167,35 +172,70 @@ class RegistrationController extends Controller
             if ($useRiderId === null) {
                 $rider->delete();
             }
+
             return redirect()->route('events.public.show', $event->slug)->withErrors(['bracket_id' => __('This bracket has no remaining quota.')])->withInput();
         }
 
-        $existingRegistration = Registration::where('event_id', $event->id)
-            ->where('rider_id', $rider->id)
-            ->where('bracket_id', $bracket->id)
-            ->first();
-        if ($existingRegistration) {
-            return redirect()->route('events.public.show', $event->slug)
-                ->withErrors(['bracket_id' => __('You are already registered for this bracket.')])
-                ->withInput();
+        try {
+            $order = QuotaReservationService::withLocks(
+                $bracket->id,
+                $package->id,
+                null,
+                function () use ($event, $bracket, $package, $rider, $validated, $request) {
+                    if (Registration::query()->where('event_id', $event->id)
+                        ->where('rider_id', $rider->id)
+                        ->where('bracket_id', $bracket->id)
+                        ->exists()) {
+                        throw new HttpResponseException(
+                            redirect()->route('events.public.show', $event->slug)
+                                ->withErrors(['bracket_id' => __('You are already registered for this bracket.')])
+                                ->withInput()
+                        );
+                    }
+
+                    $b = Bracket::query()->findOrFail($bracket->id);
+                    $p = Package::query()->findOrFail($package->id);
+                    if (! $b->hasQuota()) {
+                        throw new RegistrationQuotaHttpException(
+                            redirect()->route('events.public.show', $event->slug)
+                                ->withErrors(['bracket_id' => __('This bracket has no remaining quota.')])
+                                ->withInput(),
+                            deleteNewRider: true
+                        );
+                    }
+                    if ($p->isQuotaFull()) {
+                        throw new RegistrationQuotaHttpException(
+                            redirect()->route('events.public.show', $event->slug)
+                                ->withErrors(['package_id' => __('This package has no remaining quota.')])
+                                ->withInput(),
+                            deleteNewRider: true
+                        );
+                    }
+
+                    $registration = Registration::create([
+                        'event_id' => $event->id,
+                        'rider_id' => $rider->id,
+                        'team_ids' => $validated['team_ids'] ?? [],
+                        'bracket_id' => $bracket->id,
+                        'package_id' => $validated['package_id'],
+                        'status' => Registration::STATUS_PENDING,
+                        'number_plate' => $validated['number_plate'] ?? null,
+                        'jersey_size' => $validated['jersey_size'] ?? null,
+                    ]);
+
+                    return Order::create([
+                        'registration_id' => $registration->id,
+                        'session_id' => $request->session()->getId(),
+                        'user_id' => $request->user()?->id,
+                    ]);
+                }
+            );
+        } catch (RegistrationQuotaHttpException $e) {
+            if ($useRiderId === null) {
+                $rider->delete();
+            }
+            throw $e;
         }
-
-        $registration = Registration::create([
-            'event_id' => $event->id,
-            'rider_id' => $rider->id,
-            'team_ids' => $validated['team_ids'] ?? [],
-            'bracket_id' => $bracket->id,
-            'package_id' => $validated['package_id'],
-            'status' => Registration::STATUS_PENDING,
-            'number_plate' => $validated['number_plate'] ?? null,
-            'jersey_size' => $validated['jersey_size'] ?? null,
-        ]);
-
-        $order = Order::create([
-            'registration_id' => $registration->id,
-            'session_id' => $request->session()->getId(),
-            'user_id' => $request->user()?->id,
-        ]);
 
         return redirect()->route('orders.show', $order);
     }
@@ -230,40 +270,62 @@ class RegistrationController extends Controller
         $package = $event->packages()->find($validated['package_id']);
         $rider = Rider::findOrFail($validated['rider_id']);
 
-        if (! $bracket->hasQuota()) {
-            return redirect()->route('events.registrations.create', $event)
-                ->withErrors(['bracket_id' => __('This bracket has no remaining quota.')])->withInput();
-        }
-
-        if (! $package || ! $package->isActive() || $package->isQuotaFull()) {
+        if (! $package || ! $package->isActive()) {
             return redirect()->route('events.registrations.create', $event)
                 ->withErrors(['package_id' => __('This package is not available or has no remaining quota.')])->withInput();
         }
 
-        $existing = Registration::where('event_id', $event->id)
-            ->where('rider_id', $rider->id)
-            ->where('bracket_id', $bracket->id)
-            ->first();
+        $registration = QuotaReservationService::withLocks(
+            $bracket->id,
+            $package->id,
+            null,
+            function () use ($event, $bracket, $package, $rider, $request) {
+                if (Registration::query()->where('event_id', $event->id)
+                    ->where('rider_id', $rider->id)
+                    ->where('bracket_id', $bracket->id)
+                    ->exists()) {
+                    throw new HttpResponseException(
+                        redirect()->route('events.registrations.create', $event)
+                            ->withErrors(['rider_id' => __('This rider is already registered for this bracket.')])
+                            ->withInput()
+                    );
+                }
 
-        if ($existing) {
-            return redirect()->route('events.registrations.create', $event)
-                ->withErrors(['rider_id' => __('This rider is already registered for this bracket.')])->withInput();
-        }
+                $b = Bracket::query()->findOrFail($bracket->id);
+                $p = Package::query()->findOrFail($package->id);
+                if (! $b->hasQuota()) {
+                    throw new HttpResponseException(
+                        redirect()->route('events.registrations.create', $event)
+                            ->withErrors(['bracket_id' => __('This bracket has no remaining quota.')])
+                            ->withInput()
+                    );
+                }
+                if ($p->isQuotaFull()) {
+                    throw new HttpResponseException(
+                        redirect()->route('events.registrations.create', $event)
+                            ->withErrors(['package_id' => __('This package is not available or has no remaining quota.')])
+                            ->withInput()
+                    );
+                }
 
-        $registration = Registration::create([
-            'event_id' => $event->id,
-            'rider_id' => $rider->id,
-            'bracket_id' => $bracket->id,
-            'package_id' => $package->id,
-            'status' => Registration::STATUS_PENDING,
-            'team_ids' => [],
-        ]);
+                $registration = Registration::create([
+                    'event_id' => $event->id,
+                    'rider_id' => $rider->id,
+                    'bracket_id' => $bracket->id,
+                    'package_id' => $package->id,
+                    'status' => Registration::STATUS_PENDING,
+                    'team_ids' => [],
+                ]);
 
-        $order = Order::create([
-            'registration_id' => $registration->id,
-            'session_id' => $request->session()->getId(),
-            'user_id' => $request->user()?->id,
-        ]);
+                Order::create([
+                    'registration_id' => $registration->id,
+                    'session_id' => $request->session()->getId(),
+                    'user_id' => $request->user()?->id,
+                ]);
+
+                return $registration;
+            }
+        );
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('status', __('Registration added.'));
@@ -418,10 +480,15 @@ class RegistrationController extends Controller
         if ($payment && $payment->isPending()) {
             $payment->update([
                 'status' => Payment::STATUS_SUCCESS,
+                'paid_at' => now(),
                 'reviewed_at' => now(),
                 'reviewed_by' => auth()->id(),
             ]);
-            $payment->registration->order?->update(['status' => Order::STATUS_PAID]);
+            $payment->order?->update([
+                'status' => Order::STATUS_CONFIRMED,
+                'payment_status' => Order::PAYMENT_STATUS_PAID,
+                'paid_at' => now(),
+            ]);
             TicketService::ensureTicketForRegistration($registration);
             $messages[] = __('Payment approved.');
         }

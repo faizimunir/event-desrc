@@ -22,6 +22,8 @@ class Package extends Model
         'event_id',
         'name',
         'price',
+        'admin_fee',
+        'admin_fee_included_in_price',
         'quota',
         'hide_quota',
         'sort_order',
@@ -32,6 +34,8 @@ class Package extends Model
     {
         return [
             'price' => 'decimal:2',
+            'admin_fee' => 'decimal:2',
+            'admin_fee_included_in_price' => 'boolean',
             'quota' => 'integer',
             'hide_quota' => 'boolean',
             'sort_order' => 'integer',
@@ -40,9 +44,7 @@ class Package extends Model
 
     /**
      * Sisa kuota paket (early bird/terbatas). null = tanpa batas.
-     * Hanya registrasi yang "memegang" slot: pending+approved DAN punya order yang masih aktif:
-     * - status paid, ATAU
-     * - status pending_payment DAN belum lewat expired_at (order expired/cancelled atau sudah lewat waktu tidak dihitung).
+     * Hanya order pending + confirmed yang mengikat kuota (draft tidak).
      */
     public function remainingQuota(): ?int
     {
@@ -51,17 +53,9 @@ class Package extends Model
         }
         $used = $this->registrations()
             ->countsTowardQuota()
-            ->whereHas('order', function ($q) {
-                $q->where('status', Order::STATUS_PAID)
-                    ->orWhere(function ($q2) {
-                        $q2->where('status', Order::STATUS_PENDING_PAYMENT)
-                            ->where(function ($q3) {
-                                $q3->whereNull('expired_at')
-                                    ->orWhere('expired_at', '>=', now());
-                            });
-                    });
-            })
+            ->whereHas('order', fn ($q) => $q->holdsQuota())
             ->count();
+
         return max(0, (int) $this->quota - $used);
     }
 
@@ -69,21 +63,22 @@ class Package extends Model
     public function isQuotaFull(): bool
     {
         $remaining = $this->remainingQuota();
+
         return $remaining !== null && $remaining <= 0;
     }
 
-    /** Apakah kuota sudah terisi penuh oleh order paid (confirmed) — tampil "Sold out". */
+    /** Tidak ada slot tersisa (hold + confirmed memenuhi kuota). */
     public function isSoldOut(): bool
     {
         if ($this->quota === null) {
             return false;
         }
-        $paidCount = $this->registrations()
+        $held = $this->registrations()
             ->countsTowardQuota()
-            ->whereHas('order', fn ($q) => $q->where('status', Order::STATUS_PAID))
+            ->whereHas('order', fn ($q) => $q->holdsQuota())
             ->count();
 
-        return $paidCount >= $this->quota;
+        return $held >= $this->quota;
     }
 
     /** Apakah paket aktif (bisa dipilih saat registrasi). */
@@ -111,7 +106,38 @@ class Package extends Model
 
     public function getFormattedPriceAttribute(): string
     {
-        return 'Rp '.number_format($this->price, 0, ',', '.');
+        return 'Rp '.number_format((float) $this->price, 0, ',', '.');
+    }
+
+    /** Total yang dibayar peserta (harga paket + biaya admin jika di luar harga). */
+    public function payableAmount(): float
+    {
+        $base = round((float) $this->price, 2);
+        if ($this->admin_fee_included_in_price) {
+            return $base;
+        }
+
+        return round($base + (float) $this->admin_fee, 2);
+    }
+
+    public function getFormattedPayableAmountAttribute(): string
+    {
+        return 'Rp '.number_format($this->payableAmount(), 0, ',', '.');
+    }
+
+    public function getFormattedAdminFeeAttribute(): string
+    {
+        return 'Rp '.number_format((float) $this->admin_fee, 0, ',', '.');
+    }
+
+    public function hasAdminFee(): bool
+    {
+        return (float) $this->admin_fee > 0;
+    }
+
+    public function adminFeeIsIncludedInPrice(): bool
+    {
+        return (bool) $this->admin_fee_included_in_price;
     }
 
     /** Apakah paket ini punya reward jersey (deteksi dari nama reward). */

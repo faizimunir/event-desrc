@@ -61,7 +61,7 @@
                         <option value="">{{ __('— Select package —') }}</option>
                         @foreach ($event->packages as $pkg)
                             <option value="{{ $pkg->id }}" @selected(old('package_id') == $pkg->id)>
-                                {{ $pkg->name }} — Rp {{ number_format($pkg->price ?? 0, 0, ',', '.') }}
+                                {{ $pkg->name }} — {{ $pkg->formatted_payable_amount }}
                             </option>
                         @endforeach
                     </flux:select>

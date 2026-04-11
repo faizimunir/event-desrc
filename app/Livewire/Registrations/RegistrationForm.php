@@ -2,11 +2,14 @@
 
 namespace App\Livewire\Registrations;
 
+use App\Models\Bracket;
 use App\Models\Event;
+use App\Models\Package;
 use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\QuotaReservationService;
 use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
 use App\Services\WhacenterService;
@@ -82,6 +85,7 @@ class RegistrationForm extends Component
 
         if (trim($this->teamSearch) !== '') {
             $query->where('name', 'like', '%'.trim($this->teamSearch).'%')->limit(20);
+
             return $query->get();
         }
 
@@ -89,6 +93,7 @@ class RegistrationForm extends Component
         if (count($this->selectedTeamIds) > 0) {
             $selected = Team::whereIn('id', $this->selectedTeamIds)->orderBy('name')->get();
             $others = Team::whereNotIn('id', $this->selectedTeamIds)->orderBy('name')->limit(15)->get();
+
             return $selected->merge($others)->unique('id')->values();
         }
 
@@ -119,11 +124,13 @@ class RegistrationForm extends Component
         $bracket = $this->event->brackets->firstWhere('id', $this->bracket_id);
         if (! $bracket) {
             $this->addError('bracket_id', __('Invalid bracket.'));
+
             return null;
         }
 
         if (! $bracket->hasQuota()) {
             $this->addError('bracket_id', __('This bracket has no remaining quota.'));
+
             return null;
         }
 
@@ -133,6 +140,7 @@ class RegistrationForm extends Component
                 $pkg = $this->event->packages->first();
                 if ($pkg->isQuotaFull()) {
                     $this->addError('package_id', __('This package has no remaining quota.'));
+
                     return null;
                 }
                 $packageId = $pkg->id;
@@ -140,10 +148,12 @@ class RegistrationForm extends Component
                 $pkg = $this->event->packages->firstWhere('id', $this->package_id);
                 if (! $pkg) {
                     $this->addError('package_id', __('Please select a package.'));
+
                     return null;
                 }
                 if ($pkg->isQuotaFull()) {
                     $this->addError('package_id', __('This package has no remaining quota.'));
+
                     return null;
                 }
                 $packageId = $pkg->id;
@@ -176,17 +186,18 @@ class RegistrationForm extends Component
             );
 
             if ($similar->isNotEmpty()) {
-            $this->similarRiders = $similar->map(fn (array $item) => [
-                'id' => $item['rider']->id,
-                'score' => $item['score'],
-                'name' => $item['rider']->name,
-                'nickname' => $item['rider']->nickname,
-                'pob' => $item['rider']->pob,
-                'dob' => $item['rider']->dob?->format('Y-m-d') ?? '',
-                'gender_label' => $item['rider']->gender_label ?? $item['rider']->gender,
-                'number_plate' => $item['rider']->number_plate,
-            ])->all();
+                $this->similarRiders = $similar->map(fn (array $item) => [
+                    'id' => $item['rider']->id,
+                    'score' => $item['score'],
+                    'name' => $item['rider']->name,
+                    'nickname' => $item['rider']->nickname,
+                    'pob' => $item['rider']->pob,
+                    'dob' => $item['rider']->dob?->format('Y-m-d') ?? '',
+                    'gender_label' => $item['rider']->gender_label ?? $item['rider']->gender,
+                    'number_plate' => $item['rider']->number_plate,
+                ])->all();
                 $this->showSimilarChoice = true;
+
                 return null;
             }
         }
@@ -205,6 +216,7 @@ class RegistrationForm extends Component
             $this->showSimilarChoice = false;
             $this->similarRiders = [];
             $this->addError('bracket_id', __('Invalid bracket or no quota.'));
+
             return null;
         }
 
@@ -227,6 +239,7 @@ class RegistrationForm extends Component
             : $this->event->packages->firstWhere('id', $this->package_id);
         if ($pkg && $pkg->isQuotaFull()) {
             $this->addError('package_id', __('This package has no remaining quota.'));
+
             return null;
         }
         $packageId = $pkg?->id;
@@ -265,6 +278,7 @@ class RegistrationForm extends Component
             $rider = Rider::where('id', $existingRiderId)->where('user_id', $user->id)->first();
             if (! $rider) {
                 $this->addError('selectedRiderId', __('Invalid rider selection.'));
+
                 return null;
             }
             $rider->update(['user_id' => $user->id]);
@@ -287,6 +301,7 @@ class RegistrationForm extends Component
                 $rider->delete();
             }
             $this->addError('dob', $eligibilityCheck['message']);
+
             return null;
         }
 
@@ -295,20 +310,75 @@ class RegistrationForm extends Component
                 $rider->delete();
             }
             $this->addError('bracket_id', __('This bracket has no remaining quota.'));
+
+            return null;
+        }
+
+        if (! $packageId) {
+            $this->addError('package_id', __('Select a package.'));
+            if (! $existingRiderId) {
+                $rider->delete();
+            }
+
             return null;
         }
 
         $rider->teams()->sync($this->selectedTeamIds);
 
-        Registration::create([
-            'event_id' => $this->event->id,
-            'rider_id' => $rider->id,
-            'team_ids' => $this->selectedTeamIds,
-            'bracket_id' => $bracket->id,
-            'package_id' => $packageId,
-            'status' => Registration::STATUS_PENDING,
-            'number_plate' => $validated['number_plate'] ?? null,
-        ]);
+        $lockResult = QuotaReservationService::withLocks(
+            (int) $bracket->id,
+            (int) $packageId,
+            null,
+            function () use ($bracket, $packageId, $rider, $validated) {
+                if (Registration::query()->where('event_id', $this->event->id)
+                    ->where('rider_id', $rider->id)
+                    ->where('bracket_id', $bracket->id)
+                    ->exists()) {
+                    return 'duplicate';
+                }
+                $b = Bracket::query()->findOrFail($bracket->id);
+                $p = Package::query()->findOrFail($packageId);
+                if (! $b->hasQuota()) {
+                    return 'bracket_quota';
+                }
+                if ($p->isQuotaFull()) {
+                    return 'package_quota';
+                }
+                Registration::create([
+                    'event_id' => $this->event->id,
+                    'rider_id' => $rider->id,
+                    'team_ids' => $this->selectedTeamIds,
+                    'bracket_id' => $bracket->id,
+                    'package_id' => $packageId,
+                    'status' => Registration::STATUS_PENDING,
+                    'number_plate' => $validated['number_plate'] ?? null,
+                ]);
+
+                return null;
+            }
+        );
+
+        if ($lockResult === 'duplicate') {
+            $this->addError('bracket_id', __('You are already registered for this bracket.'));
+
+            return null;
+        }
+        if ($lockResult === 'bracket_quota') {
+            if (! $existingRiderId) {
+                $rider->delete();
+            }
+            $this->addError('bracket_id', __('This bracket has no remaining quota.'));
+
+            return null;
+        }
+        if ($lockResult === 'package_quota') {
+            if (! $existingRiderId) {
+                $rider->delete();
+            }
+            $this->addError('package_id', __('This package has no remaining quota.'));
+
+            return null;
+        }
 
         $this->showSimilarChoice = false;
         $this->similarRiders = [];

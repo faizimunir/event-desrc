@@ -2,29 +2,52 @@
 
 namespace App\Models;
 
+use App\Services\QuotaReservationService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    public const STATUS_PENDING_PAYMENT = 'pending_payment';
+    /** Baru isi form; belum Confirm & Pay — tidak mengikat kuota. */
+    public const STATUS_DRAFT = 'draft';
 
-    public const STATUS_PAID = 'paid';
+    /** Sudah confirm; kuota di-hold; menunggu bayar. */
+    public const STATUS_PENDING = 'pending';
+
+    /** Pembayaran sukses (PAID pertama valid). */
+    public const STATUS_CONFIRMED = 'confirmed';
 
     public const STATUS_CANCELLED = 'cancelled';
 
-    public const STATUS_EXPIRED = 'expired';
+    /** Setelah event selesai (opsional / reporting). */
+    public const STATUS_COMPLETED = 'completed';
 
     public const STATUSES = [
-        self::STATUS_PENDING_PAYMENT,
-        self::STATUS_PAID,
+        self::STATUS_DRAFT,
+        self::STATUS_PENDING,
+        self::STATUS_CONFIRMED,
         self::STATUS_CANCELLED,
-        self::STATUS_EXPIRED,
+        self::STATUS_COMPLETED,
     ];
 
-    /** Menit untuk konfirmasi order (klik Pay now) sebelum order dianggap expired. */
-    public const ORDER_CONFIRMATION_DEADLINE_MINUTES = 15;
+    public const PAYMENT_STATUS_UNPAID = 'unpaid';
+
+    public const PAYMENT_STATUS_PAID = 'paid';
+
+    /** Order dibatalkan karena lewat expired_at (scheduler). */
+    public const PAYMENT_STATUS_EXPIRED = 'expired';
+
+    public const PAYMENT_STATUSES = [
+        self::PAYMENT_STATUS_UNPAID,
+        self::PAYMENT_STATUS_PAID,
+        self::PAYMENT_STATUS_EXPIRED,
+    ];
+
+    /** Batas waktu draft (belum commit beli). */
+    public const ORDER_CONFIRMATION_DEADLINE_MINUTES = 5;
 
     /** @deprecated Use ORDER_CONFIRMATION_DEADLINE_MINUTES */
     public const PAYMENT_DEADLINE_MINUTES = self::ORDER_CONFIRMATION_DEADLINE_MINUTES;
@@ -35,8 +58,10 @@ class Order extends Model
         'session_id',
         'user_id',
         'status',
+        'payment_status',
         'expired_at',
         'confirmed_at',
+        'paid_at',
     ];
 
     protected function casts(): array
@@ -44,6 +69,7 @@ class Order extends Model
         return [
             'expired_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
     }
 
@@ -54,15 +80,19 @@ class Order extends Model
                 $order->order_code = 'ORD-'.Str::ulid();
             }
             if (empty($order->status)) {
-                $order->status = self::STATUS_PENDING_PAYMENT;
+                $order->status = self::STATUS_DRAFT;
             }
-            if ($order->status === self::STATUS_PENDING_PAYMENT && $order->expired_at === null) {
+            if ($order->status === self::STATUS_DRAFT && $order->expired_at === null) {
                 $order->expired_at = now()->addMinutes(self::ORDER_CONFIRMATION_DEADLINE_MINUTES);
+            }
+            if ($order->status === self::STATUS_PENDING
+                && $order->payment_status === self::PAYMENT_STATUS_UNPAID
+                && $order->expired_at === null) {
+                $order->expired_at = now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES);
             }
         });
     }
 
-    /** Route binding menggunakan order_code (ORD-ULID). */
     public function getRouteKeyName(): string
     {
         return 'order_code';
@@ -78,17 +108,59 @@ class Order extends Model
         return $this->belongsTo(User::class);
     }
 
-    /** Scope: order milik session saat ini (guest). */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /** Percobaan pembayaran pending terakhir (satu aktif per order). */
+    public function activePendingPayment(): ?Payment
+    {
+        return $this->payments()->where('status', Payment::STATUS_PENDING)->latest('id')->first();
+    }
+
+    /** Pembayaran sukses pertama (yang mengikat). */
+    public function winningPayment(): ?Payment
+    {
+        return $this->payments()->where('status', Payment::STATUS_SUCCESS)->orderBy('id')->first();
+    }
+
+    /**
+     * Arsipkan semua pending lalu buat baris payment baru (retry / ganti metode).
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public function createNewPaymentAttempt(array $attributes): Payment
+    {
+        return DB::transaction(function () use ($attributes) {
+            $this->newQuery()->whereKey($this->getKey())->lockForUpdate()->first();
+
+            $this->payments()
+                ->where('status', Payment::STATUS_PENDING)
+                ->update(['status' => Payment::STATUS_EXPIRED]);
+
+            return $this->payments()->create(array_merge([
+                'registration_id' => $this->registration_id,
+                'expires_at' => $this->expired_at,
+            ], $attributes));
+        });
+    }
+
+    /** Order mengikat kuota: pending (hold) atau confirmed (fix). */
+    public function scopeHoldsQuota($query): void
+    {
+        $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_CONFIRMED]);
+    }
+
     public function scopeForSession($query, ?string $sessionId): void
     {
         if ($sessionId) {
             $query->where('session_id', $sessionId);
         } else {
-            $query->whereNull('id'); // no match
+            $query->whereNull('id');
         }
     }
 
-    /** Scope: order milik user (logged-in). */
     public function scopeForUser($query, ?int $userId): void
     {
         if ($userId) {
@@ -98,34 +170,121 @@ class Order extends Model
         }
     }
 
-    /** Scope: order yang masih menunggu pembayaran (status pending_payment, belum lunas, belum kadaluarsa). */
+    public function scopeForCurrentVisitor($query, ?string $sessionId, ?int $userId): void
+    {
+        $query->where(function ($q) use ($sessionId, $userId) {
+            if ($sessionId) {
+                $q->orWhere('session_id', $sessionId);
+            }
+            if ($userId) {
+                $q->orWhere('user_id', $userId);
+            }
+            if (! $sessionId && ! $userId) {
+                $q->whereRaw('1 = 0');
+            }
+        });
+    }
+
     public function scopePendingPayment($query): void
     {
-        $query->where('status', self::STATUS_PENDING_PAYMENT)
-            ->where(function ($q) {
-                $q->whereNull('expired_at')->orWhere('expired_at', '>=', now());
-            })
+        $query->whereIn('status', [self::STATUS_DRAFT, self::STATUS_PENDING])
             ->whereHas('registration', function ($q) {
                 $q->where('registrations.status', Registration::STATUS_PENDING);
+            })
+            ->where(function ($q) {
+                $q->where(function ($q1) {
+                    $q1->where('status', self::STATUS_DRAFT)
+                        ->where(function ($q2) {
+                            $q2->whereNull('expired_at')
+                                ->orWhere('expired_at', '>=', now());
+                        });
+                })->orWhere(function ($q1) {
+                    $q1->where('status', self::STATUS_PENDING)
+                        ->where('payment_status', self::PAYMENT_STATUS_UNPAID)
+                        ->where(function ($q2) {
+                            $q2->where(function ($q3) {
+                                $q3->whereDoesntHave('payments')
+                                    ->where(function ($q4) {
+                                        $q4->whereNull('expired_at')
+                                            ->orWhere('expired_at', '>=', now());
+                                    });
+                            })->orWhereHas('payments', function ($pq) {
+                                $pq->where('status', Payment::STATUS_PENDING)
+                                    ->where(function ($q3) {
+                                        $q3->whereNotNull('transfer_proof_path')
+                                            ->orWhereNull('expires_at')
+                                            ->orWhere('expires_at', '>=', now());
+                                    });
+                            });
+                        });
+                });
             });
     }
 
-    /** Scope: order yang sudah lewat expired_at dan masih pending_payment (untuk job cancel). */
-    public function scopeExpiredPending($query): void
+    /** Draft lewat batas (scheduler). */
+    public function scopeExpiredDraft($query): void
     {
-        $query->where('status', self::STATUS_PENDING_PAYMENT)
+        $query->where('status', self::STATUS_DRAFT)
             ->whereNotNull('expired_at')
             ->where('expired_at', '<', now());
     }
 
-    public function isPendingPayment(): bool
+    /** Pending unpaid lewat batas bayar (scheduler). */
+    public function scopeExpiredPendingUnpaid($query): void
     {
-        return $this->status === self::STATUS_PENDING_PAYMENT;
+        $query->where('status', self::STATUS_PENDING)
+            ->where('payment_status', self::PAYMENT_STATUS_UNPAID)
+            ->whereNotNull('expired_at')
+            ->where('expired_at', '<', now());
     }
 
-    public function isPaidStatus(): bool
+    /** @deprecated Gunakan scopeExpiredDraft */
+    public function scopeExpiredPending($query): void
     {
-        return $this->status === self::STATUS_PAID;
+        $query->expiredDraft();
+    }
+
+    public function scopeNotExpired($query): void
+    {
+        $query->where(function ($q) {
+            $q->where('status', '!=', self::STATUS_DRAFT)
+                ->orWhereNull('expired_at')
+                ->orWhere('expired_at', '>=', now());
+        })
+            ->where(function ($q) {
+                $q->where('status', '!=', self::STATUS_PENDING)
+                    ->orWhere('payment_status', '!=', self::PAYMENT_STATUS_UNPAID)
+                    ->orWhereNull('expired_at')
+                    ->orWhere('expired_at', '>=', now())
+                    ->orWhereDoesntHave('payments')
+                    ->orWhereHas('payments', function ($pq) {
+                        $pq->where('status', '!=', Payment::STATUS_PENDING)
+                            ->orWhereNotNull('transfer_proof_path')
+                            ->orWhereNull('expires_at')
+                            ->orWhere('expires_at', '>=', now());
+                    });
+            });
+    }
+
+    public function isDraft(): bool
+    {
+        return $this->status === self::STATUS_DRAFT;
+    }
+
+    public function isPendingUnpaid(): bool
+    {
+        return $this->status === self::STATUS_PENDING
+            && $this->payment_status === self::PAYMENT_STATUS_UNPAID;
+    }
+
+    public function isPendingPayment(): bool
+    {
+        return $this->isDraft() || $this->isPendingUnpaid();
+    }
+
+    public function isConfirmedOrder(): bool
+    {
+        return $this->status === self::STATUS_CONFIRMED;
     }
 
     public function isCancelled(): bool
@@ -133,33 +292,87 @@ class Order extends Model
         return $this->status === self::STATUS_CANCELLED;
     }
 
-    public function isExpiredStatus(): bool
+    public function isCompleted(): bool
     {
-        return $this->status === self::STATUS_EXPIRED;
+        return $this->status === self::STATUS_COMPLETED;
     }
 
-    /** Order sudah lewat batas konfirmasi (15 menit) dan belum dikonfirmasi (klik Pay now). */
+    /** Sudah lewat batas waktu (UI); pembatalan resmi oleh scheduler. */
     public function isExpired(): bool
     {
-        if ($this->status === self::STATUS_EXPIRED) {
+        if ($this->isCancelled()) {
             return true;
         }
-        if ($this->confirmed_at) {
-            return false;
+        if ($this->isDraft()) {
+            return $this->expired_at && $this->expired_at->isPast();
         }
-        return $this->isPendingPayment() && $this->expired_at && $this->expired_at->isPast();
+        if ($this->isPendingUnpaid()) {
+            $p = $this->activePendingPayment();
+            if ($p && $p->isPending() && ! empty($p->transfer_proof_path)) {
+                return false;
+            }
+
+            return $this->expired_at && $this->expired_at->isPast();
+        }
+
+        return false;
     }
 
-    /** Order sudah dikonfirmasi (user pernah buka halaman payment). */
+    /** User sudah klik alur Confirm & Pay (step 2). */
     public function isConfirmed(): bool
     {
         return $this->confirmed_at !== null;
     }
 
     /**
-     * Buat order baru (order_code baru) untuk registration ini.
-     * Dipakai saat payment expired: order lama tidak dipakai lagi, buat order baru dengan order_code baru.
+     * Draft → pending (hold kuota). Bracket + package + order di-lock (FOR UPDATE) agar tidak bentrok klik bersamaan.
+     *
+     * @return bool false jika kuota bracket/paket sudah penuh
      */
+    public function finalizeForPayment(): bool
+    {
+        $this->loadMissing('registration');
+        $reg = $this->registration;
+        if (! $reg) {
+            return false;
+        }
+        if (! $this->isDraft()) {
+            return true;
+        }
+
+        $orderId = $this->getKey();
+        $ok = QuotaReservationService::withLocks(
+            $reg->bracket_id,
+            $reg->package_id,
+            $orderId,
+            function () use ($orderId) {
+                $order = self::query()->whereKey($orderId)->firstOrFail();
+                if (! $order->isDraft()) {
+                    return true;
+                }
+                $order->loadMissing('registration');
+                $bracket = Bracket::query()->findOrFail($order->registration->bracket_id);
+                $package = Package::query()->findOrFail($order->registration->package_id);
+                if (! $bracket->hasQuota() || $package->isQuotaFull()) {
+                    return false;
+                }
+                $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
+                $order->forceFill([
+                    'status' => self::STATUS_PENDING,
+                    'payment_status' => self::PAYMENT_STATUS_UNPAID,
+                    'expired_at' => now()->addMinutes($minutes),
+                    'confirmed_at' => now(),
+                ])->save();
+
+                return true;
+            }
+        );
+
+        $this->refresh();
+
+        return (bool) $ok;
+    }
+
     public static function createNewOrderForRegistration(Registration $registration): Order
     {
         $oldOrder = $registration->order;
@@ -172,12 +385,12 @@ class Order extends Model
             'registration_id' => $registration->id,
             'session_id' => $sessionId,
             'user_id' => $userId,
-            'status' => self::STATUS_PENDING_PAYMENT,
+            'status' => self::STATUS_DRAFT,
+            'payment_status' => null,
             'expired_at' => now()->addMinutes(self::ORDER_CONFIRMATION_DEADLINE_MINUTES),
         ]);
     }
 
-    /** Apakah order ini milik visitor saat ini (session atau user)? */
     public function isOwnedByCurrentVisitor(): bool
     {
         $sessionId = session()->getId();
@@ -193,52 +406,49 @@ class Order extends Model
         return false;
     }
 
-    /** Sudah punya pembayaran yang success? (order status paid atau payment success). */
+    /** Lunas & sah (siap verifikasi admin tiket). */
     public function isPaid(): bool
     {
-        if ($this->status === self::STATUS_PAID) {
-            return true;
-        }
-        $payment = $this->registration->payment ?? null;
-
-        return $payment && $payment->isSuccess();
+        return $this->payment_status === self::PAYMENT_STATUS_PAID
+            && in_array($this->status, [self::STATUS_CONFIRMED, self::STATUS_COMPLETED], true);
     }
 
-    /** Bukti transfer sudah di-upload (payment pending dan ada file bukti). */
     public function getProofUploadedAttribute(): bool
     {
-        $payment = $this->registration->payment ?? null;
+        $p = $this->activePendingPayment();
 
-        return $payment && $payment->isPending() && ! empty($payment->transfer_proof_path);
+        return $p && $p->isPending() && ! empty($p->transfer_proof_path);
     }
 
-    /** Status label untuk tampilan. */
     public function getStatusLabelAttribute(): string
     {
-        if ($this->status === self::STATUS_PAID) {
-            return __('Paid');
+        if ($this->status === self::STATUS_CONFIRMED) {
+            return __('Confirmed');
+        }
+        if ($this->status === self::STATUS_COMPLETED) {
+            return __('Completed');
         }
         if ($this->status === self::STATUS_CANCELLED) {
             return __('Cancelled');
         }
-        if ($this->status === self::STATUS_EXPIRED) {
-            return __('Expired');
+        if ($this->isDraft()) {
+            return __('Draft');
         }
         if ($this->isPaid()) {
-            return __('Paid');
+            return __('Confirmed');
         }
         if ($this->isExpired()) {
             return __('Expired');
         }
-        $payment = $this->registration->payment;
-        if ($payment) {
-            if ($payment->isPending() && ! empty($payment->transfer_proof_path)) {
+        $p = $this->activePendingPayment();
+        if ($p) {
+            if ($p->isPending() && ! empty($p->transfer_proof_path)) {
                 return __('Payment Submitted');
             }
-            if ($payment->isPending()) {
+            if ($p->isPending()) {
                 return __('Waiting payment');
             }
-            if ($payment->isRejected()) {
+            if ($p->isRejected()) {
                 return __('Payment rejected');
             }
         }

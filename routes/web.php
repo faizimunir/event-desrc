@@ -1,15 +1,19 @@
 <?php
 
-use App\Models\Event;
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\BracketLevelController;
+use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\BracketController;
+use App\Http\Controllers\BracketLevelController;
 use App\Http\Controllers\EventCodeAccessController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Events\EventCheckinController;
 use App\Http\Controllers\LevelController;
+use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
+use App\Http\Controllers\MootaPaymentController;
+use App\Http\Controllers\MyRiderController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PaymentController;
@@ -22,25 +26,26 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SwitchRoleController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TicketController;
-use App\Http\Controllers\Events\EventCheckinController;
-use App\Http\Controllers\LiveResultController;
-use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
+use App\Models\Event;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    $events = \App\Models\Event::with('location')
-        ->visibleOnHomePage()
-        ->orderBy('start_at', 'desc')
-        ->limit(12)
-        ->get();
-    return view('home', compact('events'));
+    return view('home');
 })->name('home');
+
+// Public events list (event cards)
+Route::get('events-public', function () {
+    return view('events.public.index');
+})->name('events.public.index');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('switch-role', SwitchRoleController::class)->name('switch-role');
     Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::get('my-rider', [MyRiderController::class, 'index'])->name('my-rider.index');
+    Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
     Route::resource('users', UserController::class)->except(['show']);
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['show', 'store', 'update'])->scoped();
@@ -107,6 +112,16 @@ Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
+
+// Moota: konfirmasi nominal unik + webhook mutasi bank
+Route::post('payment/moota/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.moota.confirm');
+Route::get('webhooks/moota', fn () => response()->json([
+    'message' => 'ok',
+    'method' => 'POST',
+]));
+Route::post('webhooks/moota', [MootaPaymentController::class, 'webhook'])
+    ->withoutMiddleware([VerifyCsrfToken::class])
+    ->name('webhooks.moota');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');

@@ -13,6 +13,9 @@ class RiderForm extends Component
 
     public ?Rider $rider = null;
 
+    /** When true, flow is from My Rider (member); new riders are linked to the current user. */
+    public bool $forMyRider = false;
+
     public string $name = '';
 
     public string $nickname = '';
@@ -29,8 +32,10 @@ class RiderForm extends Component
 
     public $photoKia = null;
 
-    public function mount(?Rider $rider = null): void
+    public function mount(?Rider $rider = null, bool $forMyRider = false): void
     {
+        $this->forMyRider = $forMyRider;
+
         if ($rider?->exists) {
             $this->authorize('update', $rider);
             $this->rider = $rider;
@@ -41,7 +46,11 @@ class RiderForm extends Component
             $this->gender = $rider->gender;
             $this->number_plate = $rider->number_plate ?? '';
         } else {
-            abort_unless(auth()->user()->canAs('rider.create'), 403);
+            $user = auth()->user();
+            abort_unless(
+                $user->canAs('rider.create') || ($forMyRider && $user->canAs('myrider.manage')),
+                403
+            );
         }
     }
 
@@ -61,7 +70,11 @@ class RiderForm extends Component
             abort_unless(auth()->user()->canAs('rider.update'), 403);
             $this->authorize('update', $this->rider);
         } else {
-            abort_unless(auth()->user()->canAs('rider.create'), 403);
+            $user = auth()->user();
+            abort_unless(
+                $user->canAs('rider.create') || ($this->forMyRider && $user->canAs('myrider.manage')),
+                403
+            );
         }
 
         $maxKb = config('media.max_upload_size_kb', 2048);
@@ -90,14 +103,18 @@ class RiderForm extends Component
                 'number_plate' => $this->number_plate ?: null,
             ]);
         } else {
-            $rider = Rider::create([
+            $attributes = [
                 'name' => $this->name,
                 'nickname' => $this->nickname ?: null,
                 'pob' => $this->pob ?: null,
                 'dob' => $this->dob ?: null,
                 'gender' => $this->gender,
                 'number_plate' => $this->number_plate ?: null,
-            ]);
+            ];
+            if ($this->forMyRider) {
+                $attributes['user_id'] = auth()->id();
+            }
+            $rider = Rider::create($attributes);
         }
 
         if ($this->photoRider) {
@@ -109,7 +126,10 @@ class RiderForm extends Component
             $mediaService->upload($this->photoKia, $rider, 'photo_kia');
         }
 
-        $this->redirect(route('riders.index'), navigate: true);
+        $this->redirect(
+            $this->forMyRider ? route('my-rider.index') : route('riders.index'),
+            navigate: true
+        );
     }
 
     public function render()

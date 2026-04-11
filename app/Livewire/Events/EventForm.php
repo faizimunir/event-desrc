@@ -57,7 +57,11 @@ class EventForm extends Component
 
     public ?string $location_id = null;
 
-    public ?string $account_id = null;
+    /** @var list<string> */
+    public array $payment_methods = [Event::PAYMENT_MANUAL, Event::PAYMENT_QRIS];
+
+    /** @var list<string|int> */
+    public array $account_ids = [];
 
     public $poster = null;
 
@@ -80,7 +84,7 @@ class EventForm extends Component
         $this->accounts = Account::orderBy('acc_name')->get();
 
         if ($event?->exists) {
-            $this->event = $event;
+            $this->event = $event->load('accounts');
             $this->title = $event->title;
             $this->category = $event->category;
             $this->description = $event->description ?? '';
@@ -93,7 +97,8 @@ class EventForm extends Component
             $this->registration_opens_at = $event->registration_opens_at?->format('Y-m-d\TH:i') ?? '';
             $this->registration_closes_at = $event->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
             $this->location_id = $event->location_id ? (string) $event->location_id : null;
-            $this->account_id = $event->account_id ? (string) $event->account_id : null;
+            $this->payment_methods = $event->normalizedPaymentMethods();
+            $this->account_ids = $event->accounts->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
         }
     }
 
@@ -127,8 +132,6 @@ class EventForm extends Component
         $this->racing_committee_id = $this->racing_committee_id ?: null;
         $this->master_of_ceremony_id = $this->master_of_ceremony_id ?: null;
         $this->location_id = $this->location_id ?: null;
-        $this->account_id = $this->account_id ?: null;
-
         if (! $this->event && $this->organizer_id === null && ! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
             $autoOrganizerId = Organizer::where('user_id', $user->id)->value('id');
             if ($autoOrganizerId) {
@@ -149,11 +152,19 @@ class EventForm extends Component
             'registration_opens_at' => ['nullable', 'date'],
             'registration_closes_at' => ['nullable', 'date'],
             'location_id' => ['nullable'],
-            'account_id' => ['nullable', 'integer', 'exists:accounts,id'],
+            'payment_methods' => ['required', 'array', 'min:1'],
+            'payment_methods.*' => ['in:'.implode(',', Event::PAYMENT_METHODS)],
             'poster' => ['nullable', 'image', 'max:10240'],
             'logo' => ['nullable', 'image', 'max:5120'],
             'sizeChart' => ['nullable', 'image', 'max:10240'],
         ];
+        if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
+            $rules['account_ids'] = ['required', 'array', 'min:1'];
+            $rules['account_ids.*'] = ['integer', 'exists:accounts,id'];
+        } else {
+            $rules['account_ids'] = ['nullable', 'array'];
+            $rules['account_ids.*'] = ['integer', 'exists:accounts,id'];
+        }
         if ($this->registration_opens_at && $this->registration_closes_at) {
             $rules['registration_closes_at'][] = 'after_or_equal:registration_opens_at';
         }
@@ -161,7 +172,10 @@ class EventForm extends Component
         $validated = $this->validate($rules);
 
         $locationId = $validated['location_id'] ? (int) $validated['location_id'] : null;
-        $accountId = $validated['account_id'] ? (int) $validated['account_id'] : null;
+        $paymentMethods = array_values(array_unique($validated['payment_methods']));
+        $syncAccountIds = in_array(Event::PAYMENT_MANUAL, $paymentMethods, true)
+            ? array_values(array_unique(array_map('intval', $validated['account_ids'] ?? [])))
+            : [];
         $organizerId = $validated['organizer_id'] ? (int) $validated['organizer_id'] : null;
         $racingCommitteeId = $validated['racing_committee_id'] ? (int) $validated['racing_committee_id'] : null;
         $masterOfCeremonyId = $validated['master_of_ceremony_id'] ? (int) $validated['master_of_ceremony_id'] : null;
@@ -210,14 +224,15 @@ class EventForm extends Component
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,
-                'account_id' => $accountId,
+                'payment_methods' => $paymentMethods,
                 'poster' => $posterPath ?? $this->event->poster,
                 'logo_url' => $logoPath ?? $this->event->logo_url,
                 'size_chart' => $sizeChartPath ?? $this->event->size_chart,
             ]);
+            $this->event->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.show', $this->event), navigate: true);
         } else {
-            Event::create([
+            $newEvent = Event::create([
                 'title' => $validated['title'],
                 'category' => $validated['category'],
                 'description' => $validated['description'] ?: null,
@@ -230,11 +245,12 @@ class EventForm extends Component
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,
-                'account_id' => $accountId,
+                'payment_methods' => $paymentMethods,
                 'poster' => $posterPath,
                 'logo_url' => $logoPath ?? null,
                 'size_chart' => $sizeChartPath ?? null,
             ]);
+            $newEvent->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.index'), navigate: true);
         }
     }

@@ -9,8 +9,8 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Intervention\Image\ImageManager;
@@ -59,18 +59,8 @@ class AppServiceProvider extends ServiceProvider
             $sessionId = session()->getId();
             $userId = auth()->id();
             $count = \App\Models\Order::query()
+                ->forCurrentVisitor($sessionId, $userId)
                 ->pendingPayment()
-                ->where(function ($q) use ($sessionId, $userId) {
-                    if ($sessionId) {
-                        $q->orWhere('session_id', $sessionId);
-                    }
-                    if ($userId) {
-                        $q->orWhere('user_id', $userId);
-                    }
-                    if (! $sessionId && ! $userId) {
-                        $q->whereRaw('1 = 0');
-                    }
-                })
                 ->count();
             $view->with('pendingOrdersCount', $count);
         });

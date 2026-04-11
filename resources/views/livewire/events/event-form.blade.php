@@ -107,17 +107,51 @@
         </div>
 
         <div>
-            <flux:label class="mb-2 block">{{ __('Payment account') }}</flux:label>
-            <flux:select wire:model="account_id" :placeholder="__('— Select —')" class="w-full">
-                <flux:select.option value="">{{ __('— No account —') }}</flux:select.option>
-                @foreach ($accounts as $acc)
-                    <flux:select.option :value="$acc->id">{{ $acc->acc_name }} — {{ $acc->acc_bank }} ({{ $acc->acc_number }})</flux:select.option>
-                @endforeach
-            </flux:select>
-            @error('account_id')
+            <flux:label class="mb-2 block">{{ __('Payment methods') }}</flux:label>
+            <div class="space-y-2">
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    <input type="checkbox" wire:model.live="payment_methods" value="{{ \App\Models\Event::PAYMENT_MANUAL }}" class="rounded border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+                    <span>{{ __('Manual bank transfer (upload proof)') }}</span>
+                </label>
+                <label class="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                    <input type="checkbox" wire:model.live="payment_methods" value="{{ \App\Models\Event::PAYMENT_QRIS }}" class="rounded border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+                    <span>{{ __('QRIS / automatic (Moota)') }}</span>
+                </label>
+            </div>
+            @error('payment_methods')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+            @error('payment_methods.*')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
         </div>
+
+        @if (in_array(\App\Models\Event::PAYMENT_MANUAL, $payment_methods ?? [], true))
+            <div>
+                <flux:label class="mb-2 block">{{ __('Bank accounts for manual transfer') }}</flux:label>
+                <p class="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ __('Select which accounts participants can use. If you choose more than one, they pick an account when paying.') }}
+                </p>
+                @if ($accounts->isEmpty())
+                    <p class="text-sm text-amber-700 dark:text-amber-300">{{ __('No bank accounts exist yet. Create accounts first, then assign them here.') }}</p>
+                @else
+                    <div class="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-zinc-200 p-3 dark:border-zinc-600">
+                        @foreach ($accounts as $acc)
+                            <label class="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
+                                <input type="checkbox" wire:model="account_ids" value="{{ $acc->id }}" class="rounded border-zinc-300 dark:border-zinc-600 dark:bg-zinc-800">
+                                <span>{{ $acc->acc_name }} — {{ $acc->acc_bank }} ({{ $acc->acc_number }})</span>
+                            </label>
+                        @endforeach
+                    </div>
+                @endif
+                @error('account_ids')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                @enderror
+                @error('account_ids.*')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                @enderror
+            </div>
+        @endif
 
         <div class="grid grid-cols-2 gap-4">
         <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />

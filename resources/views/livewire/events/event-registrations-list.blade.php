@@ -111,9 +111,10 @@
                                 @if ($reg->order)
                                     @php
                                         $orderColor = match ($reg->order->status) {
-                                            'paid' => 'green',
-                                            'pending_payment' => 'yellow',
-                                            'cancelled', 'expired' => 'zinc',
+                                            'confirmed', 'completed' => 'green',
+                                            'draft' => 'yellow',
+                                            'pending' => 'yellow',
+                                            'cancelled' => 'zinc',
                                             default => 'zinc',
                                         };
                                     @endphp

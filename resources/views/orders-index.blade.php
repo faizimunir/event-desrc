@@ -12,22 +12,49 @@
                 {{ __('My orders') }}
             </h1>
             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                {{ __('Your orders and payment status.') }}
+                @if ($showAll ?? false)
+                    {{ __('Your orders and payment status.') }}
+                @else
+                    {{ __('Pending payment only (matches the cart icon).') }}
+                @endif
+            </p>
+            <p class="mt-2 text-sm">
+                @if ($showAll ?? false)
+                    <a href="{{ route('orders.index') }}" class="text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300">
+                        {{ __('Show only pending payment') }}
+                    </a>
+                @else
+                    <a href="{{ route('orders.index', ['all' => true]) }}" class="text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+                        {{ __('Show all orders (including paid)') }}
+                    </a>
+                @endif
             </p>
         </div>
 
         @if ($orders->isEmpty())
             <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-8 text-center">
                 <flux:icon name="shopping-bag" class="mx-auto size-12 text-zinc-400 dark:text-zinc-500" />
-                <p class="mt-4 text-zinc-600 dark:text-zinc-400">
-                    {{ __('You have no orders yet.') }}
-                </p>
-                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                    {{ __('Register for an event to see your orders here.') }}
-                </p>
-                <flux:button href="{{ route('home') }}#events" variant="primary" class="mt-6">
-                    {{ __('Browse events') }}
-                </flux:button>
+                @if (! ($showAll ?? false))
+                    <p class="mt-4 text-zinc-600 dark:text-zinc-400">
+                        {{ __('No orders are awaiting payment.') }}
+                    </p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                        {{ __('Paid or confirmed orders may appear in the full list.') }}
+                    </p>
+                    <flux:button href="{{ route('orders.index', ['all' => true]) }}" variant="primary" class="mt-6">
+                        {{ __('Show all orders') }}
+                    </flux:button>
+                @else
+                    <p class="mt-4 text-zinc-600 dark:text-zinc-400">
+                        {{ __('You have no orders yet.') }}
+                    </p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                        {{ __('Register for an event to see your orders here.') }}
+                    </p>
+                    <flux:button href="{{ route('home') }}#events" variant="primary" class="mt-6">
+                        {{ __('Browse events') }}
+                    </flux:button>
+                @endif
             </div>
         @else
             <ul class="space-y-4">
@@ -36,7 +63,7 @@
                         $reg = $order->registration;
                         $event = $reg->event;
                         $rider = $reg->rider;
-                        $amount = $reg->package ? $reg->package->price : 0;
+                        $amount = $reg->package ? $reg->package->payableAmount() : 0;
                     @endphp
                     <li>
                         <a href="{{ route('orders.show', $order) }}" class="block rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md dark:hover:border-zinc-600">
@@ -50,7 +77,7 @@
                                         @endif
                                     </p>
                                     @php
-                                        $orderPaid = $order->status === \App\Models\Order::STATUS_PAID || $order->isPaid();
+                                        $orderPaid = $order->isPaid();
                                         $showConfirmCountdown = !$order->isPaid() && !$order->isConfirmed() && $order->expired_at;
                                         $payment = $reg->payment;
                                         $showProofCountdown = !$order->isPaid() && !$order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && $payment->expires_at;

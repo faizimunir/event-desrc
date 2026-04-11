@@ -13,7 +13,7 @@
                     {{ __('Order') }} #{{ $order->id }}
                 </h1>
                 <span class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium
-                    @if ($order->isPaid()) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
+                    @if ($order->isPaid() || $order->isCompleted()) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
                     @else bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300
                     @endif">
                     {{ $order->status_label }}
@@ -53,10 +53,20 @@
             @php
                 $reg = $order->registration;
                 $event = $reg->event;
+                $event->loadMissing('accounts');
                 $rider = $reg->rider;
                 $payment = $reg->payment;
-                $amount = $reg->package ? $reg->package->price : 0;
+                $amount = $reg->package ? $reg->package->payableAmount() : 0;
                 $whatsapp = $rider->user?->whatsapp ?? '';
+                $allowManualPay = $event->allowsManualPayment();
+                $allowQrisPay = $event->allowsQrisPayment();
+                $paymentCreateBase = array_filter([
+                    'order_code' => $order->order_code,
+                    'whatsapp' => $whatsapp !== '' ? $whatsapp : null,
+                ]);
+                if (! empty($freshPayment ?? false)) {
+                    $paymentCreateBase['fresh_payment'] = '1';
+                }
                 $showPaymentProofCountdown = !$order->isPaid() && !$order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && $payment->expires_at;
             @endphp
             @if ($showPaymentProofCountdown)
@@ -123,15 +133,79 @@
                         </p>
                     @endif
                 @else
-                    <div class="flex flex-wrap gap-3">
+                    <div class="flex flex-col gap-4">
                         @if (!$order->isExpired())
-                            <flux:button href="{{ route('payment.create', ['order_code' => $order->order_code]) }}" variant="primary">
-                                {{ __('Confirm & Pay') }}
-                            </flux:button>
+                            @if ($allowManualPay && $allowQrisPay)
+                                @php
+                                    $payUrlQris = route('payment.create', array_merge($paymentCreateBase, ['payment_method' => 'qris']));
+                                    $payUrlManual = route('payment.create', array_merge($paymentCreateBase, ['payment_method' => 'manual']));
+                                @endphp
+                                <div
+                                    class="space-y-4"
+                                    x-data="{
+                                        method: 'qris',
+                                        urls: { qris: @js($payUrlQris), manual: @js($payUrlManual) },
+                                        payHref() { return this.urls[this.method]; },
+                                    }"
+                                >
+                                    <flux:radio.group
+                                        x-model="method"
+                                        :label="__('Choose how you want to pay')"
+                                        variant="cards"
+                                        class="w-full flex-col gap-3"
+                                    >
+                                        <flux:radio
+                                            value="qris"
+                                            icon="bolt"
+                                            :label="__('QRIS / Moota (automatic)')"
+                                            :description="__('Payment is confirmed automatically when we receive it.')"
+                                        />
+                                        <flux:radio
+                                            value="manual"
+                                            icon="photo"
+                                            :label="__('Manual bank transfer')"
+                                            :description="__('Transfer to the organizer account, then upload proof of payment.')"
+                                        />
+                                    </flux:radio.group>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ __('You will confirm the order on the next page and complete payment there.') }}
+                                    </p>
+                                    <flux:button
+                                        type="button"
+                                        variant="primary"
+                                        class="w-full justify-center sm:w-auto"
+                                        x-on:click="window.location.assign(payHref())"
+                                    >
+                                        {{ __('Continue to payment') }}
+                                    </flux:button>
+                                </div>
+                            @elseif ($allowQrisPay)
+                                <flux:button
+                                    href="{{ route('payment.create', array_merge($paymentCreateBase, ['payment_method' => 'qris'])) }}"
+                                    variant="primary"
+                                >
+                                    {{ __('Confirm & Pay') }}
+                                </flux:button>
+                            @elseif ($allowManualPay)
+                                <flux:button
+                                    href="{{ route('payment.create', array_merge($paymentCreateBase, ['payment_method' => 'manual'])) }}"
+                                    variant="primary"
+                                >
+                                    {{ __('Confirm & Pay') }}
+                                </flux:button>
+                            @else
+                                <flux:callout color="amber">
+                                    <flux:callout.text>
+                                        {{ __('No payment method is set up for this event. Please contact the organizer.') }}
+                                    </flux:callout.text>
+                                </flux:callout>
+                            @endif
                         @endif
-                        <flux:button href="{{ route('orders.index') }}" variant="ghost">
-                            {{ __('Back to my orders') }}
-                        </flux:button>
+                        <div class="flex flex-wrap gap-3">
+                            <flux:button href="{{ route('orders.index') }}" variant="ghost">
+                                {{ __('Back to my orders') }}
+                            </flux:button>
+                        </div>
                     </div>
                 @endif
             </div>

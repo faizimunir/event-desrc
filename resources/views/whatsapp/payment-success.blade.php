@@ -10,7 +10,7 @@
 @endif
 @if($registration->package)
 📦 *{{ __('Package') }}:* {{ $registration->package->name }}
-💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_price }}
+💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_payable_amount }}
 @endif
 
 {{ __('You can access your e-ticket via the link below:') }}

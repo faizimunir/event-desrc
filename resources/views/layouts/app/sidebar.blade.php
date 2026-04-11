@@ -52,6 +52,12 @@
                     wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
+                @canAs('myrider.manage')
+                <flux:sidebar.item icon="user-circle" :href="route('my-rider.index')" :current="request()->routeIs('my-rider.*')"
+                    wire:navigate>
+                    {{ __('My Rider') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('user.read')
                 <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')"
                     wire:navigate>
@@ -143,11 +149,20 @@
             </div>
         </flux:sidebar.nav>
 <flux:sidebar.spacer />
-        <flux:radio.group x-data variant="segmented" x-model="$flux.appearance">
-    <flux:radio value="light" icon="sun" />
-    <flux:radio value="dark" icon="moon" />
-    <flux:radio value="system" icon="computer-desktop" />
-</flux:radio.group>
+        <flux:radio.group
+            x-data
+            variant="segmented"
+            x-model="$flux.appearance"
+            class="in-data-flux-sidebar-collapsed-desktop:hidden"
+        >
+            <flux:radio value="light" icon="sun" />
+            <flux:radio value="dark" icon="moon" />
+            <flux:radio value="system" icon="computer-desktop" />
+        </flux:radio.group>
+
+        <div class="hidden in-data-flux-sidebar-collapsed-desktop:flex justify-center">
+            <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" />
+        </div>
 
         <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
     </flux:sidebar>
