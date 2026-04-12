@@ -69,7 +69,7 @@ class ActivationForm extends Component
     {
         $this->validate([
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,'.$this->activationUserId],
-            'password' => ['required', 'string', 'confirmed', Password::defaults()],
+            'password' => ['required', 'string', 'confirmed', Password::min(8)->numbers()],
         ]);
 
         $user = User::find($this->activationUserId);
