@@ -467,6 +467,32 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: reset payment / upload proof deadline (order expired by time or scheduler).
+     */
+    public function resetPaymentDeadline(Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $order = $registration->order;
+        if (! $order) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('No order for this registration.'));
+        }
+
+        $error = $order->resetPaymentDeadlineForAdmin();
+        if ($error) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $error);
+        }
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Payment deadline has been reset. The participant can use the payment link again; if the order was fully expired, they may receive a new unique transfer amount.'));
+    }
+
+    /**
      * Admin: approve registration and payment in one action.
      */
     public function approveAll(Registration $registration)

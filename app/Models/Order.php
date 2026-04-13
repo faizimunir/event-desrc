@@ -420,6 +420,112 @@ class Order extends Model
         return $p && $p->isPending() && ! empty($p->transfer_proof_path);
     }
 
+    /** Admin: apakah order ini boleh di-reset batas waktu bayar / upload bukti. */
+    public function adminCanResetPaymentDeadline(Registration $registration): bool
+    {
+        if ($registration->id !== $this->registration_id) {
+            return false;
+        }
+        if ($registration->isCancelled() || ! $registration->isPending()) {
+            return false;
+        }
+        if ($this->isPaid() || $this->proof_uploaded) {
+            return false;
+        }
+        if ($this->status === self::STATUS_CANCELLED && $this->payment_status === self::PAYMENT_STATUS_EXPIRED) {
+            return true;
+        }
+
+        return $this->isPendingUnpaid()
+            && $this->expired_at
+            && $this->expired_at->isPast();
+    }
+
+    /**
+     * Admin: perpanjang jendela pembayaran dari sekarang (order expired scheduler, atau pending lewat deadline tanpa bukti).
+     * Mengembalikan null jika sukses, atau string pesan error (sudah diterjemahkan).
+     */
+    public function resetPaymentDeadlineForAdmin(): ?string
+    {
+        $this->loadMissing('registration.package', 'registration.bracket');
+        $registration = $this->registration;
+
+        if (! $registration || ! $this->adminCanResetPaymentDeadline($registration)) {
+            return __('This order cannot reset the payment window in its current state.');
+        }
+
+        $restoringExpiredOrder = $this->status === self::STATUS_CANCELLED
+            && $this->payment_status === self::PAYMENT_STATUS_EXPIRED;
+        $extendDeadlineOnly = $this->isPendingUnpaid()
+            && $this->expired_at
+            && $this->expired_at->isPast();
+
+        if (! $restoringExpiredOrder && ! $extendDeadlineOnly) {
+            return __('This order cannot reset the payment window in its current state.');
+        }
+
+        $newExpiry = now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES);
+        $amount = $registration->package ? $registration->package->payableAmount() : 0;
+
+        if ($restoringExpiredOrder) {
+            $ok = QuotaReservationService::withLocks(
+                $registration->bracket_id,
+                $registration->package_id,
+                $this->getKey(),
+                function () use ($registration, $newExpiry, $amount) {
+                    $bracket = Bracket::query()->findOrFail($registration->bracket_id);
+                    $package = Package::query()->findOrFail($registration->package_id);
+                    if (! $bracket->hasQuota() || $package->isQuotaFull()) {
+                        return false;
+                    }
+
+                    $this->forceFill([
+                        'status' => self::STATUS_PENDING,
+                        'payment_status' => self::PAYMENT_STATUS_UNPAID,
+                        'expired_at' => $newExpiry,
+                    ])->save();
+
+                    $this->createNewPaymentAttempt([
+                        'amount' => $amount,
+                        'method' => 'manual',
+                        'status' => Payment::STATUS_PENDING,
+                        'expires_at' => $newExpiry,
+                        'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                    ]);
+
+                    return true;
+                }
+            );
+
+            return $ok ? null : __('There is no remaining quota for this bracket or package.');
+        }
+
+        $extended = DB::transaction(function () use ($newExpiry, $amount) {
+            $order = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
+            if (! $order->isPendingUnpaid() || ! $order->expired_at || ! $order->expired_at->isPast()) {
+                return false;
+            }
+            $order->forceFill(['expired_at' => $newExpiry])->save();
+
+            $payment = $order->activePendingPayment();
+            if ($payment && $payment->isPending()) {
+                $payment->forceFill(['expires_at' => $newExpiry])->save();
+            } else {
+                $order->createNewPaymentAttempt([
+                    'amount' => $amount,
+                    'method' => 'manual',
+                    'status' => Payment::STATUS_PENDING,
+                    'expires_at' => $newExpiry,
+                    'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                ]);
+            }
+
+            return true;
+        });
+
+        return $extended ? null : __('This order cannot reset the payment window in its current state.');
+    }
+
     public function getStatusLabelAttribute(): string
     {
         if ($this->status === self::STATUS_CONFIRMED) {
