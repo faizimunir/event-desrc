@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Mail\TicketIssuedMail;
 use App\Models\Registration;
 use App\Models\Ticket;
+use App\Models\WhatsappNotificationLog;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
 
@@ -72,7 +73,15 @@ class TicketService
                 'qrUrl' => $qrUrl,
             ])->render());
 
-            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage);
+            $logId = null;
+            if (WhatsappNotificationLog::tableExists()) {
+                $logId = $registration->whatsappNotificationLogs()->create([
+                    'type' => WhatsappNotificationLog::TYPE_TICKET_ISSUED,
+                    'recipient' => WhacenterService::normalizeWhatsApp($user->whatsapp),
+                    'status' => WhatsappNotificationLog::STATUS_QUEUED,
+                ])->id;
+            }
+            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage, $logId);
         }
 
         if ($user->email) {

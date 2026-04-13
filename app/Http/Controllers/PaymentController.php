@@ -6,6 +6,7 @@ use App\Mail\PaymentLinkMail;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\WhatsappNotificationLog;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
@@ -418,7 +419,15 @@ class PaymentController extends Controller
                 'paymentLinkUrl' => $paymentLinkUrl,
                 'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
             ])->render());
-            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage);
+            $logId = null;
+            if (WhatsappNotificationLog::tableExists()) {
+                $logId = $reg->whatsappNotificationLogs()->create([
+                    'type' => WhatsappNotificationLog::TYPE_PAYMENT_LINK,
+                    'recipient' => WhacenterService::normalizeWhatsApp($user->whatsapp),
+                    'status' => WhatsappNotificationLog::STATUS_QUEUED,
+                ])->id;
+            }
+            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage, $logId);
         }
 
         if ($user->email) {

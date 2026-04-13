@@ -90,6 +90,11 @@ class Registration extends Model
         return $this->hasOne(EventCheckin::class, 'registration_id');
     }
 
+    public function whatsappNotificationLogs(): HasMany
+    {
+        return $this->hasMany(WhatsappNotificationLog::class)->orderBy('id');
+    }
+
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;

@@ -57,9 +57,12 @@ class WhacenterService
     /**
      * Antrekan pesan WA ke worker (jeda acak 5–30 dtk default), tidak kirim sync.
      */
-    public function queueMessage(string $number, string $message): void
+    /**
+     * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
+     */
+    public function queueMessage(string $number, string $message, ?int $whatsappNotificationLogId = null): void
     {
-        SendWhacenterMessageJob::dispatchWithRandomDelay($number, $message);
+        SendWhacenterMessageJob::dispatchWithRandomDelay($number, $message, $whatsappNotificationLogId);
     }
 
     /**

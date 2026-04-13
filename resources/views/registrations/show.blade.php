@@ -23,6 +23,105 @@
     $waNumber = $rider->user?->whatsapp ? \App\Services\WhacenterService::normalizeWhatsApp($rider->user->whatsapp) : '';
     $paymentLinkUrl = $registration->order ? route('payment.create', ['order_code' => $registration->order->order_code, 'whatsapp' => $rider->user?->whatsapp ?? '']) : '';
     $waSendPaymentUrl = $waNumber && $paymentLinkUrl ? 'https://wa.me/'.$waNumber.'?text='.rawurlencode($paymentLinkUrl) : '';
+
+    $registrationActivityLog = collect([
+        [
+            'at' => $registration->created_at,
+            'title' => __('Registration submitted'),
+            'detail' => null,
+        ],
+    ]);
+
+    $order = $registration->order;
+    if ($order) {
+        $registrationActivityLog->push([
+            'at' => $order->created_at,
+            'title' => __('Order created'),
+            'detail' => $order->order_code,
+        ]);
+        if ($order->confirmed_at) {
+            $registrationActivityLog->push([
+                'at' => $order->confirmed_at,
+                'title' => __('Order confirmed'),
+                'detail' => null,
+            ]);
+        }
+    }
+
+    if ($payment) {
+        $payDetailParts = array_filter([$payment->status_label, $transferProofUrl ? __('Proof attached') : null]);
+        $registrationActivityLog->push([
+            'at' => $payment->created_at,
+            'title' => __('Payment record'),
+            'detail' => $payDetailParts !== [] ? implode(' · ', $payDetailParts) : null,
+        ]);
+        if ($transferProofUrl && $payment->updated_at->gt($payment->created_at->copy()->addSeconds(90))) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Transfer proof updated'),
+                'detail' => null,
+            ]);
+        }
+        if ($payment->isSuccess() && ($payment->paid_at || $payment->reviewed_at)) {
+            $by = $payment->reviewedByUser?->name;
+            $registrationActivityLog->push([
+                'at' => $payment->paid_at ?? $payment->reviewed_at,
+                'title' => __('Payment successful'),
+                'detail' => $by ? __('Reviewed by :name', ['name' => $by]) : null,
+            ]);
+        } elseif ($payment->isFailed()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment rejected'),
+                'detail' => null,
+            ]);
+        } elseif ($payment->isExpired()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment expired'),
+                'detail' => null,
+            ]);
+        } elseif ($payment->isCancelled()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment cancelled'),
+                'detail' => null,
+            ]);
+        }
+    }
+
+    if ($order && $order->paid_at && $order->isPaid() && ! ($payment && $payment->isSuccess())) {
+        $registrationActivityLog->push([
+            'at' => $order->paid_at,
+            'title' => __('Order marked paid'),
+            'detail' => null,
+        ]);
+    }
+
+    $ticket = $registration->ticket;
+    if ($ticket) {
+        $registrationActivityLog->push([
+            'at' => $ticket->created_at,
+            'title' => __('Ticket issued'),
+            'detail' => $ticket->ticket_code,
+        ]);
+    }
+
+    if ($registration->updated_at->gt($registration->created_at->copy()->addMinute())) {
+        $registrationActivityLog->push([
+            'at' => $registration->updated_at,
+            'title' => __('Registration record updated'),
+            'detail' => __('Status: :status', ['status' => $registration->status_label]),
+        ]);
+    }
+
+    foreach ($registration->whatsappNotificationLogs as $waLog) {
+        $registrationActivityLog->push($waLog->activityTimelineRow());
+    }
+
+    $registrationActivityLog = $registrationActivityLog
+        ->sortBy(fn (array $row) => $row['at']->timestamp)
+        ->values();
 @endphp
 <x-layouts::app :title="__('Registration') . ' — ' . $event->title">
     <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
@@ -257,6 +356,28 @@
                         </div>
                     @endif
                 </div>
+            </div>
+        </div>
+
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+            <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Activity log') }}</h2>
+            </div>
+            <div class="p-4">
+                <ol class="ms-3 border-s border-zinc-200 dark:border-zinc-600">
+                    @foreach ($registrationActivityLog as $entry)
+                        <li class="relative mb-6 ms-6 last:mb-0">
+                            <span class="absolute -start-[0.6875rem] top-1.5 flex size-3 rounded-full border border-white bg-zinc-300 ring-2 ring-white dark:border-zinc-800 dark:bg-zinc-500 dark:ring-zinc-800"></span>
+                            <p class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $entry['title'] }}</p>
+                            <time class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400" datetime="{{ $entry['at']->format('c') }}">
+                                {{ $entry['at']->format('d/m/Y H:i') }}
+                            </time>
+                            @if (! empty($entry['detail']))
+                                <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{{ $entry['detail'] }}</p>
+                            @endif
+                        </li>
+                    @endforeach
+                </ol>
             </div>
         </div>
 

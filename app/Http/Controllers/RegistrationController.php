@@ -12,6 +12,7 @@ use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\WhatsappNotificationLog;
 use App\Services\MediaService;
 use App\Services\QuotaReservationService;
 use App\Services\RegistrationEligibilityService;
@@ -413,7 +414,12 @@ class RegistrationController extends Controller
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
-        $registration->load(['rider.user', 'bracket', 'package', 'payment', 'order']);
+        $registration->load(['rider.user', 'bracket', 'package', 'payment.reviewedByUser', 'order', 'ticket']);
+        if (WhatsappNotificationLog::tableExists()) {
+            $registration->load('whatsappNotificationLogs');
+        } else {
+            $registration->setRelation('whatsappNotificationLogs', collect());
+        }
 
         $needsReviewIds = Registration::where('event_id', $event->id)
             ->where(function ($q) {
