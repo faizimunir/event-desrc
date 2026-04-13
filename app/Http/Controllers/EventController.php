@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\EventCodeAccess;
 use App\Models\Location;
 use Illuminate\Http\Request;
 
@@ -52,7 +51,7 @@ class EventController extends Controller
             abort(404);
         }
 
-        $event->load(['location', 'organizer', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+        $event->load(['location', 'organizer.user', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
 
         $hasEarlyAccess = $this->hasEarlyAccessForEvent($event);
 

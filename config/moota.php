@@ -38,4 +38,16 @@ return [
     */
     'expected_account_number' => env('MOOTA_EXPECTED_ACCOUNT_NUMBER'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Mode webhook
+    |--------------------------------------------------------------------------
+    | settle       — Moota yang menyelesaikan pembayaran (payment method moota,
+    |                cocokkan order_code / nominal unik, lalu tandai order paid).
+    | record_only  — Hanya simpan mutasi ke tabel moota_settlement_records (audit /
+    |                rekonsiliasi). Pakai ini jika QRIS/pembayaran resmi lewat Winpay
+    |                atau gateway lain; Moota hanya merekam arus kas di rekening.
+    */
+    'webhook_mode' => env('MOOTA_WEBHOOK_MODE', 'settle'),
+
 ];

@@ -108,6 +108,28 @@
                                         {{ $event->organizer->name }}
                                     @endif
                                 </p>
+                                @if ($event->organizer->user)
+                                    @php $orgAdmin = $event->organizer->user; @endphp
+                                    <div>
+                                        <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                            <span
+                                                class="font-medium text-zinc-500 dark:text-zinc-500">{{ __('Admin') }} :</span>
+                                        </p>
+                                        @if (filled($orgAdmin->whatsapp))
+                                            @php
+                                                $orgAdminWa = \App\Services\WhacenterService::normalizeWhatsApp(
+                                                    $orgAdmin->whatsapp,
+                                                );
+                                            @endphp
+                                            <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                                <span
+                                                    class="font-medium text-zinc-500 dark:text-zinc-500">{{ $orgAdmin->name }}</span>
+                                                <a href="https://wa.me/{{ $orgAdminWa }}" target="_blank" rel="noopener"
+                                                    class="text-emerald-600 hover:underline dark:text-emerald-400">({{ $orgAdmin->whatsapp }})</a>
+                                            </p>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endif

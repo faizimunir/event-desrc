@@ -414,11 +414,11 @@ class PaymentController extends Controller
             $waMessage = trim(View::make('whatsapp.payment-link', [
                 'recipientName' => $recipientName,
                 'eventTitle' => $eventTitle,
-                'registration' => $reg->loadMissing(['rider', 'bracket', 'package']),
+                'registration' => $reg->loadMissing(['rider', 'bracket', 'package', 'event.organizer.user']),
                 'paymentLinkUrl' => $paymentLinkUrl,
                 'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
             ])->render());
-            app(WhacenterService::class)->sendMessage($user->whatsapp, $waMessage);
+            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage);
         }
 
         if ($user->email) {

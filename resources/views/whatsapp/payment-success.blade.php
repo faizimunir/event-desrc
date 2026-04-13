@@ -1,25 +1,39 @@
-{{ __('Hello') }}, {{ $recipientName }}.
+@php
+    $organizerUser = $registration->event?->organizer?->user;
+@endphp
 
-{{ __('Your payment has been verified and your e-ticket is ready.') }}
+Terimakasih kak {{ $recipientName }} 👋
+Registrasinya sudah beres ya 🙌  
+E-ticket kamu juga sudah siap dipakai.
 
 📌 *{{ $eventTitle }}*
 
-👤 *{{ __('Rider') }}:* {{ $registration->rider->name }}{{ $registration->rider->nickname ? ' (' . $registration->rider->nickname . ')' : '' }}
+👤 Rider: {{ $registration->rider->name }}{{ $registration->rider->nickname ? ' (' . $registration->rider->nickname . ')' : '' }}
 @if($registration->bracket)
-📋 *{{ __('Bracket') }}:* {{ $registration->bracket->name }}
+📋 Kelas: {{ $registration->bracket->name }}
 @endif
 @if($registration->package)
-📦 *{{ __('Package') }}:* {{ $registration->package->name }}
-💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_payable_amount }}
+📦 Paket: {{ $registration->package->name }}
+💰 Total: {{ $registration->package->formatted_payable_amount }}
 @endif
 
-{{ __('You can access your e-ticket via the link below:') }}
+Buka e-ticket lewat link ini ya:
 
 {!! $ticketUrl !!}
 
-{{ __('Please show the e-ticket or QR code at the venue during check-in.') }}
+Nanti di venue tinggal tunjukin e-ticket atau QR-nya pas check-in 🙏
 
-{{ __('Thank you.') }}
+Makasih ya kak 🙌
+
 —
-{{ config('app.name') }}
-
+@if($organizerUser)
+Kalau ada yang mau ditanyakan soal event, bisa hubungi panitia:
+@if($organizerUser->name)
+👤 {{ $organizerUser->name }}
+@endif
+@if($organizerUser->whatsapp)
+📱 {{ $organizerUser->whatsapp }}
+@endif
+@else
+Kalau butuh bantuan, hubungi panitia lewat kontak resmi event ya.
+@endif

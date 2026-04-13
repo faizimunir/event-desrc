@@ -7,7 +7,6 @@ use App\Models\Registration;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\View;
-use App\Services\WhacenterService;
 
 class TicketService
 {
@@ -52,7 +51,7 @@ class TicketService
      */
     protected static function sendTicketNotifications(Ticket $ticket): void
     {
-        $registration = $ticket->registration->loadMissing(['rider.user', 'event', 'bracket', 'package', 'order']);
+        $registration = $ticket->registration->loadMissing(['rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
         $user = $registration->rider?->user;
 
         if (! $user) {
@@ -73,7 +72,7 @@ class TicketService
                 'qrUrl' => $qrUrl,
             ])->render());
 
-            app(WhacenterService::class)->sendMessage($user->whatsapp, $waMessage);
+            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage);
         }
 
         if ($user->email) {

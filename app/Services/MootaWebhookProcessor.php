@@ -15,7 +15,6 @@ class MootaWebhookProcessor
             return;
         }
 
-        // Prevent double-processing
         if (($row->status ?? null) === 'processed') {
             return;
         }
@@ -32,7 +31,7 @@ class MootaWebhookProcessor
                 throw new \RuntimeException('Invalid JSON payload');
             }
 
-            $this->processItems($items);
+            $this->processItems($items, $eventId);
 
             DB::table('moota_webhook_events')->where('id', $eventId)->update([
                 'status' => 'processed',
@@ -52,12 +51,13 @@ class MootaWebhookProcessor
     }
 
     /**
-     * Proses item-item payload Moota:
-     * - Dynamic QRIS: match via payment_detail.order_id (order_code)
-     * - Fallback mutasi bank: match via moota_transfer_amount
+     * @param  array<int, mixed>  $items
      */
-    private function processItems(array $items): void
+    private function processItems(array $items, int $eventId): void
     {
+        $mode = (string) config('moota.webhook_mode', 'settle');
+        $recordOnly = $mode === 'record_only';
+
         $expectedAccount = (string) config('moota.expected_account_number', '');
         $expectedAccount = $expectedAccount !== '' ? preg_replace('/\s+/', '', $expectedAccount) : '';
 
@@ -70,20 +70,27 @@ class MootaWebhookProcessor
             if (! $mutationId) {
                 continue;
             }
-
-            if (Payment::query()->where('moota_mutation_id', (string) $mutationId)->exists()) {
-                continue;
-            }
-
-            if (($mutation['type'] ?? '') !== 'CR') {
-                continue;
-            }
+            $mutationId = (string) $mutationId;
 
             if ($expectedAccount !== '') {
                 $incoming = preg_replace('/\s+/', '', (string) ($mutation['account_number'] ?? ''));
                 if ($incoming !== '' && $incoming !== $expectedAccount) {
                     continue;
                 }
+            }
+
+            $this->persistSettlementRecord($eventId, $mutation, $mutationId);
+
+            if ($recordOnly) {
+                continue;
+            }
+
+            if (Payment::query()->where('moota_mutation_id', $mutationId)->exists()) {
+                continue;
+            }
+
+            if (($mutation['type'] ?? '') !== 'CR') {
+                continue;
             }
 
             $amount = round((float) ($mutation['amount'] ?? 0), 2);
@@ -120,9 +127,9 @@ class MootaWebhookProcessor
                 $payment->forceFill([
                     'status' => Payment::STATUS_SUCCESS,
                     'paid_at' => now(),
-                    'moota_mutation_id' => (string) $mutationId,
+                    'moota_mutation_id' => $mutationId,
                     'moota_raw' => $mutation,
-                    'admin_notes' => trim('Moota: mutation '.(string) $mutationId),
+                    'admin_notes' => trim('Moota: mutation '.$mutationId),
                     'reviewed_at' => now(),
                     'reviewed_by' => null,
                     'expires_at' => null,
@@ -133,8 +140,60 @@ class MootaWebhookProcessor
                     'payment_status' => Order::PAYMENT_STATUS_PAID,
                     'paid_at' => now(),
                 ]);
+
+                DB::table('moota_settlement_records')->where('mutation_id', $mutationId)->update([
+                    'order_id' => $order->id,
+                    'payment_id' => $payment->id,
+                    'updated_at' => now(),
+                ]);
+
                 TicketService::ensureTicketForRegistration($payment->registration);
             });
         }
+    }
+
+    /**
+     * Arsip mutasi Moota (rekonsiliasi / audit), terpisah dari status pembayaran gateway (mis. Winpay).
+     *
+     * @param  array<string, mixed>  $mutation
+     */
+    private function persistSettlementRecord(int $eventId, array $mutation, string $mutationId): void
+    {
+        $amount = array_key_exists('amount', $mutation)
+            ? round((float) $mutation['amount'], 2)
+            : null;
+        $orderCodeRaw = trim((string) data_get($mutation, 'payment_detail.order_id', ''));
+        $orderCode = $orderCodeRaw !== '' ? $orderCodeRaw : null;
+
+        $order = $orderCode
+            ? Order::query()->where('order_code', $orderCode)->first()
+            : null;
+        $payment = $order ? $order->payments()->latest('id')->first() : null;
+
+        $now = now();
+        $payload = [
+            'moota_webhook_event_id' => $eventId,
+            'type' => $mutation['type'] ?? null,
+            'amount' => $amount,
+            'order_code' => $orderCode,
+            'account_number' => $mutation['account_number'] ?? null,
+            'payload' => json_encode($mutation),
+            'updated_at' => $now,
+        ];
+
+        if ($order) {
+            $payload['order_id'] = $order->id;
+            $payload['payment_id'] = $payment?->id;
+        }
+
+        if (DB::table('moota_settlement_records')->where('mutation_id', $mutationId)->exists()) {
+            DB::table('moota_settlement_records')->where('mutation_id', $mutationId)->update($payload);
+
+            return;
+        }
+
+        $payload['mutation_id'] = $mutationId;
+        $payload['created_at'] = $now;
+        DB::table('moota_settlement_records')->insert($payload);
     }
 }

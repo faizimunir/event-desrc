@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendWhacenterMessageJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -13,7 +14,6 @@ class WhacenterService
     private const OTP_TTL_MINUTES = 10;
 
     private const OTP_LENGTH = 6;
-
 
     /**
      * Normalize nomor WA ke format 62xxx (tanpa + atau 0 di depan).
@@ -55,6 +55,14 @@ class WhacenterService
     }
 
     /**
+     * Antrekan pesan WA ke worker (jeda acak 5–30 dtk default), tidak kirim sync.
+     */
+    public function queueMessage(string $number, string $message): void
+    {
+        SendWhacenterMessageJob::dispatchWithRandomDelay($number, $message);
+    }
+
+    /**
      * Generate OTP, simpan di cache, kirim ke WA. Return kode OTP (untuk testing/log).
      */
     public function generateAndSendOtp(string $whatsapp): string
@@ -67,7 +75,7 @@ class WhacenterService
             'code' => $otp,
             'minutes' => self::OTP_TTL_MINUTES,
         ]);
-        $this->sendMessage($whatsapp, $message);
+        $this->queueMessage($whatsapp, $message);
 
         return $otp;
     }

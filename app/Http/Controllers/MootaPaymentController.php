@@ -119,7 +119,7 @@ class MootaPaymentController extends Controller
     {
         $secret = (string) config('moota.webhook_secret');
         if ($secret === '') {
-            abort(503, 'Moota webhook secret not configured');
+            abort(503, 'MOOTA_WEBHOOK_SECRET is empty. Set it in server .env to the same secret as the Moota webhook, then run php artisan config:clear (or config:cache).');
         }
 
         $raw = $request->getContent();

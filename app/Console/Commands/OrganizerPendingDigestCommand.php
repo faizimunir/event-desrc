@@ -158,7 +158,7 @@ class OrganizerPendingDigestCommand extends Command
             return self::SUCCESS;
         }
 
-        $totalSent = 0;
+        $totalQueued = 0;
 
         foreach ($byOrganizer as $data) {
             $user = $data['user'];
@@ -204,15 +204,12 @@ class OrganizerPendingDigestCommand extends Command
 
             $message = implode("\n", $lines);
 
-            if ($whacenter->sendMessage($user->whatsapp, $message)) {
-                $this->info('Digest terkirim ke '.$user->whatsapp);
-                $totalSent++;
-            } else {
-                $this->error('Gagal mengirim digest ke '.$user->whatsapp);
-            }
+            $whacenter->queueMessage($user->whatsapp, $message);
+            $this->info('Digest di-antrekan untuk '.$user->whatsapp.' (jeda acak + worker).');
+            $totalQueued++;
         }
 
-        $this->info("Total digest terkirim: {$totalSent}");
+        $this->info("Total digest di-antrekan: {$totalQueued} — pastikan `php artisan queue:work` berjalan.");
 
         return self::SUCCESS;
     }
