@@ -189,6 +189,9 @@ class Order extends Model
             }
             if ($userId) {
                 $q->orWhere('user_id', $userId);
+                $q->orWhereHas('registration.rider', function ($riderQuery) use ($userId) {
+                    $riderQuery->where('user_id', $userId);
+                });
             }
             if (! $sessionId && ! $userId) {
                 $q->whereRaw('1 = 0');
@@ -560,6 +563,12 @@ class Order extends Model
         }
         if ($userId && $this->user_id === $userId) {
             return true;
+        }
+        if ($userId) {
+            $riderUserId = $this->registration?->rider?->user_id;
+            if ((int) $riderUserId === (int) $userId) {
+                return true;
+            }
         }
 
         return false;
