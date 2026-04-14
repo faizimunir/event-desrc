@@ -23,3 +23,5 @@ yarn-error.log
 /.vscode
 /.zed
 .tmp-flux-clone/
+*.log
+*.sql
