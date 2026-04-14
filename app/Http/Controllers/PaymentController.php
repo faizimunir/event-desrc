@@ -10,7 +10,9 @@ use App\Models\WhatsappNotificationLog;
 use App\Services\ManualTransferNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
+use App\Services\WinpayQrisService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
@@ -118,6 +120,9 @@ class PaymentController extends Controller
             if ($preferredPaymentMethod === 'qris' && ! $allowsQris) {
                 $preferredPaymentMethod = null;
             }
+
+            $this->ensureWinpayQrisWhenViewingPaymentPage($registration);
+
             $registration->unsetRelation('payment');
         }
 
@@ -418,6 +423,42 @@ class PaymentController extends Controller
     /**
      * Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay.
      */
+    /**
+     * Jika user sudah punya pembayaran Moota + nominal unik tapi QRIS Winpay belum ada
+     * (mis. gagal saat POST, lalu .env diperbaiki), coba generate sekali saat GET halaman bayar.
+     */
+    private function ensureWinpayQrisWhenViewingPaymentPage(Registration $registration): void
+    {
+        $order = $registration->order;
+        if (! $order || $order->isExpired() || $order->isCancelled()) {
+            return;
+        }
+
+        $payment = $order->activePendingPayment();
+        if (! $payment || $payment->method !== 'moota' || $payment->moota_transfer_amount === null) {
+            return;
+        }
+
+        if (is_string($payment->winpay_qr_url) && $payment->winpay_qr_url !== '') {
+            return;
+        }
+
+        $winpay = app(WinpayQrisService::class);
+        if (! $winpay->isConfigured()) {
+            return;
+        }
+
+        try {
+            $winpay->generateDynamicQris($order, $payment);
+        } catch (\Throwable $e) {
+            Log::warning('Winpay QRIS lazy generate on payment page failed', [
+                'order_code' => $order->order_code,
+                'payment_id' => $payment->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
     {
         $user = $reg->rider->user;

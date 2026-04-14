@@ -43,6 +43,10 @@ class WinpayQrisService
             return;
         }
 
+        if (is_string($payment->winpay_qr_url) && $payment->winpay_qr_url !== '') {
+            return;
+        }
+
         $baseUrl = $this->normalizeWinpayBaseUrl((string) config('winpay.base_url'));
         $url = $baseUrl.self::QR_MPM_GENERATE_PATH;
 
