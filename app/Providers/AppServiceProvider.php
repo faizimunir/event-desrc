@@ -58,8 +58,12 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.navbar', function ($view) {
             $sessionId = session()->getId();
             $userId = auth()->id();
+            \App\Models\Order::enforceExpiredDraftsForVisitor($sessionId, $userId);
+            \App\Models\Order::enforceExpiredPaymentWindowsForVisitor($sessionId, $userId);
+
             $count = \App\Models\Order::query()
                 ->forCurrentVisitor($sessionId, $userId)
+                ->excludeAbandonedDraftTimeout()
                 ->pendingPayment()
                 ->count();
             $view->with('pendingOrdersCount', $count);

@@ -14,7 +14,7 @@ class MarkOrdersCompletedCommand extends Command
     public function handle(): int
     {
         $n = Order::query()
-            ->where('status', Order::STATUS_CONFIRMED)
+            ->where('status', Order::STATUS_PAID)
             ->whereHas('registration.event', function ($q) {
                 $q->whereNotNull('end_at')->where('end_at', '<', now());
             })

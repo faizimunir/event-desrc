@@ -3,6 +3,7 @@
 namespace App\Livewire\Events;
 
 use App\Models\Event;
+use App\Models\Order;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -23,6 +24,8 @@ class EventRegistrationsList extends Component
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
         $this->event = $event;
+        Order::enforceExpiredDraftsForEvent($event->id);
+        Order::enforceExpiredPaymentWindowsForEvent($event->id);
     }
 
     public function updatedSearch(): void

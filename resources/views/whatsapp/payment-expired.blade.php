@@ -1,0 +1,1 @@
+{{ trim(__('Hello :name, the payment window for :event has expired without a verified transfer. Please contact the organizer if you still wish to participate.', ['name' => $recipientName, 'event' => $eventTitle])) }}

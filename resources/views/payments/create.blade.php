@@ -207,7 +207,11 @@
                                     {{ __('Pay via Moota (QRIS / bank transfer)') }}
                                 </p>
                                 <p class="mt-1 text-sm text-violet-800 dark:text-violet-200">
-                                    {{ __('Transfer the exact amount below to our account. Confirmation is automatic when the transfer appears in Moota.') }}
+                                    @if ($isMoota && $payment->winpay_qr_url)
+                                        {{ __('Scan the QRIS code below or transfer the exact amount to our account. Confirmation is automatic when Moota receives the payment.') }}
+                                    @else
+                                        {{ __('Transfer the exact amount below to our account. Confirmation is automatic when the transfer appears in Moota.') }}
+                                    @endif
                                 </p>
                             </div>
                             <form action="{{ route('payment.moota.confirm') }}" method="post">
@@ -221,6 +225,28 @@
                         </div>
 
                         @if ($isMoota && $payment->moota_transfer_amount)
+                            @if ($payment->winpay_qr_url)
+                                <div class="mt-4 rounded-lg border border-violet-200/70 dark:border-violet-800/70 bg-white/60 dark:bg-zinc-900/40 p-4">
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300">
+                                        {{ __('QRIS (Winpay)') }}
+                                    </p>
+                                    <div class="mt-3 flex flex-col items-center gap-2">
+                                        <img
+                                            src="{{ $payment->winpay_qr_url }}"
+                                            alt="{{ __('QRIS payment code') }}"
+                                            class="max-w-[220px] rounded-lg border border-violet-200/80 bg-white p-2 dark:border-violet-800/80"
+                                            loading="lazy"
+                                            width="220"
+                                            height="220"
+                                        >
+                                        @if ($payment->winpay_expired_at)
+                                            <p class="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                                                {{ __('QRIS expires at') }} {{ $payment->winpay_expired_at->timezone(config('app.timezone'))->format('d M Y H:i') }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
                             <div class="mt-4 grid gap-3 sm:grid-cols-2">
                                 <div class="rounded-lg border border-violet-200/70 dark:border-violet-800/70 bg-white/60 dark:bg-zinc-900/40 p-3">
                                     <p class="text-xs font-semibold uppercase tracking-wider text-violet-700 dark:text-violet-300">

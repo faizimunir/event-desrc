@@ -87,9 +87,9 @@
                                     @php
                                         $badgeColor = match ($payment->status) {
                                             'success' => 'green',
-                                            'pending' => 'yellow',
+                                            'pending', 'submitted' => 'yellow',
                                             'failed' => 'red',
-                                            'expired', 'cancelled' => 'zinc',
+                                            'void', 'refunded', 'expired', 'cancelled' => 'zinc',
                                             default => 'zinc',
                                         };
                                     @endphp
@@ -104,7 +104,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    @if ($payment->isPending())
+                                    @if ($payment->isPending() || $payment->isSubmitted())
                                         <form action="{{ route('payments.approve', $payment) }}" method="post" class="inline">
                                             @csrf
                                             <flux:button variant="ghost" size="sm" type="submit" color="green">{{ __('Approve') }}</flux:button>

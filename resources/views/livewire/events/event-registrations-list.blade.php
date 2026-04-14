@@ -69,7 +69,7 @@
                     <tr>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Rider') }}</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Pack') }}</th>
-                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Status') }}</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Registration') }}</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Order') }}</th>
                     </tr>
                 </thead>
@@ -111,9 +111,9 @@
                                 @if ($reg->order)
                                     @php
                                         $orderColor = match ($reg->order->status) {
-                                            'confirmed', 'completed' => 'green',
+                                            'paid', 'completed' => 'green',
                                             'draft' => 'yellow',
-                                            'pending' => 'yellow',
+                                            'unpaid' => 'yellow',
                                             'cancelled' => 'zinc',
                                             default => 'zinc',
                                         };

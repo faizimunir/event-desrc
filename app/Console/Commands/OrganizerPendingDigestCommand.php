@@ -49,7 +49,7 @@ class OrganizerPendingDigestCommand extends Command
 
         // Pending payments yang baru dibuat dalam N jam terakhir
         $payments = Payment::query()
-            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUBMITTED])
             ->where('created_at', '>=', $since)
             ->with(['registration.event.organizer.user'])
             ->get();

@@ -16,9 +16,12 @@ class OrderController extends Controller
         $sessionId = $request->session()->getId();
         $showAll = $request->boolean('all');
 
+        Order::enforceExpiredDraftsForVisitor($sessionId, $request->user()?->id);
+        Order::enforceExpiredPaymentWindowsForVisitor($sessionId, $request->user()?->id);
+
         $query = Order::with(['registration.event', 'registration.rider', 'registration.bracket', 'registration.package', 'registration.payment', 'payments'])
             ->forCurrentVisitor($sessionId, $request->user()?->id)
-            ->notExpired()
+            ->excludeAbandonedDraftTimeout()
             ->when(! $showAll, fn ($q) => $q->pendingPayment())
             ->latest();
 
@@ -36,7 +39,10 @@ class OrderController extends Controller
             abort(403, __('You do not have access to this order.'));
         }
 
-        $order->load(['registration.event.location', 'registration.event.accounts', 'registration.rider.user', 'registration.bracket', 'registration.package', 'registration.payment', 'registration.ticket', 'payments']);
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
+
+        $order->load(['registration.event.location', 'registration.event.accounts', 'registration.rider.user', 'registration.rider.media', 'registration.bracket', 'registration.package', 'registration.payment', 'registration.ticket', 'payments']);
 
         $freshPayment = $request->boolean('change_payment_method');
 

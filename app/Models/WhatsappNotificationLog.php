@@ -19,6 +19,14 @@ class WhatsappNotificationLog extends Model
 
     public const TYPE_TICKET_ISSUED = 'ticket_issued';
 
+    public const TYPE_TRANSFER_PROOF_SUBMITTED = 'transfer_proof_submitted';
+
+    public const TYPE_REGISTRATION_REJECTED = 'registration_rejected';
+
+    public const TYPE_PAYMENT_REJECTED = 'payment_rejected';
+
+    public const TYPE_PAYMENT_EXPIRED = 'payment_expired';
+
     protected $fillable = [
         'registration_id',
         'type',
@@ -65,6 +73,20 @@ class WhatsappNotificationLog extends Model
         ])->save();
     }
 
+    /** Laravel view name for the message body (e.g. whatsapp.payment-link). */
+    public function templateViewName(): string
+    {
+        return match ($this->type) {
+            self::TYPE_PAYMENT_LINK => 'whatsapp.payment-link',
+            self::TYPE_TICKET_ISSUED => 'whatsapp.payment-success',
+            self::TYPE_TRANSFER_PROOF_SUBMITTED => 'whatsapp.transfer-proof-submitted',
+            self::TYPE_REGISTRATION_REJECTED => 'whatsapp.registration-rejected',
+            self::TYPE_PAYMENT_REJECTED => 'whatsapp.payment-rejected',
+            self::TYPE_PAYMENT_EXPIRED => 'whatsapp.payment-expired',
+            default => $this->type,
+        };
+    }
+
     /** @return array{at: \Illuminate\Support\Carbon, title: string, detail: string|null} */
     public function activityTimelineRow(): array
     {
@@ -77,6 +99,10 @@ class WhatsappNotificationLog extends Model
         $kind = match ($this->type) {
             self::TYPE_PAYMENT_LINK => __('Payment link'),
             self::TYPE_TICKET_ISSUED => __('E-ticket'),
+            self::TYPE_TRANSFER_PROOF_SUBMITTED => __('Transfer proof submitted'),
+            self::TYPE_REGISTRATION_REJECTED => __('Registration rejected'),
+            self::TYPE_PAYMENT_REJECTED => __('Payment rejected'),
+            self::TYPE_PAYMENT_EXPIRED => __('Payment expired'),
             default => __('Notification'),
         };
 
@@ -87,6 +113,7 @@ class WhatsappNotificationLog extends Model
         };
 
         $detailParts = array_filter([
+            __('Template: :name', ['name' => $this->templateViewName()]),
             $this->maskedRecipient(),
             $this->status === self::STATUS_FAILED && filled($this->failed_reason)
                 ? Str::limit($this->failed_reason, 200)

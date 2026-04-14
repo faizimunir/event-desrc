@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\Storage;
 
 class Payment extends Model
 {
-    /** Gateway-style: pending, success, failed, expired, cancelled */
+    /** Menunggu transfer / upload bukti (belum ada bukti). */
     public const STATUS_PENDING = 'pending';
+
+    /** Bukti sudah diunggah; menunggu verifikasi admin. */
+    public const STATUS_SUBMITTED = 'submitted';
 
     public const STATUS_SUCCESS = 'success';
 
@@ -19,12 +22,21 @@ class Payment extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /** Registrasi ditolak admin tanpa pembayaran sukses — percobaan tidak berlaku. */
+    public const STATUS_VOID = 'void';
+
+    /** Pembayaran sukses lalu registrasi ditolak — arsip refund (proses di luar app). */
+    public const STATUS_REFUNDED = 'refunded';
+
     public const STATUSES = [
         self::STATUS_PENDING,
+        self::STATUS_SUBMITTED,
         self::STATUS_SUCCESS,
         self::STATUS_FAILED,
         self::STATUS_EXPIRED,
         self::STATUS_CANCELLED,
+        self::STATUS_VOID,
+        self::STATUS_REFUNDED,
     ];
 
     /** Menit untuk upload bukti transfer setelah order dikonfirmasi. */
@@ -47,6 +59,13 @@ class Payment extends Model
         'moota_transfer_amount',
         'moota_mutation_id',
         'moota_raw',
+        'winpay_qr_url',
+        'winpay_qr_content',
+        'winpay_contract_id',
+        'winpay_partner_reference_no',
+        'winpay_expired_at',
+        'winpay_external_id',
+        'winpay_raw',
     ];
 
     protected function casts(): array
@@ -59,6 +78,8 @@ class Payment extends Model
             'reviewed_at' => 'datetime',
             'paid_at' => 'datetime',
             'moota_raw' => 'array',
+            'winpay_expired_at' => 'datetime',
+            'winpay_raw' => 'array',
         ];
     }
 
@@ -93,6 +114,11 @@ class Payment extends Model
         return $this->status === self::STATUS_PENDING;
     }
 
+    public function isSubmitted(): bool
+    {
+        return $this->status === self::STATUS_SUBMITTED;
+    }
+
     public function isSuccess(): bool
     {
         return $this->status === self::STATUS_SUCCESS;
@@ -111,6 +137,16 @@ class Payment extends Model
     public function isCancelled(): bool
     {
         return $this->status === self::STATUS_CANCELLED;
+    }
+
+    public function isVoid(): bool
+    {
+        return $this->status === self::STATUS_VOID;
+    }
+
+    public function isRefunded(): bool
+    {
+        return $this->status === self::STATUS_REFUNDED;
     }
 
     /** Admin menolak bukti / pembayaran tidak valid. */
@@ -148,7 +184,7 @@ class Payment extends Model
     public static function pendingTransferAmountExists(float $amount): bool
     {
         return static::query()
-            ->where('status', self::STATUS_PENDING)
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_SUBMITTED])
             ->where(function ($q) use ($amount) {
                 $q->where('moota_transfer_amount', $amount)
                     ->orWhere('manual_transfer_amount', $amount);
@@ -197,10 +233,13 @@ class Payment extends Model
     {
         return match ($this->status) {
             self::STATUS_PENDING => __('Pending'),
+            self::STATUS_SUBMITTED => __('Submitted'),
             self::STATUS_SUCCESS => __('Success'),
             self::STATUS_FAILED => __('Failed'),
             self::STATUS_EXPIRED => __('Expired'),
             self::STATUS_CANCELLED => __('Cancelled'),
+            self::STATUS_VOID => __('Void'),
+            self::STATUS_REFUNDED => __('Refunded'),
             default => $this->status,
         };
     }

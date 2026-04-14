@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Registration;
 use App\Models\WhatsappNotificationLog;
+use App\Services\ManualTransferNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
@@ -38,6 +39,10 @@ class PaymentController extends Controller
         if ($orderCode) {
             $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.bracket', 'registration.package', 'payments'])
                 ->where('order_code', $orderCode)->first();
+            if ($order) {
+                $order->enforceExpiredDraftIfNeeded();
+                $order->enforceExpiredPaymentWindowIfNeeded();
+            }
             if ($order && ($order->isExpired() || $order->isCancelled())) {
                 $orderExpiredOrCancelled = true;
                 $order = null;
@@ -140,6 +145,8 @@ class PaymentController extends Controller
         ]);
 
         $order = Order::with('registration.rider.user')->where('order_code', $validated['order_code'])->firstOrFail();
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
             return redirect()->route('payment.create')
                 ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
@@ -173,6 +180,8 @@ class PaymentController extends Controller
         $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.package'])
             ->where('order_code', $request->input('order_code'))
             ->firstOrFail();
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
             return redirect()->route('payment.create')
                 ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
@@ -253,7 +262,8 @@ class PaymentController extends Controller
             $payment->manual_transfer_amount = $manualTransferAmount;
         }
 
-        if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()) {
+        if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()
+            || $payment->isVoid() || $payment->isRefunded() || $payment->isExpired()) {
             return redirect()->route('payment.create', ['order_code' => $order->order_code])
                 ->with('error', __('This payment has already been processed.'))
                 ->withInput();
@@ -270,10 +280,20 @@ class PaymentController extends Controller
         $payment->moota_transfer_amount = null;
         $payment->moota_mutation_id = null;
         $payment->moota_raw = null;
+        $payment->winpay_qr_url = null;
+        $payment->winpay_qr_content = null;
+        $payment->winpay_contract_id = null;
+        $payment->winpay_partner_reference_no = null;
+        $payment->winpay_expired_at = null;
+        $payment->winpay_external_id = null;
+        $payment->winpay_raw = null;
         $payment->admin_notes = null;
         $payment->reviewed_at = null;
         $payment->reviewed_by = null;
+        $payment->status = Payment::STATUS_SUBMITTED;
         $payment->save();
+
+        ManualTransferNotifier::transferProofSubmitted($registration);
 
         return redirect()->route('payment.create', [
             'order_code' => $order->order_code,
@@ -310,14 +330,14 @@ class PaymentController extends Controller
 
         $registration = $payment->registration;
 
-        if (! $payment->isPending()) {
+        if (! $payment->isPending() && ! $payment->isSubmitted()) {
             return redirect()->route('events.registrations.show', [$registration->event, $registration])
                 ->with('error', __('Payment is not pending.'));
         }
 
         if ($payment->order && $payment->order->isPaid()) {
             return redirect()->route('events.registrations.show', [$registration->event, $registration])
-                ->with('error', __('This order is already confirmed.'));
+                ->with('error', __('This order is already paid.'));
         }
 
         $validated = $request->validate([
@@ -335,8 +355,7 @@ class PaymentController extends Controller
         $ord = $payment->order;
         if ($ord && ! $ord->isPaid()) {
             $ord->update([
-                'status' => Order::STATUS_CONFIRMED,
-                'payment_status' => Order::PAYMENT_STATUS_PAID,
+                'status' => Order::STATUS_PAID,
                 'paid_at' => now(),
             ]);
         }
@@ -356,9 +375,9 @@ class PaymentController extends Controller
 
         $registration = $payment->registration;
 
-        if (! $payment->isPending()) {
+        if (! $payment->isPending() && ! $payment->isSubmitted()) {
             return redirect()->route('events.registrations.show', [$registration->event, $registration])
-                ->with('error', __('Payment is not pending.'));
+                ->with('error', __('Payment cannot be rejected in its current state.'));
         }
 
         $validated = $request->validate([
@@ -371,6 +390,8 @@ class PaymentController extends Controller
             'reviewed_at' => now(),
             'reviewed_by' => auth()->id(),
         ]);
+
+        ManualTransferNotifier::paymentRejected($registration, $validated['admin_notes'] ?? null);
 
         return redirect()->route('events.registrations.show', [$registration->event, $registration])
             ->with('status', __('Payment rejected.'));

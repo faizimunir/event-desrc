@@ -4,6 +4,7 @@ namespace App\Livewire\Registrations;
 
 use App\Models\Bracket;
 use App\Models\Event;
+use App\Models\Order;
 use App\Models\Package;
 use App\Models\Registration;
 use App\Models\Rider;
@@ -62,6 +63,9 @@ class RegistrationForm extends Component
 
     public function mount(Event $event): void
     {
+        Order::enforceExpiredDraftsForEvent($event->id);
+        Order::enforceExpiredPaymentWindowsForEvent($event->id);
+
         $this->event = $event->load([
             'brackets' => fn ($q) => $q->orderBy('name'),
             'packages',

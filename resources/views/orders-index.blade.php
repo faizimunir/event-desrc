@@ -78,9 +78,10 @@
                                     </p>
                                     @php
                                         $orderPaid = $order->isPaid();
-                                        $showConfirmCountdown = !$order->isPaid() && !$order->isConfirmed() && $order->expired_at;
+                                        $showConfirmCountdown = ! $order->isPaid() && ! $order->isConfirmed() && $order->expired_at;
                                         $payment = $reg->payment;
-                                        $showProofCountdown = !$order->isPaid() && !$order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && $payment->expires_at;
+                                        $showProofCountdown = ! $order->isPaid() && ! $order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && empty($payment->transfer_proof_path) && $payment->expires_at;
+                                        $flowLabel = $order->participantCheckoutLabel();
                                     @endphp
                                     <p class="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                                         @if ($orderPaid) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
@@ -89,7 +90,7 @@
                                         @if ($showProofCountdown)
                                         data-expires-at="{{ $payment->expires_at->format('c') }}"
                                         data-time-up="{{ __('Expired') }}"
-                                        data-upload-within="{{ __('Upload proof within') }}"
+                                        data-upload-within="{{ __('Waiting for payment in') }}"
                                         x-data="paymentProofCountdown()"
                                         x-init="init()"
                                         x-text="text"
@@ -102,7 +103,7 @@
                                                     const sec = Math.max(0, Math.floor((this.expiresAt - new Date()) / 1000));
                                                     if (sec <= 0) { this.text = '{{ __('Expired') }}'; return; }
                                                     const m = Math.floor(sec / 60), s = sec % 60;
-                                                    this.text = '{{ __('Confirm order within') }} ' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+                                                    this.text = '{{ __('Confirm your order in') }} ' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
                                                 };
                                                 update();
                                                 setInterval(update, 1000);
@@ -110,9 +111,9 @@
                                         }" x-init="init()" x-text="text"
                                         @endif>
                                         @if ($orderPaid)
-                                            {{ __('Paid') }}
-                                        @elseif (!$showConfirmCountdown && !$showProofCountdown)
-                                            {{ $order->status_label }}
+                                            {{ $flowLabel }}
+                                        @elseif (! $showConfirmCountdown && ! $showProofCountdown)
+                                            {{ $flowLabel }}
                                         @endif
                                     </p>
                                 </div>
@@ -155,7 +156,7 @@
                     const el = this.$el;
                     this.expiresAt = new Date(el.dataset.expiresAt);
                     const timeUpLabel = el.dataset.timeUp || "Expired";
-                    const uploadWithinLabel = el.dataset.uploadWithin || "Upload proof within";
+                    const uploadWithinLabel = el.dataset.uploadWithin || "Waiting for payment in";
                     const update = () => {
                         const sec = Math.max(0, Math.floor((this.expiresAt - new Date()) / 1000));
                         if (sec <= 0) {

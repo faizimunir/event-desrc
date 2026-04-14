@@ -100,8 +100,7 @@ class MootaWebhookProcessor
                 $paymentQuery = Payment::query()
                     ->where('method', 'moota')
                     ->where('status', Payment::STATUS_PENDING)
-                    ->whereHas('order', fn ($q) => $q->where('status', Order::STATUS_PENDING)
-                        ->where('payment_status', Order::PAYMENT_STATUS_UNPAID));
+                    ->whereHas('order', fn ($q) => $q->where('status', Order::STATUS_UNPAID));
 
                 if ($orderId !== '') {
                     $paymentQuery->whereHas('order', fn ($q) => $q->where('order_code', $orderId));
@@ -120,7 +119,7 @@ class MootaWebhookProcessor
                 }
                 Order::query()->whereKey($order->getKey())->lockForUpdate()->first();
                 $order->refresh();
-                if ($order->status === Order::STATUS_CONFIRMED && $order->payment_status === Order::PAYMENT_STATUS_PAID) {
+                if ($order->isPaid()) {
                     return;
                 }
 
@@ -136,8 +135,7 @@ class MootaWebhookProcessor
                 ])->save();
 
                 $order->update([
-                    'status' => Order::STATUS_CONFIRMED,
-                    'payment_status' => Order::PAYMENT_STATUS_PAID,
+                    'status' => Order::STATUS_PAID,
                     'paid_at' => now(),
                 ]);
 

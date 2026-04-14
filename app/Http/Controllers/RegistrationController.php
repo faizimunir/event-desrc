@@ -13,6 +13,7 @@ use App\Models\Rider;
 use App\Models\Team;
 use App\Models\User;
 use App\Models\WhatsappNotificationLog;
+use App\Services\ManualTransferNotifier;
 use App\Services\MediaService;
 use App\Services\QuotaReservationService;
 use App\Services\RegistrationEligibilityService;
@@ -21,6 +22,7 @@ use App\Services\TicketService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -333,7 +335,7 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Admin: export registrations as CSV (filter by status and payment_status from query).
+     * Admin: export registrations as CSV (filter by status and latest payment status from query).
      */
     public function export(Request $request, Event $event)
     {
@@ -415,6 +417,9 @@ class RegistrationController extends Controller
             abort(404);
         }
         $registration->load(['rider.user', 'bracket', 'package', 'payment.reviewedByUser', 'order', 'ticket']);
+        $registration->order?->enforceExpiredDraftIfNeeded();
+        $registration->order?->enforceExpiredPaymentWindowIfNeeded();
+        $registration->load('order');
         if (WhatsappNotificationLog::tableExists()) {
             $registration->load('whatsappNotificationLogs');
         } else {
@@ -424,7 +429,10 @@ class RegistrationController extends Controller
         $needsReviewIds = Registration::where('event_id', $event->id)
             ->where(function ($q) {
                 $q->where('status', Registration::STATUS_PENDING)
-                    ->orWhereHas('payment', fn ($q) => $q->where('status', Payment::STATUS_PENDING));
+                    ->orWhereHas('payment', fn ($q) => $q->whereIn('status', [
+                        Payment::STATUS_PENDING,
+                        Payment::STATUS_SUBMITTED,
+                    ]));
             })
             ->orderBy('id')
             ->pluck('id')
@@ -454,7 +462,62 @@ class RegistrationController extends Controller
 
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(Registration::STATUSES)],
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        if ($validated['status'] === Registration::STATUS_REJECTED) {
+            $hadPaid = false;
+            $reason = $validated['rejection_reason'] ?? null;
+            DB::transaction(function () use ($registration, &$hadPaid, $reason) {
+                $order = Order::query()->where('registration_id', $registration->id)->lockForUpdate()->first();
+                if ($order) {
+                    $hadPaid = $order->payments()->where('status', Payment::STATUS_SUCCESS)->exists();
+                    $order->update(['status' => Order::STATUS_CANCELLED]);
+                    if ($hadPaid) {
+                        $order->payments()->where('status', Payment::STATUS_SUCCESS)->update([
+                            'status' => Payment::STATUS_REFUNDED,
+                        ]);
+                    }
+                    $latestId = (int) $order->payments()->max('id');
+                    $order->payments()
+                        ->whereIn('status', [
+                            Payment::STATUS_PENDING,
+                            Payment::STATUS_SUBMITTED,
+                            Payment::STATUS_FAILED,
+                        ])
+                        ->when($latestId > 0, fn ($q) => $q->where('id', '!=', $latestId))
+                        ->update(['status' => Payment::STATUS_VOID]);
+                    if ($latestId > 0) {
+                        $latestAttrs = filled($reason)
+                            ? [
+                                'status' => Payment::STATUS_FAILED,
+                                'admin_notes' => $reason,
+                                'reviewed_at' => now(),
+                                'reviewed_by' => auth()->id(),
+                            ]
+                            : ['status' => Payment::STATUS_VOID];
+                        $order->payments()
+                            ->whereKey($latestId)
+                            ->whereIn('status', [
+                                Payment::STATUS_PENDING,
+                                Payment::STATUS_SUBMITTED,
+                                Payment::STATUS_FAILED,
+                            ])
+                            ->update($latestAttrs);
+                    }
+                }
+                $registration->update(['status' => Registration::STATUS_REJECTED]);
+            });
+            $registration->refresh();
+            ManualTransferNotifier::registrationRejected(
+                $registration,
+                $hadPaid,
+                $reason
+            );
+
+            return redirect()->route('events.registrations.show', [$registration->event, $registration])
+                ->with('status', __('Registration status updated.'));
+        }
 
         $registration->update(['status' => $validated['status']]);
 
@@ -464,6 +527,83 @@ class RegistrationController extends Controller
 
         return redirect()->route('events.registrations.show', [$registration->event, $registration])
             ->with('status', __('Registration status updated.'));
+    }
+
+    /**
+     * Admin: buka kembali alur bayar (payment expired/failed/void) setelah cek kuota.
+     */
+    public function reopenPayment(Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        if ($registration->isRejected()) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('Cannot reopen payment for a rejected registration.'));
+        }
+
+        $payment = $registration->payment;
+        if (! $payment || ! in_array($payment->status, [
+            Payment::STATUS_EXPIRED,
+            Payment::STATUS_FAILED,
+            Payment::STATUS_VOID,
+        ], true)) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('The latest payment is not in a state that can be reopened.'));
+        }
+
+        $order = $registration->order;
+        if (! $order) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('No order for this registration.'));
+        }
+
+        $error = QuotaReservationService::withLocks(
+            $registration->bracket_id,
+            $registration->package_id,
+            $order->getKey(),
+            function () use ($registration, $order) {
+                $bracket = Bracket::query()->findOrFail($registration->bracket_id);
+                $package = Package::query()->findOrFail($registration->package_id);
+                if (! $bracket->hasQuota() || $package->isQuotaFull()) {
+                    return __('There is no remaining quota for this bracket or package.');
+                }
+
+                if ($registration->isCancelled()) {
+                    $registration->update(['status' => Registration::STATUS_PENDING]);
+                }
+
+                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
+                $expiry = now()->addMinutes($minutes);
+
+                $order->forceFill([
+                    'status' => Order::STATUS_UNPAID,
+                    'expired_at' => $expiry,
+                    'confirmed_at' => now(),
+                ])->save();
+
+                $order->createNewPaymentAttempt([
+                    'amount' => $amount,
+                    'method' => 'manual',
+                    'status' => Payment::STATUS_PENDING,
+                    'expires_at' => $expiry,
+                    'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                ]);
+
+                return null;
+            }
+        );
+
+        if ($error) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $error);
+        }
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Payment window reopened. A new payment attempt was created if quota is available.'));
     }
 
     /**
@@ -509,7 +649,7 @@ class RegistrationController extends Controller
         }
 
         $payment = $registration->payment;
-        if ($payment && $payment->isPending()) {
+        if ($payment && ($payment->isPending() || $payment->isSubmitted())) {
             $payment->update([
                 'status' => Payment::STATUS_SUCCESS,
                 'paid_at' => now(),
@@ -517,8 +657,7 @@ class RegistrationController extends Controller
                 'reviewed_by' => auth()->id(),
             ]);
             $payment->order?->update([
-                'status' => Order::STATUS_CONFIRMED,
-                'payment_status' => Order::PAYMENT_STATUS_PAID,
+                'status' => Order::STATUS_PAID,
                 'paid_at' => now(),
             ]);
             TicketService::ensureTicketForRegistration($registration);

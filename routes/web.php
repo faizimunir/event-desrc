@@ -80,6 +80,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
     Route::post('registrations/{registration}/approve-all', [RegistrationController::class, 'approveAll'])->name('registrations.approve-all');
     Route::post('events/{event}/registrations/{registration}/reset-payment-deadline', [RegistrationController::class, 'resetPaymentDeadline'])->name('events.registrations.reset-payment-deadline');
+    Route::post('events/{event}/registrations/{registration}/reopen-payment', [RegistrationController::class, 'reopenPayment'])->name('events.registrations.reopen-payment');
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('locations', LocationController::class)->except(['show']);
     Route::resource('organizers', OrganizerController::class)->except(['show', 'store', 'update']);
