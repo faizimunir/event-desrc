@@ -393,6 +393,39 @@
             </div>
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
+                @php
+                    $participantRegistrations = \App\Models\Registration::query()
+                        ->with(['rider.teams', 'bracket', 'package'])
+                        ->where('event_id', $event->id)
+                        ->where('status', \App\Models\Registration::STATUS_APPROVED)
+                        ->whereHas('order', function ($orderQuery) {
+                            $orderQuery->whereIn('status', [
+                                \App\Models\Order::STATUS_PAID,
+                                \App\Models\Order::STATUS_COMPLETED,
+                            ])->whereHas('payments', function ($paymentQuery) {
+                                $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
+                            });
+                        })
+                        ->get()
+                        ->sortBy(fn ($registration) => mb_strtolower((string) ($registration->rider?->name ?? '')))
+                        ->values();
+                    $participantBracketOptions = $participantRegistrations
+                        ->map(fn ($registration) => [
+                            'id' => (string) $registration->bracket_id,
+                            'name' => (string) ($registration->bracket?->name ?? '—'),
+                        ])
+                        ->unique('id')
+                        ->sortBy(fn ($item) => mb_strtolower($item['name']))
+                        ->values();
+                @endphp
+
+                <flux:tab.group>
+                    <flux:tabs variant="segmented">
+                        <flux:tab icon="pencil-square" name="registration" selected>{{ __('Registration') }}</flux:tab>
+                        <flux:tab icon="users" name="participant">{{ __('Participant') }}</flux:tab>
+                    </flux:tabs>
+
+                    <flux:tab.panel name="registration" selected>
                 @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                     @php
                         $showDuplicateRiderModal = session('similar_riders_choice') && session('similar_riders');
@@ -882,6 +915,88 @@
                         </flux:button>
                     </div>
                 @endif
+                    </flux:tab.panel>
+
+                    <flux:tab.panel name="participant">
+                        <div
+                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-5 sm:p-6"
+                            x-data="{ search: '', selectedBracket: '' }">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                        {{ __('Participant') }}
+                                    </h2>
+                                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                        {{ __('Riders with confirmed order, approved registration, and successful payment.') }}
+                                    </p>
+                                </div>
+                                <flux:badge variant="solid" color="zinc" size="sm">
+                                    {{ $participantRegistrations->count() }} {{ __('Rider') }}
+                                </flux:badge>
+                            </div>
+
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                <flux:input type="search" :label="__('Search')"
+                                    :placeholder="__('Search rider name, nickname, team, or number plate…')"
+                                    x-model.debounce.300ms="search" />
+                                <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
+                                    <option value="">{{ __('All brackets') }}</option>
+                                    @foreach ($participantBracketOptions as $participantBracketOption)
+                                        <option value="{{ $participantBracketOption['id'] }}">
+                                            {{ $participantBracketOption['name'] }}
+                                        </option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
+                                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    <thead class="bg-zinc-50 dark:bg-zinc-800">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Rider') }}</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Team') }}</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Bracket') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
+                                        @forelse ($participantRegistrations as $participantRegistration)
+                                            @php
+                                                $participantSearchText = mb_strtolower(trim(implode(' ', [
+                                                    (string) ($participantRegistration->rider?->name ?? ''),
+                                                    (string) ($participantRegistration->rider?->nickname ?? ''),
+                                                    (string) ($participantRegistration->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->teams->pluck('name')->implode(' ') ?? ''),
+                                                ])));
+                                            @endphp
+                                            <tr
+                                                x-show="(selectedBracket === '' || selectedBracket === '{{ (string) $participantRegistration->bracket_id }}') && (search.trim() === '' || '{{ addslashes($participantSearchText) }}'.includes(search.trim().toLowerCase()))">
+                                                <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ $participantRegistration->rider?->name ?? '—' }}
+                                                    <span class="text-zinc-500 dark:text-zinc-400 block">
+                                                        {{ $participantRegistration->rider?->nickname ?? '—' }} ({{ $participantRegistration->rider?->number_plate ?? '—' }})
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                    {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                    {{ $participantRegistration->bracket?->name ?? '—' }}
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="4" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('No participants yet.') }}
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </flux:tab.panel>
+                </flux:tab.group>
 
                 {{-- Modal: input access code for early registration (shown when registration not open) --}}
                 @if (!$event->isRegistrationOpen())
