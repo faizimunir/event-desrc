@@ -9,7 +9,8 @@
         }
 
         #registration-form,
-        #registration-packages {
+        #registration-packages,
+        #event-participants {
             scroll-margin-top: 5rem;
         }
     </style>
@@ -409,7 +410,8 @@
                         })
                         ->latest('id')
                         ->paginate(20, ['*'], 'participant_page')
-                        ->withQueryString();
+                        ->withQueryString()
+                        ->fragment('event-participants');
                     $participantBracketOptions = $event->brackets_sorted_for_display
                         ->map(fn ($bracket) => [
                             'id' => (string) $bracket->id,
@@ -950,7 +952,7 @@
                                 </div>
                             </div>
 
-                            <div class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
+                            <div id="event-participants" class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
                                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                                     <thead class="bg-zinc-50 dark:bg-zinc-800">
                                         <tr>
