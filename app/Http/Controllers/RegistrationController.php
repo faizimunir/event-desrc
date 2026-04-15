@@ -20,9 +20,11 @@ use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
+use App\Services\WinpayQrisService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -530,6 +532,131 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: buat ulang percobaan bayar untuk order batal tanpa baris payment, setelah cek kuota.
+     * Metode manual / QRIS mengikuti pilihan (wajib jika keduanya tersedia).
+     */
+    public function generatePayment(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        if ($registration->isRejected()) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('Cannot generate payment for a rejected registration.'));
+        }
+
+        $order = $registration->order;
+        if (! $order || ! $order->isCancelled()) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('Payment can only be generated when the order is cancelled.'));
+        }
+
+        if ($registration->payment) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('A payment record already exists for this registration.'));
+        }
+
+        $event->loadMissing('accounts');
+        $allowsManual = $event->allowsManualPayment() && $event->accounts->isNotEmpty();
+        $allowsQris = $event->allowsQrisPayment();
+
+        if (! $allowsManual && ! $allowsQris) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('No payment method is configured for this event.'));
+        }
+
+        if ($allowsManual && ! $allowsQris) {
+            $paymentMethod = 'manual';
+        } elseif (! $allowsManual && $allowsQris) {
+            $paymentMethod = 'qris';
+        } else {
+            $validated = $request->validate([
+                'payment_method' => ['required', Rule::in(['manual', 'qris'])],
+            ]);
+            $paymentMethod = $validated['payment_method'];
+        }
+
+        if ($paymentMethod === 'manual' && ! $allowsManual) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('Manual transfer is not available for this event.'));
+        }
+        if ($paymentMethod === 'qris' && ! $allowsQris) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('QRIS / automatic payment is not available for this event.'));
+        }
+
+        $error = QuotaReservationService::withLocks(
+            $registration->bracket_id,
+            $registration->package_id,
+            $order->getKey(),
+            function () use ($registration, $order, $paymentMethod) {
+                $bracket = Bracket::query()->findOrFail($registration->bracket_id);
+                $package = Package::query()->findOrFail($registration->package_id);
+                if (! $bracket->hasQuota() || $package->isQuotaFull()) {
+                    return __('There is no remaining quota for this bracket or package.');
+                }
+
+                if ($registration->isCancelled()) {
+                    $registration->update(['status' => Registration::STATUS_PENDING]);
+                }
+
+                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
+                $expiry = now()->addMinutes($minutes);
+
+                $order->forceFill([
+                    'status' => Order::STATUS_UNPAID,
+                    'expired_at' => $expiry,
+                    'confirmed_at' => now(),
+                ])->save();
+
+                if ($paymentMethod === 'manual') {
+                    $order->createNewPaymentAttempt([
+                        'amount' => $amount,
+                        'method' => 'manual',
+                        'status' => Payment::STATUS_PENDING,
+                        'expires_at' => $expiry,
+                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                    ]);
+                } else {
+                    $mootaAmount = Payment::allocateUniqueMootaTransferAmount((float) $amount);
+                    $order->createNewPaymentAttempt([
+                        'amount' => $amount,
+                        'method' => 'moota',
+                        'status' => Payment::STATUS_PENDING,
+                        'expires_at' => $expiry,
+                        'moota_transfer_amount' => $mootaAmount,
+                    ]);
+                    $payment = $order->fresh()->activePendingPayment();
+                    if ($payment && app(WinpayQrisService::class)->isConfigured()) {
+                        try {
+                            app(WinpayQrisService::class)->generateDynamicQris($order->fresh(), $payment);
+                        } catch (\Throwable $e) {
+                            Log::warning('Winpay QRIS generate failed after admin generate payment', [
+                                'order_code' => $order->order_code,
+                                'payment_id' => $payment->id,
+                                'message' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+                }
+
+                return null;
+            }
+        );
+
+        if ($error) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $error);
+        }
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Payment generated. The participant can pay using the usual link.'));
+    }
+
+    /**
      * Admin: buka kembali alur bayar (payment expired/failed/void) setelah cek kuota.
      */
     public function reopenPayment(Event $event, Registration $registration)
@@ -590,7 +717,7 @@ class RegistrationController extends Controller
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $expiry,
-                    'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                 ]);
 
                 return null;

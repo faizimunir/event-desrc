@@ -31,6 +31,17 @@
     $paymentLinkUrl = $registration->order ? route('payment.create', ['order_code' => $registration->order->order_code, 'whatsapp' => $rider->user?->whatsapp ?? '']) : '';
     $waSendPaymentUrl = $waNumber && $paymentLinkUrl ? 'https://wa.me/'.$waNumber.'?text='.rawurlencode($paymentLinkUrl) : '';
 
+    $event->loadMissing('accounts');
+    $eventAllowsManual = $event->allowsManualPayment() && $event->accounts->isNotEmpty();
+    $eventAllowsQris = $event->allowsQrisPayment();
+    $canGeneratePayment = $canUpdate
+        && $order
+        && $order->isCancelled()
+        && ! $payment
+        && ! $registration->isRejected()
+        && ($eventAllowsManual || $eventAllowsQris);
+    $generatePaymentBothOptions = $eventAllowsManual && $eventAllowsQris;
+
     $registrationActivityLog = collect([
         [
             'at' => $registration->created_at,
@@ -139,6 +150,13 @@
             <flux:breadcrumbs.item>{{ $rider->name }}</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
+        @if (session('status'))
+            <flux:callout variant="success" class="rounded-lg">{{ session('status') }}</flux:callout>
+        @endif
+        @if (session('error'))
+            <flux:callout variant="danger" class="rounded-lg">{{ session('error') }}</flux:callout>
+        @endif
+
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
                 {{ __('Back to event') }}
@@ -166,7 +184,7 @@
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
                 <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Registration details') }}</h2>
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Registration Detail') }}</h2>
                 </div>
                 <dl class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
@@ -210,10 +228,10 @@
                                 <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline-flex flex-col gap-2 items-start">
                                     @csrf
                                     <input type="hidden" name="status" value="rejected" />
-                                    <textarea name="rejection_reason" rows="2" class="w-full max-w-md rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="{{ __('Optional reason (sent to participant)') }}"></textarea>
                                     <flux:button variant="outline" color="red" type="submit" size="sm" icon="x-mark">
                                         {{ __('Reject') }}
                                     </flux:button>
+                                    <textarea name="rejection_reason" rows="2" class="w-full max-w-md rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="{{ __('Optional reason (sent to participant)') }}"></textarea>
                                 </form>
                             @endif
                             <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
@@ -260,7 +278,7 @@
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
                 <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payment') }}</h2>
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payment Detail') }}</h2>
                 </div>
                 <div class="p-4">
                     @if ($payment)
@@ -317,7 +335,32 @@
                         @endif
                     @else
                         <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No payment yet') }}</p>
-                        
+
+                        @if ($canGeneratePayment)
+                            <form action="{{ route('events.registrations.generate-payment', [$event, $registration]) }}" method="post" class="mt-4 space-y-3" onsubmit="return confirm({{ json_encode(__('Create a new payment attempt? Quota for this bracket/package will be checked first.')) }});">
+                                @csrf
+                                @if ($generatePaymentBothOptions)
+                                    <fieldset class="space-y-2 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-3">
+                                        <legend class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{{ __('Payment method') }}</legend>
+                                        <label class="flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                                            <input type="radio" name="payment_method" value="manual" class="mt-0.5 border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-zinc-400" required @checked(old('payment_method') === 'manual')>
+                                            <span>{{ __('Manual transfer (upload proof)') }}</span>
+                                        </label>
+                                        <label class="flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                                            <input type="radio" name="payment_method" value="qris" class="mt-0.5 border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-zinc-400" @checked(old('payment_method') === 'qris')>
+                                            <span>{{ __('Automatic transfer (Moota)') }}</span>
+                                        </label>
+                                    </fieldset>
+                                    @error('payment_method')
+                                        <p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                    @enderror
+                                @endif
+                                <flux:button variant="primary" type="submit" size="sm" icon="banknotes">
+                                    {{ __('Generate payment') }}
+                                </flux:button>
+                            </form>
+                        @endif
+
                         @if ($canResetPaymentDeadline)
                             <form action="{{ route('events.registrations.reset-payment-deadline', [$event, $registration]) }}" method="post" class="mt-3 inline" onsubmit="return confirm({{ json_encode(__('Reset payment deadline from now? If the order was cancelled for expiry, a free slot is still required; the rider may receive a new unique transfer amount.')) }});">
                                 @csrf
@@ -382,6 +425,30 @@
             </div>
         </div>
 
+        @if (($canApproveAll && $transferProofUrl) || ($canUpdate && $nextRegistration))
+            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-4">
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($canApproveAll && $transferProofUrl)
+                        <form action="{{ route('registrations.approve-all', $registration) }}" method="post" class="inline">
+                            @csrf
+                            <flux:button variant="primary" color="green" type="submit" icon="check">
+                                {{ __('Approve registration and payment') }}
+                            </flux:button>
+                        </form>
+                    @endif
+                    @if ($nextRegistration)
+                        <flux:button variant="outline" :href="route('events.registrations.show', [$event, $nextRegistration])" wire:navigate icon="arrow-right">
+                            {{ __('Next') }}
+                        </flux:button>
+                    @else
+                        <flux:button variant="outline" disabled>
+                            {{ __('No registration needs review.') }}
+                        </flux:button>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
             <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
                 <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Activity log') }}</h2>
@@ -411,29 +478,5 @@
                 </ol>
             </div>
         </div>
-
-        @if (($canApproveAll && $transferProofUrl) || ($canUpdate && $nextRegistration))
-            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-4">
-                <div class="flex flex-wrap items-center gap-2">
-                    @if ($canApproveAll && $transferProofUrl)
-                        <form action="{{ route('registrations.approve-all', $registration) }}" method="post" class="inline">
-                            @csrf
-                            <flux:button variant="primary" color="green" type="submit" icon="check">
-                                {{ __('Approve registration and payment') }}
-                            </flux:button>
-                        </form>
-                    @endif
-                    @if ($nextRegistration)
-                        <flux:button variant="outline" :href="route('events.registrations.show', [$event, $nextRegistration])" wire:navigate icon="arrow-right">
-                            {{ __('Next') }}
-                        </flux:button>
-                    @else
-                        <flux:button variant="outline" disabled>
-                            {{ __('No registration needs review.') }}
-                        </flux:button>
-                    @endif
-                </div>
-            </div>
-        @endif
     </div>
 </x-layouts::app>

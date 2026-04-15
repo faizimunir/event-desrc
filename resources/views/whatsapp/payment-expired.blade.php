@@ -1,1 +1,1 @@
-{{ trim(__('Hello :name, the payment window for :event has expired without a verified transfer. Please contact the organizer if you still wish to participate.', ['name' => $recipientName, 'event' => $eventTitle])) }}
+{{ trim(__('Yah sayang banget kak :name, jendela pembayaran untuk :event sudah kadaluarsa. Coba info admin ya, jika ingin open payment kembali.', ['name' => $recipientName, 'event' => $eventTitle])) }}

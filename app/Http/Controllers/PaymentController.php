@@ -83,14 +83,17 @@ class PaymentController extends Controller
                             || ($wantQris && $active->method !== 'moota')
                         );
 
+                        $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
+                            && $active->isPending() && $active->manual_transfer_amount !== null;
+
                         // QRIS/Moota: baris payment dibuat di MootaPaymentController@confirm (nominal unik).
-                        if ($order->isPendingUnpaid() && ! $wantQris && ($freshPayment || $methodClash || ! $active)) {
+                        if ($order->isPendingUnpaid() && ! $wantQris && ! $keepExistingManual && ($freshPayment || $methodClash || ! $active)) {
                             $order->createNewPaymentAttempt([
                                 'amount' => $amount,
                                 'method' => 'manual',
                                 'status' => Payment::STATUS_PENDING,
                                 'expires_at' => $expires,
-                                'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                             ]);
                         } elseif ($order->isPendingUnpaid() && $active && $active->isPending() && $active->expires_at === null) {
                             $active->update(['expires_at' => $expires]);
@@ -101,7 +104,7 @@ class PaymentController extends Controller
                         if ($ensureManual && $ensureManual->method === 'manual' && $ensureManual->isPending()
                             && $ensureManual->manual_transfer_amount === null) {
                             $ensureManual->update([
-                                'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                             ]);
                         }
                     }
@@ -246,7 +249,7 @@ class PaymentController extends Controller
         }
 
         $amount = $registration->package ? $registration->package->payableAmount() : 0;
-        $manualTransferAmount = Payment::allocateUniqueManualTransferAmount((float) $amount);
+        $manualTransferAmount = Payment::stableManualTransferAmountForOrder($order, (float) $amount);
 
         if ($order->isPaid()) {
             return redirect()->route('payment.create', ['order_code' => $order->order_code])

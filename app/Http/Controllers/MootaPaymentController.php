@@ -92,7 +92,7 @@ class MootaPaymentController extends Controller
             ])->with('status', __('Your payment has been verified.'));
         }
 
-        $transferAmount = $this->allocateUniqueMootaAmount($baseAmount);
+        $transferAmount = Payment::allocateUniqueMootaTransferAmount($baseAmount);
 
         $payment->forceFill([
             'method' => 'moota',
@@ -196,28 +196,6 @@ class MootaPaymentController extends Controller
         ProcessMootaWebhookEvent::dispatch((int) $eventId);
 
         return response()->json(['message' => 'received'], 200);
-    }
-
-    /**
-     * Nominal transfer = harga paket + sufiks unik (1–999) agar mutasi terpisah per order.
-     */
-    private function allocateUniqueMootaAmount(float $baseAmount): float
-    {
-        $base = (int) round($baseAmount);
-
-        for ($i = 0; $i < 50; $i++) {
-            $suffix = random_int(1, 999);
-            $candidate = (float) ($base + $suffix);
-
-            $exists = Payment::pendingTransferAmountExists($candidate);
-
-            if (! $exists) {
-                return $candidate;
-            }
-        }
-
-        // Fallback: sufiks lebih besar jika tabrakan berlebihan
-        return (float) ($base + random_int(1000, 9999));
     }
 
     private function winpayQrisUserErrorMessage(string $technicalMessage): string

@@ -1,1 +1,1 @@
-{{ trim(__('Hello :name, we received your transfer proof for :event. We will verify it shortly.', ['name' => $recipientName, 'event' => $eventTitle])) }}
+{{ trim(__('Halo kakak :name, aku udah terima bukti transfer untuk event :event. Aku akan konfirmasi pembayaran nya segera ya. Ditunggu ya kakak 🙏', ['name' => $recipientName, 'event' => $eventTitle])) }}

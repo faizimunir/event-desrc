@@ -160,11 +160,57 @@ class Payment extends Model
         return $this->method === 'moota';
     }
 
+    /** Batas bawah / atas sufiks unik (rupiah) untuk transfer manual — tampilan 01–99. */
+    public const MANUAL_UNIQUE_SUFFIX_MIN = 1;
+
+    public const MANUAL_UNIQUE_SUFFIX_MAX = 99;
+
     /**
-     * Nominal transfer manual = harga paket (dibulatkan ke rupiah) + sufiks unik 1–999.
+     * Nominal transfer manual = harga paket (dibulatkan ke rupiah) + sufiks unik 1–99.
      * Menghindari tabrakan dengan pending lain (manual atau Moota) pada nominal yang sama.
      */
     public static function allocateUniqueManualTransferAmount(float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+
+        for ($i = 0; $i < 200; $i++) {
+            $suffix = random_int(self::MANUAL_UNIQUE_SUFFIX_MIN, self::MANUAL_UNIQUE_SUFFIX_MAX);
+            $candidate = (float) ($base + $suffix);
+
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return (float) ($base + random_int(1000, 9999));
+    }
+
+    /**
+     * Sama seperti allocate unik, tetapi sufiks awal deterministik dari order_code order
+     * sehingga refresh / GET berulang tidak mengganti nominal selama order sama.
+     */
+    public static function stableManualTransferAmountForOrder(Order $order, float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+        $code = (string) ($order->order_code ?? $order->getKey());
+        $start = (int) (abs(crc32($code)) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+
+        $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
+        for ($i = 0; $i < $span; $i++) {
+            $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+            $candidate = (float) ($base + $suffix);
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return static::allocateUniqueManualTransferAmount((float) $baseAmount);
+    }
+
+    /**
+     * Nominal unik untuk Moota / mutasi (harga paket + sufiks 1–999).
+     */
+    public static function allocateUniqueMootaTransferAmount(float $baseAmount): float
     {
         $base = (int) round($baseAmount);
 
@@ -192,7 +238,7 @@ class Payment extends Model
             ->exists();
     }
 
-    /** Sufiks 3 digit (001–999) untuk tampilan; null jika tidak relevan. */
+    /** Sufiks 2 digit (01–99) untuk tampilan; null jika tidak relevan atau data lama di luar rentang. */
     public function manualUniqueSuffixFormatted(): ?string
     {
         if ($this->method !== 'manual' || $this->manual_transfer_amount === null) {
@@ -203,11 +249,11 @@ class Payment extends Model
         $total = (int) round((float) $this->manual_transfer_amount);
         $n = $total - $base;
 
-        if ($n < 1 || $n > 999) {
+        if ($n < self::MANUAL_UNIQUE_SUFFIX_MIN || $n > self::MANUAL_UNIQUE_SUFFIX_MAX) {
             return null;
         }
 
-        return str_pad((string) $n, 3, '0', STR_PAD_LEFT);
+        return str_pad((string) $n, 2, '0', STR_PAD_LEFT);
     }
 
     public function getFormattedManualTransferAmountAttribute(): ?string

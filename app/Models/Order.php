@@ -658,7 +658,7 @@ class Order extends Model
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $newExpiry,
-                        'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($this, (float) $amount),
                     ]);
 
                     return true;
@@ -684,7 +684,7 @@ class Order extends Model
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $newExpiry,
-                    'manual_transfer_amount' => Payment::allocateUniqueManualTransferAmount((float) $amount),
+                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                 ]);
             }
 
