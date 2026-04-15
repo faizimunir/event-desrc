@@ -25,7 +25,15 @@ class UserList extends Component
 
     public ?int $mergePrimaryUserId = null;
 
-    /** @var list<array{id: int, name: string}> */
+    /**
+     * @var list<array{
+     *     id: int,
+     *     name: string,
+     *     email: ?string,
+     *     whatsapp: ?string,
+     *     riders_display: string
+     * }>
+     */
     public array $mergeCandidates = [];
 
     public function mount(): void
@@ -62,9 +70,22 @@ class UserList extends Component
 
         $this->mergeCandidates = User::query()
             ->whereIn('id', $ids)
+            ->with(['riders' => fn ($q) => $q->select('id', 'user_id', 'name', 'nickname')->orderBy('name')])
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+            ->get()
+            ->map(function (User $u) {
+                $riderLabels = $u->riders
+                    ->map(fn ($r) => $r->nickname ? $r->name.' ('.$r->nickname.')' : $r->name)
+                    ->implode(', ');
+
+                return [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'email' => $u->email,
+                    'whatsapp' => $u->whatsapp,
+                    'riders_display' => $riderLabels !== '' ? $riderLabels : __('None'),
+                ];
+            })
             ->values()
             ->all();
 
@@ -78,7 +99,7 @@ class UserList extends Component
         abort_unless(auth()->user()->canAs('user.update') && auth()->user()->canAs('user.delete'), 403);
 
         $ids = array_values(array_unique(array_map('intval', $this->selectedUserIds)));
-        $primary = $this->mergePrimaryUserId;
+        $primary = $this->mergePrimaryUserId !== null ? (int) $this->mergePrimaryUserId : null;
 
         if (count($ids) < 2 || $primary === null || ! in_array($primary, $ids, true)) {
             $this->addError('merge', __('Invalid merge selection.'));

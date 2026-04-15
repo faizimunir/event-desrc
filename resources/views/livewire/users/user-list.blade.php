@@ -105,7 +105,7 @@
         @canAs('user.delete')
             <flux:modal
                 name="merge-users-modal"
-                class="max-w-lg"
+                class="max-w-2xl"
                 wire:model="mergeModalOpen"
                 @close="closeMergeModal"
                 focusable
@@ -117,11 +117,41 @@
                         {{ __('Choose the account to keep. Related data (riders, orders, organizers, check-ins, payment reviews, sessions) from other selected accounts will point to this user, roles will be combined, and duplicate accounts will be removed.') }}
                     </flux:text>
                     @if (count($mergeCandidates) > 0)
-                        <flux:radio.group wire:model.live="mergePrimaryUserId" :label="__('Primary account')" variant="cards" class="max-sm:flex-col">
-                            @foreach ($mergeCandidates as $c)
-                                <flux:radio :value="$c['id']" :label="$c['name']" :description="__('ID :id', ['id' => $c['id']])" />
-                            @endforeach
-                        </flux:radio.group>
+                        <flux:field :label="__('Primary account')">
+                            <div class="space-y-2">
+                                @foreach ($mergeCandidates as $c)
+                                    <label
+                                        class="flex cursor-pointer gap-3 rounded-xl border border-zinc-200 bg-white p-4 has-[:checked]:border-zinc-400 has-[:checked]:ring-2 has-[:checked]:ring-zinc-400/30 dark:border-zinc-600 dark:bg-zinc-800/50 dark:has-[:checked]:border-zinc-400 dark:has-[:checked]:ring-zinc-400/20"
+                                    >
+                                        <input
+                                            type="radio"
+                                            wire:model.live="mergePrimaryUserId"
+                                            value="{{ $c['id'] }}"
+                                            class="mt-1 size-4 shrink-0 border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-500 dark:bg-zinc-800 dark:focus:ring-zinc-400"
+                                        />
+                                        <div class="min-w-0 flex-1 space-y-1 text-sm">
+                                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $c['name'] }}</div>
+                                            <div class="text-zinc-500 dark:text-zinc-400">
+                                                <span class="font-medium text-zinc-600 dark:text-zinc-300">{{ __('ID') }}:</span>
+                                                {{ $c['id'] }}
+                                            </div>
+                                            <div class="text-zinc-500 dark:text-zinc-400">
+                                                <span class="font-medium text-zinc-600 dark:text-zinc-300">{{ __('Email') }}:</span>
+                                                {{ $c['email'] ?? '—' }}
+                                            </div>
+                                            <div class="text-zinc-500 dark:text-zinc-400">
+                                                <span class="font-medium text-zinc-600 dark:text-zinc-300">{{ __('WhatsApp') }}:</span>
+                                                {{ $c['whatsapp'] ?? '—' }}
+                                            </div>
+                                            <div class="break-words text-zinc-500 dark:text-zinc-400">
+                                                <span class="font-medium text-zinc-600 dark:text-zinc-300">{{ __('Linked riders') }}:</span>
+                                                {{ $c['riders_display'] }}
+                                            </div>
+                                        </div>
+                                    </label>
+                                @endforeach
+                            </div>
+                        </flux:field>
                     @endif
                     @error('merge')
                         <flux:callout variant="danger" size="sm">{{ $message }}</flux:callout>
