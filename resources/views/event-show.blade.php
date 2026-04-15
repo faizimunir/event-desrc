@@ -929,7 +929,7 @@
                                             {{ __('Participant') }}
                                         </h2>
                                         <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                            {{ __('Riders with confirmed order, approved registration, and successful payment.') }}
+                                            {{ __('Riders with confirmed registration.') }}
                                         </p>
                                     </div>
                                     <flux:badge variant="solid" color="zinc" size="sm">

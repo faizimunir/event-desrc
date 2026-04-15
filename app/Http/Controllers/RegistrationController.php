@@ -345,10 +345,16 @@ class RegistrationController extends Controller
 
         $statusFilter = array_filter((array) $request->query('status', []), fn ($s) => in_array($s, Registration::STATUSES, true));
         $paymentStatusFilter = array_filter((array) $request->query('payment_status', []), fn ($s) => in_array($s, array_merge(\App\Models\Payment::STATUSES, ['none']), true));
+        $allowedBracketIds = $event->brackets()->pluck('id')->all();
+        $bracketIds = array_values(array_intersect(
+            array_map('intval', (array) $request->query('bracket', [])),
+            $allowedBracketIds
+        ));
 
         $registrations = $event->registrations()
             ->with(['rider.user', 'bracket', 'package', 'payment'])
             ->when($statusFilter !== [], fn ($q) => $q->whereIn('status', $statusFilter))
+            ->when($bracketIds !== [], fn ($q) => $q->whereIn('bracket_id', $bracketIds))
             ->when($paymentStatusFilter !== [], function ($q) use ($paymentStatusFilter) {
                 $withStatus = array_diff($paymentStatusFilter, ['none']);
                 $includeNone = in_array('none', $paymentStatusFilter);

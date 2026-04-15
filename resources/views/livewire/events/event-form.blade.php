@@ -12,53 +12,6 @@
         @enderror
 
         <div>
-            <flux:label class="mb-2 block">{{ __('Description') }}</flux:label>
-            <flux:textarea wire:model="description" rows="4"></flux:textarea>
-            @error('description')
-                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div>
-            <flux:label class="mb-2 block">{{ __('Organizer') }}</flux:label>
-            <flux:select wire:model="organizer_id" :placeholder="__('— Select —')" class="w-full">
-                <flux:select.option value="">{{ __('— No organizer —') }}</flux:select.option>
-                @foreach ($organizers as $org)
-                    <flux:select.option :value="$org->id">{{ $org->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-            @error('organizer_id')
-                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div>
-            <flux:label class="mb-2 block">{{ __('Racing committee') }}</flux:label>
-            <flux:select wire:model="racing_committee_id" :placeholder="__('— Select —')" class="w-full">
-                <flux:select.option value="">{{ __('— No racing committee —') }}</flux:select.option>
-                @foreach ($racingCommittees as $rc)
-                    <flux:select.option :value="$rc->id">{{ $rc->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-            @error('racing_committee_id')
-                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div>
-            <flux:label class="mb-2 block">{{ __('Master of ceremony') }}</flux:label>
-            <flux:select wire:model="master_of_ceremony_id" :placeholder="__('— Select —')" class="w-full">
-                <flux:select.option value="">{{ __('— No master of ceremony —') }}</flux:select.option>
-                @foreach ($masterOfCeremonies as $moc)
-                    <flux:select.option :value="$moc->id">{{ $moc->name }}</flux:select.option>
-                @endforeach
-            </flux:select>
-            @error('master_of_ceremony_id')
-                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-            @enderror
-        </div>
-
-        <div>
             <flux:label class="mb-2 block">{{ __('Status') }}</flux:label>
             <flux:select wire:model="status" class="w-full" required>
                 <flux:select.option value="draft">{{ __('Draft') }} — {{ __('default, not visible on main page') }}</flux:select.option>
@@ -107,6 +60,65 @@
         </div>
 
         <div>
+            <flux:label class="mb-2 block">{{ __('Description') }}</flux:label>
+            <flux:textarea wire:model="description" rows="4"></flux:textarea>
+            @error('description')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Organizer') }}</flux:label>
+            <flux:select wire:model="organizer_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No organizer —') }}</flux:select.option>
+                @foreach ($organizers as $org)
+                    <flux:select.option :value="$org->id">{{ $org->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('organizer_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Racing committee') }}</flux:label>
+            <flux:select wire:model="racing_committee_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No racing committee —') }}</flux:select.option>
+                @foreach ($racingCommittees as $rc)
+                    <flux:select.option :value="$rc->id">{{ $rc->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('racing_committee_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
+            <flux:label class="mb-2 block">{{ __('Master of ceremony') }}</flux:label>
+            <flux:select wire:model="master_of_ceremony_id" :placeholder="__('— Select —')" class="w-full">
+                <flux:select.option value="">{{ __('— No master of ceremony —') }}</flux:select.option>
+                @foreach ($masterOfCeremonies as $moc)
+                    <flux:select.option :value="$moc->id">{{ $moc->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            @error('master_of_ceremony_id')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+        <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />
+        @error('registration_opens_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        <flux:input wire:model="registration_closes_at" type="datetime-local" :label="__('Registration closes at')" />
+        @error('registration_closes_at')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+        </div>
+
+        <div>
             <flux:label class="mb-2 block">{{ __('Payment methods') }}</flux:label>
             <div class="space-y-2">
                 <label class="flex cursor-pointer items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
@@ -152,18 +164,6 @@
                 @enderror
             </div>
         @endif
-
-        <div class="grid grid-cols-2 gap-4">
-        <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />
-        @error('registration_opens_at')
-            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-        @enderror
-
-        <flux:input wire:model="registration_closes_at" type="datetime-local" :label="__('Registration closes at')" />
-        @error('registration_closes_at')
-            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-        @enderror
-        </div>
 
         <div>
             <flux:label class="mb-2 block">{{ __('Poster') }}</flux:label>

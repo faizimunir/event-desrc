@@ -21,8 +21,8 @@
                     x-on:click.prevent="$dispatch('open-modal', 'event-registrations-filter-modal')"
                 >
                     {{ __('Filter') }}
-                    @if (count($statusFilter) > 0 || count($paymentStatusFilter) > 0)
-                        <flux:badge color="zinc" size="xs" class="ml-1">{{ count($statusFilter) + count($paymentStatusFilter) }}</flux:badge>
+                    @if (count($statusFilter) > 0 || count($paymentStatusFilter) > 0 || count($bracketFilter) > 0)
+                        <flux:badge color="zinc" size="xs" class="ml-1">{{ count($statusFilter) + count($paymentStatusFilter) + count($bracketFilter) }}</flux:badge>
                     @endif
                 </flux:button>
             </flux:modal.trigger>
@@ -44,6 +44,13 @@
                             <flux:pillbox.option value="cancelled">{{ __('Cancelled') }}</flux:pillbox.option>
                             <flux:pillbox.option value="none">{{ __('No payment') }}</flux:pillbox.option>
                         </flux:pillbox>
+                        @if ($event->brackets_sorted_for_display->isNotEmpty())
+                            <flux:pillbox wire:model.live="bracketFilter" multiple :label="__('Bracket')" :placeholder="__('All')" class="w-full">
+                                @foreach ($event->brackets_sorted_for_display as $bracket)
+                                    <flux:pillbox.option value="{{ (string) $bracket->id }}">{{ $bracket->name }}</flux:pillbox.option>
+                                @endforeach
+                            </flux:pillbox>
+                        @endif
                     </div>
                     <div class="flex justify-end gap-2">
                         <flux:button type="button" size="sm" wire:click="resetFilters">
