@@ -172,7 +172,7 @@
         class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-        <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+        <x-app-logo :sidebar="true" href="{{ route('home') }}" wire:navigate />
         <flux:spacer />
         <flux:dropdown position="top" align="end">
             <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
@@ -192,6 +192,14 @@
                 </flux:menu.radio.group>
 
                 @include('partials.role-switcher')
+
+                <flux:menu.separator />
+
+                <flux:menu.radio.group>
+                    <flux:menu.item :href="route('dashboard')" icon="squares-2x2" wire:navigate>
+                        {{ __('Dashboard') }}
+                    </flux:menu.item>
+                </flux:menu.radio.group>
 
                 <flux:menu.separator />
 
