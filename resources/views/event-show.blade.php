@@ -997,7 +997,7 @@
                             </div>
                             @if ($participantRegistrations->hasPages())
                                 <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-4 sm:px-6">
-                                    {{ $participantRegistrations->links('pagination::semantic-ui') }}
+                                    {{ $participantRegistrations->links() }}
                                 </div>
                             @endif
                         </div>
