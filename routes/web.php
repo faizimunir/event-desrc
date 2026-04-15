@@ -82,6 +82,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/registrations/{registration}/reset-payment-deadline', [RegistrationController::class, 'resetPaymentDeadline'])->name('events.registrations.reset-payment-deadline');
     Route::post('events/{event}/registrations/{registration}/reopen-payment', [RegistrationController::class, 'reopenPayment'])->name('events.registrations.reopen-payment');
     Route::post('events/{event}/registrations/{registration}/generate-payment', [RegistrationController::class, 'generatePayment'])->name('events.registrations.generate-payment');
+    Route::post('events/{event}/registrations/{registration}/resend-ticket-whatsapp', [RegistrationController::class, 'resendTicketWhatsapp'])->name('events.registrations.resend-ticket-whatsapp');
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('locations', LocationController::class)->except(['show']);
     Route::resource('organizers', OrganizerController::class)->except(['show', 'store', 'update']);

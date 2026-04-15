@@ -19,6 +19,8 @@ class WhatsappNotificationLog extends Model
 
     public const TYPE_TICKET_ISSUED = 'ticket_issued';
 
+    public const TYPE_TICKET_RESENT = 'ticket_resent';
+
     public const TYPE_TRANSFER_PROOF_SUBMITTED = 'transfer_proof_submitted';
 
     public const TYPE_REGISTRATION_REJECTED = 'registration_rejected';
@@ -79,6 +81,7 @@ class WhatsappNotificationLog extends Model
         return match ($this->type) {
             self::TYPE_PAYMENT_LINK => 'whatsapp.payment-link',
             self::TYPE_TICKET_ISSUED => 'whatsapp.payment-success',
+            self::TYPE_TICKET_RESENT => 'whatsapp.payment-success',
             self::TYPE_TRANSFER_PROOF_SUBMITTED => 'whatsapp.transfer-proof-submitted',
             self::TYPE_REGISTRATION_REJECTED => 'whatsapp.registration-rejected',
             self::TYPE_PAYMENT_REJECTED => 'whatsapp.payment-rejected',
@@ -99,6 +102,7 @@ class WhatsappNotificationLog extends Model
         $kind = match ($this->type) {
             self::TYPE_PAYMENT_LINK => __('Payment link'),
             self::TYPE_TICKET_ISSUED => __('E-ticket'),
+            self::TYPE_TICKET_RESENT => __('E-ticket (resent)'),
             self::TYPE_TRANSFER_PROOF_SUBMITTED => __('Transfer proof submitted'),
             self::TYPE_REGISTRATION_REJECTED => __('Registration rejected'),
             self::TYPE_PAYMENT_REJECTED => __('Payment rejected'),

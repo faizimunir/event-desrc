@@ -456,6 +456,26 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: kirim ulang pesan WhatsApp e-ticket (template `whatsapp.payment-success`).
+     */
+    public function resendTicketWhatsapp(Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $error = TicketService::resendTicketWhatsapp($registration);
+        if ($error) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $error);
+        }
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('E-ticket WhatsApp message has been queued.'));
+    }
+
+    /**
      * Admin: update registration status (approve / reject / cancel).
      */
     public function updateStatus(Request $request, Registration $registration)

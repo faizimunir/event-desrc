@@ -42,6 +42,10 @@
         && ($eventAllowsManual || $eventAllowsQris);
     $generatePaymentBothOptions = $eventAllowsManual && $eventAllowsQris;
 
+    $ticket = $registration->ticket;
+    $eTicketUrl = $ticket ? route('tickets.show', $ticket->ticket_code, true) : null;
+    $canResendEticketWhatsapp = $canUpdate && $ticket && filled($rider->user?->whatsapp);
+
     $registrationActivityLog = collect([
         [
             'at' => $registration->created_at,
@@ -115,7 +119,6 @@
         ]);
     }
 
-    $ticket = $registration->ticket;
     if ($ticket) {
         $registrationActivityLog->push([
             'at' => $ticket->created_at,
@@ -209,6 +212,32 @@
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Registered at') }}</dt>
                         <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 sm:col-span-2 sm:mt-0">{{ $registration->created_at->format('d/m/Y H:i') }}</dd>
                     </div>
+                    @if ($ticket && $eTicketUrl)
+                        <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('E-ticket') }}</dt>
+                            <dd class="mt-1 space-y-2 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                                <p class="font-mono text-xs break-all text-sky-700 dark:text-sky-300">
+                                    <a href="{{ $eTicketUrl }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ $eTicketUrl }}</a>
+                                </p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:button variant="outline" size="sm" href="{{ $eTicketUrl }}" target="_blank" icon="arrow-top-right-on-square">
+                                        {{ __('Open e-ticket') }}
+                                    </flux:button>
+                                    @if ($canResendEticketWhatsapp)
+                                        <form action="{{ route('events.registrations.resend-ticket-whatsapp', [$event, $registration]) }}" method="post" class="inline" onsubmit="return confirm({{ json_encode(__('Send the e-ticket WhatsApp message again? It uses the same template as the first notification.')) }});">
+                                            @csrf
+                                            <flux:button type="submit" variant="outline" size="sm" icon="chat-bubble-left-right">
+                                                {{ __('Resend e-ticket via WhatsApp') }}
+                                            </flux:button>
+                                        </form>
+                                    @endif
+                                </div>
+                                @if ($canUpdate && ! $rider->user?->whatsapp)
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Save a WhatsApp number on the rider account to resend the e-ticket message.') }}</p>
+                                @endif
+                            </dd>
+                        </div>
+                    @endif
                 </dl>
                 @if ($showStatusActions)
                     <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-3">
