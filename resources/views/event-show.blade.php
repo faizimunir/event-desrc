@@ -394,6 +394,7 @@
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
                 @php
+                    $participantTabActive = request()->has('participant_page');
                     $participantRegistrations = \App\Models\Registration::query()
                         ->with(['rider.teams', 'bracket', 'package'])
                         ->where('event_id', $event->id)
@@ -406,26 +407,24 @@
                                 $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
                             });
                         })
-                        ->get()
-                        ->sortBy(fn ($registration) => mb_strtolower((string) ($registration->rider?->name ?? '')))
-                        ->values();
-                    $participantBracketOptions = $participantRegistrations
-                        ->map(fn ($registration) => [
-                            'id' => (string) $registration->bracket_id,
-                            'name' => (string) ($registration->bracket?->name ?? '—'),
+                        ->latest('id')
+                        ->paginate(20, ['*'], 'participant_page')
+                        ->withQueryString();
+                    $participantBracketOptions = $event->brackets_sorted_for_display
+                        ->map(fn ($bracket) => [
+                            'id' => (string) $bracket->id,
+                            'name' => (string) $bracket->name,
                         ])
-                        ->unique('id')
-                        ->sortBy(fn ($item) => mb_strtolower($item['name']))
                         ->values();
                 @endphp
 
                 <flux:tab.group>
                     <flux:tabs variant="segmented">
-                        <flux:tab icon="pencil-square" name="registration" selected>{{ __('Registration') }}</flux:tab>
-                        <flux:tab icon="users" name="participant">{{ __('Participant') }}</flux:tab>
+                        <flux:tab icon="pencil-square" name="registration" :selected="!$participantTabActive">{{ __('Registration') }}</flux:tab>
+                        <flux:tab icon="users" name="participant" :selected="$participantTabActive">{{ __('Participant') }}</flux:tab>
                     </flux:tabs>
 
-                    <flux:tab.panel name="registration" selected>
+                    <flux:tab.panel name="registration" :selected="!$participantTabActive">
                 @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                     @php
                         $showDuplicateRiderModal = session('similar_riders_choice') && session('similar_riders');
@@ -917,39 +916,41 @@
                 @endif
                     </flux:tab.panel>
 
-                    <flux:tab.panel name="participant">
+                    <flux:tab.panel name="participant" :selected="$participantTabActive">
                         <div
-                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-5 sm:p-6"
+                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden"
                             x-data="{ search: '', selectedBracket: '' }">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                        {{ __('Participant') }}
-                                    </h2>
-                                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                                        {{ __('Riders with confirmed order, approved registration, and successful payment.') }}
-                                    </p>
+                            <div class="p-5 sm:p-6">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                            {{ __('Participant') }}
+                                        </h2>
+                                        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                            {{ __('Riders with confirmed order, approved registration, and successful payment.') }}
+                                        </p>
+                                    </div>
+                                    <flux:badge variant="solid" color="zinc" size="sm">
+                                        {{ $participantRegistrations->total() }} {{ __('Rider') }}
+                                    </flux:badge>
                                 </div>
-                                <flux:badge variant="solid" color="zinc" size="sm">
-                                    {{ $participantRegistrations->count() }} {{ __('Rider') }}
-                                </flux:badge>
+
+                                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <flux:input type="search" :label="__('Search')"
+                                        :placeholder="__('Search rider name, nickname, team, or number plate…')"
+                                        x-model.debounce.300ms="search" />
+                                    <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
+                                        <option value="">{{ __('All brackets') }}</option>
+                                        @foreach ($participantBracketOptions as $participantBracketOption)
+                                            <option value="{{ $participantBracketOption['id'] }}">
+                                                {{ $participantBracketOption['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </flux:select>
+                                </div>
                             </div>
 
-                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                                <flux:input type="search" :label="__('Search')"
-                                    :placeholder="__('Search rider name, nickname, team, or number plate…')"
-                                    x-model.debounce.300ms="search" />
-                                <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
-                                    <option value="">{{ __('All brackets') }}</option>
-                                    @foreach ($participantBracketOptions as $participantBracketOption)
-                                        <option value="{{ $participantBracketOption['id'] }}">
-                                            {{ $participantBracketOption['name'] }}
-                                        </option>
-                                    @endforeach
-                                </flux:select>
-                            </div>
-
-                            <div class="mt-4 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            <div class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
                                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                                     <thead class="bg-zinc-50 dark:bg-zinc-800">
                                         <tr>
@@ -986,7 +987,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="4" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                                <td colspan="3" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                                     {{ __('No participants yet.') }}
                                                 </td>
                                             </tr>
@@ -994,6 +995,11 @@
                                     </tbody>
                                 </table>
                             </div>
+                            @if ($participantRegistrations->hasPages())
+                                <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-4 sm:px-6 flex justify-center">
+                                    {{ $participantRegistrations->links() }}
+                                </div>
+                            @endif
                         </div>
                     </flux:tab.panel>
                 </flux:tab.group>
