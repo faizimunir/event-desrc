@@ -476,6 +476,36 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: perbarui nomor WhatsApp akun user rider (dari halaman registrasi).
+     */
+    public function updateRiderUserWhatsapp(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $user = $registration->rider?->user;
+        if (! $user) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('This registration has no linked user account.'));
+        }
+
+        $validated = $request->validate([
+            'whatsapp' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $user->forceFill([
+            'whatsapp' => $validated['whatsapp'] !== null && $validated['whatsapp'] !== ''
+                ? $validated['whatsapp']
+                : null,
+        ])->save();
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('WhatsApp number updated.'));
+    }
+
+    /**
      * Admin: update registration status (approve / reject / cancel).
      */
     public function updateStatus(Request $request, Registration $registration)

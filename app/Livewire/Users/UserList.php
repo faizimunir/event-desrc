@@ -3,6 +3,8 @@
 namespace App\Livewire\Users;
 
 use App\Models\User;
+use App\Services\UserMergeService;
+use Illuminate\Support\Facades\Gate;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -15,6 +17,16 @@ class UserList extends Component
     public string $search = '';
 
     public string $roleFilter = '';
+
+    /** @var list<int|string> */
+    public array $selectedUserIds = [];
+
+    public bool $mergeModalOpen = false;
+
+    public ?int $mergePrimaryUserId = null;
+
+    /** @var list<array{id: int, name: string}> */
+    public array $mergeCandidates = [];
 
     public function mount(): void
     {
@@ -29,6 +41,92 @@ class UserList extends Component
     public function updatedRoleFilter(): void
     {
         $this->resetPage();
+    }
+
+    public function closeMergeModal(): void
+    {
+        $this->mergeModalOpen = false;
+    }
+
+    public function openMergeModal(): void
+    {
+        abort_unless(auth()->user()->canAs('user.update') && auth()->user()->canAs('user.delete'), 403);
+
+        $ids = array_values(array_unique(array_map('intval', $this->selectedUserIds)));
+
+        if (count($ids) < 2) {
+            $this->addError('merge', __('Select at least two users to merge.'));
+
+            return;
+        }
+
+        $this->mergeCandidates = User::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (User $u) => ['id' => $u->id, 'name' => $u->name])
+            ->values()
+            ->all();
+
+        $this->mergePrimaryUserId = min($ids);
+        $this->resetErrorBag('merge');
+        $this->mergeModalOpen = true;
+    }
+
+    public function confirmMerge(UserMergeService $userMergeService): void
+    {
+        abort_unless(auth()->user()->canAs('user.update') && auth()->user()->canAs('user.delete'), 403);
+
+        $ids = array_values(array_unique(array_map('intval', $this->selectedUserIds)));
+        $primary = $this->mergePrimaryUserId;
+
+        if (count($ids) < 2 || $primary === null || ! in_array($primary, $ids, true)) {
+            $this->addError('merge', __('Invalid merge selection.'));
+
+            return;
+        }
+
+        $actor = auth()->user();
+
+        foreach ($ids as $id) {
+            $user = User::query()->find($id);
+            if (! $user) {
+                $this->addError('merge', __('One or more users no longer exist.'));
+
+                return;
+            }
+            if (! Gate::forUser($actor)->allows('update', $user)) {
+                $this->addError('merge', __('You are not allowed to update one of the selected users.'));
+
+                return;
+            }
+            if ($id !== $primary && ! Gate::forUser($actor)->allows('delete', $user)) {
+                $this->addError('merge', __('You are not allowed to remove one of the selected accounts as part of this merge.'));
+
+                return;
+            }
+        }
+
+        try {
+            $userMergeService->mergeIntoPrimary($ids, $primary);
+        } catch (\InvalidArgumentException|\RuntimeException $e) {
+            $this->addError('merge', $e->getMessage());
+
+            return;
+        } catch (\Throwable $e) {
+            report($e);
+            $this->addError('merge', __('Merge failed. Please try again.'));
+
+            return;
+        }
+
+        $this->selectedUserIds = [];
+        $this->mergeModalOpen = false;
+        $this->mergeCandidates = [];
+        $this->mergePrimaryUserId = null;
+        $this->resetPage();
+
+        session()->flash('status', __('Users merged successfully.'));
     }
 
     #[Computed]

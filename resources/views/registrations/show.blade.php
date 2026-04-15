@@ -153,13 +153,6 @@
             <flux:breadcrumbs.item>{{ $rider->name }}</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
-        @if (session('status'))
-            <flux:callout variant="success" class="rounded-lg">{{ session('status') }}</flux:callout>
-        @endif
-        @if (session('error'))
-            <flux:callout variant="danger" class="rounded-lg">{{ session('error') }}</flux:callout>
-        @endif
-
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
                 {{ __('Back to event') }}
@@ -196,7 +189,35 @@
                             {{ $rider->name }}@if ($rider->nickname) ({{ $rider->nickname }})@endif
                             <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->dob?->format('d/m/Y') }} · {{ $rider->gender_label ?? $rider->gender }}</span>
                             @if ($rider->user?->whatsapp)
-                                <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->user->whatsapp }}</span>
+                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                                    <span>{{ $rider->user->whatsapp }}</span>
+                                    @if ($canUpdate)
+                                        <flux:modal.trigger name="edit-rider-whatsapp">
+                                            <flux:button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                                icon="pencil-square"
+                                                title="{{ __('Edit WhatsApp') }}"
+                                            ></flux:button>
+                                        </flux:modal.trigger>
+                                    @endif
+                                </span>
+                            @elseif ($rider->user && $canUpdate)
+                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                                    <span class="text-zinc-400 dark:text-zinc-500">{{ __('No WhatsApp') }}</span>
+                                    <flux:modal.trigger name="edit-rider-whatsapp">
+                                        <flux:button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                            icon="pencil-square"
+                                            title="{{ __('Add WhatsApp') }}"
+                                        ></flux:button>
+                                    </flux:modal.trigger>
+                                </span>
                             @endif
                         </dd>
                     </div>
@@ -239,6 +260,34 @@
                         </div>
                     @endif
                 </dl>
+                @if ($canUpdate && $rider->user)
+                    <flux:modal name="edit-rider-whatsapp" focusable class="max-w-md" dismissible>
+                        <form method="post" action="{{ route('events.registrations.update-rider-user-whatsapp', [$event, $registration]) }}" class="space-y-4 p-2">
+                            @csrf
+                            <flux:heading size="lg">{{ __('WhatsApp number') }}</flux:heading>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Linked account: :name', ['name' => $rider->user->name]) }}</p>
+                            <flux:input
+                                name="whatsapp"
+                                type="text"
+                                :label="__('WhatsApp')"
+                                :value="old('whatsapp', $rider->user->whatsapp)"
+                                :placeholder="__('e.g. 62812…')"
+                            />
+                            @error('whatsapp')
+                                <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                            @enderror
+                            <div class="flex justify-end gap-2">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" variant="primary" size="sm">{{ __('Save') }}</flux:button>
+                            </div>
+                        </form>
+                    </flux:modal>
+                    @if ($errors->has('whatsapp'))
+                        <div x-data x-init="$nextTick(() => $dispatch('modal-show', { name: 'edit-rider-whatsapp' }))"></div>
+                    @endif
+                @endif
                 @if ($showStatusActions)
                     <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-3">
                         <div class="flex flex-wrap gap-2">
