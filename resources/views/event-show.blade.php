@@ -395,17 +395,7 @@
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
                 @php
-                    $participantTabActive = request()->has('participant_page')
-                        || request()->filled('participant_bracket')
-                        || request()->filled('participant_search');
-                    $participantSearch = trim((string) request('participant_search', ''));
-                    $participantBracketParam = request('participant_bracket');
-                    $allowedParticipantBracketIds = $event->brackets->pluck('id')->map(fn ($id) => (string) $id)->all();
-                    $participantBracketId = null;
-                    if ($participantBracketParam !== null && $participantBracketParam !== ''
-                        && in_array((string) $participantBracketParam, $allowedParticipantBracketIds, true)) {
-                        $participantBracketId = (int) $participantBracketParam;
-                    }
+                    $participantTabActive = request()->has('participant_page');
                     $participantRegistrations = \App\Models\Registration::query()
                         ->with(['rider.teams', 'bracket', 'package'])
                         ->where('event_id', $event->id)
@@ -416,19 +406,6 @@
                                 \App\Models\Order::STATUS_COMPLETED,
                             ])->whereHas('payments', function ($paymentQuery) {
                                 $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
-                            });
-                        })
-                        ->when($participantBracketId !== null, fn ($q) => $q->where('bracket_id', $participantBracketId))
-                        ->when($participantSearch !== '', function ($q) use ($participantSearch) {
-                            $like = '%'.$participantSearch.'%';
-                            $q->where(function ($outer) use ($like) {
-                                $outer->where('number_plate', 'like', $like)
-                                    ->orWhereHas('rider', function ($rq) use ($like) {
-                                        $rq->where('name', 'like', $like)
-                                            ->orWhere('nickname', 'like', $like)
-                                            ->orWhere('number_plate', 'like', $like)
-                                            ->orWhereHas('teams', fn ($tq) => $tq->where('name', 'like', $like));
-                                    });
                             });
                         })
                         ->latest('id')
@@ -943,7 +920,8 @@
 
                     <flux:tab.panel name="participant" :selected="$participantTabActive">
                         <div
-                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden"
+                            x-data="{ search: '', selectedBracket: '' }">
                             <div class="p-5 sm:p-6">
                                 <div class="flex items-start justify-between gap-3">
                                     <div>
@@ -959,24 +937,19 @@
                                     </flux:badge>
                                 </div>
 
-                                <form method="GET" action="{{ route('events.public.show', $event->slug) }}#event-participants" class="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                                    <flux:input type="search" name="participant_search" :label="__('Search')"
+                                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <flux:input type="search" :label="__('Search')"
                                         :placeholder="__('Search rider name, nickname, team, or number plate…')"
-                                        :value="request('participant_search')"
-                                        class="min-w-0 flex-1 sm:max-w-md" />
-                                    <flux:select name="participant_bracket" :label="__('Filter bracket')" class="w-full sm:w-56">
-                                        <option value="" @selected(! request()->filled('participant_bracket'))>{{ __('All brackets') }}</option>
+                                        x-model.debounce.300ms="search" />
+                                    <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
+                                        <option value="">{{ __('All brackets') }}</option>
                                         @foreach ($participantBracketOptions as $participantBracketOption)
-                                            <option value="{{ $participantBracketOption['id'] }}"
-                                                @selected((string) request('participant_bracket') === $participantBracketOption['id'])>
+                                            <option value="{{ $participantBracketOption['id'] }}">
                                                 {{ $participantBracketOption['name'] }}
                                             </option>
                                         @endforeach
                                     </flux:select>
-                                    <flux:button type="submit" variant="primary" class="w-full shrink-0 sm:w-auto">
-                                        {{ __('Apply') }}
-                                    </flux:button>
-                                </form>
+                                </div>
                             </div>
 
                             <div id="event-participants" class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
@@ -990,7 +963,17 @@
                                     </thead>
                                     <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
                                         @forelse ($participantRegistrations as $participantRegistration)
-                                            <tr>
+                                            @php
+                                                $participantSearchText = mb_strtolower(trim(implode(' ', [
+                                                    (string) ($participantRegistration->rider?->name ?? ''),
+                                                    (string) ($participantRegistration->rider?->nickname ?? ''),
+                                                    (string) ($participantRegistration->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->teams->pluck('name')->implode(' ') ?? ''),
+                                                ])));
+                                            @endphp
+                                            <tr
+                                                x-show="(selectedBracket === '' || selectedBracket === '{{ (string) $participantRegistration->bracket_id }}') && (search.trim() === '' || '{{ addslashes($participantSearchText) }}'.includes(search.trim().toLowerCase()))">
                                                 <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                     {{ $participantRegistration->rider?->name ?? '—' }}
                                                     <span class="text-zinc-500 dark:text-zinc-400 block">
