@@ -47,10 +47,19 @@
             </flux:menu>
         </flux:dropdown>
     @else
-        <flux:navbar class="gap-2">
+        <flux:navbar class="gap-2 max-lg:hidden">
             <flux:button variant="ghost" href="{{ route('login') }}" wire:navigate>Masuk</flux:button>
             <flux:button variant="primary" href="{{ route('register') }}" wire:navigate>Daftar</flux:button>
         </flux:navbar>
+
+        <flux:dropdown position="top" align="end" class="lg:hidden">
+            <flux:profile aria-label="{{ __('Account') }}" />
+            <flux:menu>
+                <flux:menu.item href="{{ route('login') }}" wire:navigate>Masuk</flux:menu.item>
+                <flux:menu.separator />
+                <flux:menu.item href="{{ route('register') }}" wire:navigate>Daftar</flux:menu.item>
+            </flux:menu>
+        </flux:dropdown>
     @endauth
 </flux:header>
 

@@ -9,7 +9,7 @@
     <flux:sidebar sticky collapsible
         class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
-            <flux:sidebar.brand href="{{ route('dashboard') }}" class="flex items-center">
+            <flux:sidebar.brand href="{{ route('home') }}" class="flex items-center">
                 <x-slot name="logo">
                     {{-- Logo utama (sidebar lebar) --}}
                     <div class="flex items-center justify-center in-data-flux-sidebar-collapsed-desktop:hidden">
