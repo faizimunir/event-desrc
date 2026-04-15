@@ -146,7 +146,7 @@
                                             <img src="{{ $rc->photo_rc_url }}" alt="{{ $rc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity
+                                        <div x-show="previewOpen" x-transition.opacity x-cloak
                                             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                             @click.self="previewOpen = false"
                                             role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -186,7 +186,7 @@
                                             <img src="{{ $mc->avatar_mc_url }}" alt="{{ $mc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity
+                                        <div x-show="previewOpen" x-transition.opacity x-cloak
                                             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                             @click.self="previewOpen = false"
                                             role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -348,7 +348,7 @@
                                                 <img src="{{ $track->photoTrackUrl() }}" alt="{{ $track->name }}"
                                                     class="h-20 w-28 object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer hover:opacity-90 transition-opacity" />
                                             </button>
-                                            <div x-show="previewOpen" x-transition.opacity
+                                            <div x-show="previewOpen" x-transition.opacity x-cloak
                                                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                                 @click.self="previewOpen = false"
                                                 role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -730,7 +730,7 @@
                                                             {{ __('View size chart') }}
                                                         </button>
                                                     </p>
-                                                    <div x-show="sizeChartPreviewOpen" x-transition.opacity
+                                                    <div x-show="sizeChartPreviewOpen" x-transition.opacity x-cloak
                                                         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                                         @click.self="sizeChartPreviewOpen = false"
                                                         role="dialog" aria-modal="true" :aria-hidden="!sizeChartPreviewOpen">
