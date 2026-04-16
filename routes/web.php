@@ -33,7 +33,13 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('home');
+    $events = \App\Models\Event::with('location')
+        ->visibleOnHomePage()
+        ->orderBy('start_at', 'desc')
+        ->limit(12)
+        ->get();
+
+    return view('home', compact('events'));
 })->name('home');
 
 // Public events list (event cards)
@@ -77,6 +83,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/live-result-flag', [EventController::class, 'updateLiveResultFlag'])->name('events.live-result.flag');
     Route::get('print-center', [LiveResultCategoryController::class, 'printCenter'])->name('print-center.index');
     Route::get('print-center/preview', [LiveResultCategoryController::class, 'printCenterPreview'])->name('print-center.preview');
+    Route::get('print-center/export', [LiveResultCategoryController::class, 'printCenterExport'])->name('print-center.export');
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
     Route::post('registrations/{registration}/approve-all', [RegistrationController::class, 'approveAll'])->name('registrations.approve-all');
     Route::post('events/{event}/registrations/{registration}/reset-payment-deadline', [RegistrationController::class, 'resetPaymentDeadline'])->name('events.registrations.reset-payment-deadline');

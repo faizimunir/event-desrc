@@ -12,7 +12,7 @@
         @endif
 
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6 max-w-2xl">
-            <form action="{{ route('print-center.preview') }}" method="GET" target="_blank" class="space-y-6">
+            <form method="GET" class="space-y-6">
                 <div>
                     <flux:label class="mb-2 block">{{ __('Pilih Event') }} <span class="text-red-500">*</span></flux:label>
                     <flux:select name="event_id" required :placeholder="__('-- Pilih Event --')">
@@ -23,10 +23,11 @@
                             @endif
                         @endforeach
                     </flux:select>
-                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Preview akan menampilkan semua kategori pada round final.') }}</p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Preview dan export memakai data yang sama: semua kategori pada round final.') }}</p>
                 </div>
-                <div class="flex justify-end">
-                    <flux:button type="submit" variant="primary" icon="document-duplicate">{{ __('Buka Preview Cetak') }}</flux:button>
+                <div class="flex flex-wrap justify-end gap-2">
+                    <flux:button type="submit" variant="primary" icon="document-duplicate" formtarget="_blank" formaction="{{ route('print-center.preview') }}">{{ __('Buka Preview Cetak') }}</flux:button>
+                    <flux:button type="submit" variant="outline" icon="arrow-down-tray" formaction="{{ route('print-center.export') }}">{{ __('Export Excel') }}</flux:button>
                 </div>
             </form>
         </div>
