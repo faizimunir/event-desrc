@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Account extends Model
 {
@@ -16,8 +16,8 @@ class Account extends Model
         'acc_number',
     ];
 
-    public function events(): HasMany
+    public function events(): BelongsToMany
     {
-        return $this->hasMany(Event::class);
+        return $this->belongsToMany(Event::class, 'event_account');
     }
 }

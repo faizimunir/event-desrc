@@ -9,7 +9,7 @@
     <flux:sidebar sticky collapsible
         class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
-            <flux:sidebar.brand href="{{ route('dashboard') }}" class="flex items-center">
+            <flux:sidebar.brand href="{{ route('home') }}" class="flex items-center">
                 <x-slot name="logo">
                     {{-- Logo utama (sidebar lebar) --}}
                     <div class="flex items-center justify-center in-data-flux-sidebar-collapsed-desktop:hidden">
@@ -52,6 +52,12 @@
                     wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
+                @canAs('myrider.manage')
+                <flux:sidebar.item icon="user-circle" :href="route('my-rider.index')" :current="request()->routeIs('my-rider.*')"
+                    wire:navigate>
+                    {{ __('My Rider') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('user.read')
                 <flux:sidebar.item icon="users" :href="route('users.index')" :current="request()->routeIs('users.*')"
                     wire:navigate>
@@ -143,11 +149,20 @@
             </div>
         </flux:sidebar.nav>
 <flux:sidebar.spacer />
-        <flux:radio.group x-data variant="segmented" x-model="$flux.appearance">
-    <flux:radio value="light" icon="sun" />
-    <flux:radio value="dark" icon="moon" />
-    <flux:radio value="system" icon="computer-desktop" />
-</flux:radio.group>
+        <flux:radio.group
+            x-data
+            variant="segmented"
+            x-model="$flux.appearance"
+            class="in-data-flux-sidebar-collapsed-desktop:hidden"
+        >
+            <flux:radio value="light" icon="sun" />
+            <flux:radio value="dark" icon="moon" />
+            <flux:radio value="system" icon="computer-desktop" />
+        </flux:radio.group>
+
+        <div class="hidden in-data-flux-sidebar-collapsed-desktop:flex justify-center">
+            <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" />
+        </div>
 
         <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
     </flux:sidebar>
@@ -157,7 +172,7 @@
         class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
-        <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
+        <x-app-logo :sidebar="true" href="{{ route('home') }}" wire:navigate />
         <flux:spacer />
         <flux:dropdown position="top" align="end">
             <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
@@ -177,6 +192,14 @@
                 </flux:menu.radio.group>
 
                 @include('partials.role-switcher')
+
+                <flux:menu.separator />
+
+                <flux:menu.radio.group>
+                    <flux:menu.item :href="route('dashboard')" icon="squares-2x2" wire:navigate>
+                        {{ __('Dashboard') }}
+                    </flux:menu.item>
+                </flux:menu.radio.group>
 
                 <flux:menu.separator />
 

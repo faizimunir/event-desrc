@@ -64,6 +64,14 @@
                                 </td>
                                 <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ $payment->formatted_amount }}
+                                    @if ($payment->method === 'manual' && $payment->manual_transfer_amount && $payment->isPending())
+                                        <span class="mt-1 block text-xs font-normal text-amber-700 dark:text-amber-300">
+                                            {{ __('Transfer') }}: {{ $payment->formatted_manual_transfer_amount }}
+                                            @if ($payment->manualUniqueSuffixFormatted())
+                                                · {{ __('Code') }} {{ $payment->manualUniqueSuffixFormatted() }}
+                                            @endif
+                                        </span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     @if ($payment->transfer_proof_url)
@@ -79,9 +87,9 @@
                                     @php
                                         $badgeColor = match ($payment->status) {
                                             'success' => 'green',
-                                            'pending' => 'yellow',
+                                            'pending', 'submitted' => 'yellow',
                                             'failed' => 'red',
-                                            'expired', 'cancelled' => 'zinc',
+                                            'void', 'refunded', 'expired', 'cancelled' => 'zinc',
                                             default => 'zinc',
                                         };
                                     @endphp
@@ -96,7 +104,7 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right">
-                                    @if ($payment->isPending())
+                                    @if ($payment->isPending() || $payment->isSubmitted())
                                         <form action="{{ route('payments.approve', $payment) }}" method="post" class="inline">
                                             @csrf
                                             <flux:button variant="ghost" size="sm" type="submit" color="green">{{ __('Approve') }}</flux:button>

@@ -12,17 +12,136 @@
     };
     $payBadgeColor = $payment ? match ($payment->status) {
         'success' => 'green',
-        'pending' => 'yellow',
+        'pending', 'submitted' => 'yellow',
         'failed' => 'red',
-        'expired', 'cancelled' => 'zinc',
+        'void', 'refunded', 'expired', 'cancelled' => 'zinc',
         default => 'zinc',
     } : null;
     $canUpdate = auth()->user()->canAs('event.update');
     $showStatusActions = $canUpdate && in_array($registration->status, ['pending', 'approved', 'rejected'], true);
-    $canApproveAll = $canUpdate && (! $registration->isApproved() || ($payment && $payment->isPending()));
+    $canApproveAll = $canUpdate && (! $registration->isApproved() || ($payment && ($payment->isPending() || $payment->isSubmitted())));
+    $canReopenPayment = $canUpdate
+        && $registration->order
+        && $payment
+        && in_array($payment->status, ['expired', 'failed', 'void'], true)
+        && ! $registration->isRejected();
+    $order = $registration->order;
+    $canResetPaymentDeadline = $canUpdate && $order && $order->adminCanResetPaymentDeadline($registration);
     $waNumber = $rider->user?->whatsapp ? \App\Services\WhacenterService::normalizeWhatsApp($rider->user->whatsapp) : '';
     $paymentLinkUrl = $registration->order ? route('payment.create', ['order_code' => $registration->order->order_code, 'whatsapp' => $rider->user?->whatsapp ?? '']) : '';
     $waSendPaymentUrl = $waNumber && $paymentLinkUrl ? 'https://wa.me/'.$waNumber.'?text='.rawurlencode($paymentLinkUrl) : '';
+
+    $event->loadMissing('accounts');
+    $eventAllowsManual = $event->allowsManualPayment() && $event->accounts->isNotEmpty();
+    $eventAllowsQris = $event->allowsQrisPayment();
+    $canGeneratePayment = $canUpdate
+        && $order
+        && $order->isCancelled()
+        && ! $payment
+        && ! $registration->isRejected()
+        && ($eventAllowsManual || $eventAllowsQris);
+    $generatePaymentBothOptions = $eventAllowsManual && $eventAllowsQris;
+
+    $ticket = $registration->ticket;
+    $eTicketUrl = $ticket ? route('tickets.show', $ticket->ticket_code, true) : null;
+    $canResendEticketWhatsapp = $canUpdate && $ticket && filled($rider->user?->whatsapp);
+
+    $registrationActivityLog = collect([
+        [
+            'at' => $registration->created_at,
+            'title' => __('Registration submitted'),
+            'detail' => null,
+        ],
+    ]);
+
+    if ($order) {
+        $registrationActivityLog->push([
+            'at' => $order->created_at,
+            'title' => __('Order created'),
+            'detail' => $order->order_code,
+        ]);
+        if ($order->confirmed_at) {
+            $registrationActivityLog->push([
+                'at' => $order->confirmed_at,
+                'title' => __('Order confirmed'),
+                'detail' => null,
+            ]);
+        }
+    }
+
+    if ($payment) {
+        $payDetailParts = array_filter([$payment->status_label, $transferProofUrl ? __('Proof attached') : null]);
+        $registrationActivityLog->push([
+            'at' => $payment->created_at,
+            'title' => __('Payment record'),
+            'detail' => $payDetailParts !== [] ? implode(' · ', $payDetailParts) : null,
+        ]);
+        if ($transferProofUrl && $payment->updated_at->gt($payment->created_at->copy()->addSeconds(90))) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Transfer proof updated'),
+                'detail' => null,
+            ]);
+        }
+        if ($payment->isSuccess() && ($payment->paid_at || $payment->reviewed_at)) {
+            $by = $payment->reviewedByUser?->name;
+            $registrationActivityLog->push([
+                'at' => $payment->paid_at ?? $payment->reviewed_at,
+                'title' => __('Payment successful'),
+                'detail' => $by ? __('Reviewed by :name', ['name' => $by]) : null,
+            ]);
+        } elseif ($payment->isFailed()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment rejected'),
+                'detail' => null,
+            ]);
+        } elseif ($payment->isExpired()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment expired'),
+                'detail' => null,
+            ]);
+        } elseif ($payment->isCancelled()) {
+            $registrationActivityLog->push([
+                'at' => $payment->updated_at,
+                'title' => __('Payment cancelled'),
+                'detail' => null,
+            ]);
+        }
+    }
+
+    if ($order && $order->paid_at && $order->isPaid() && ! ($payment && $payment->isSuccess())) {
+        $registrationActivityLog->push([
+            'at' => $order->paid_at,
+            'title' => __('Order marked paid'),
+            'detail' => null,
+        ]);
+    }
+
+    if ($ticket) {
+        $registrationActivityLog->push([
+            'at' => $ticket->created_at,
+            'title' => __('Ticket issued'),
+            'detail' => $ticket->ticket_code,
+        ]);
+    }
+
+    if ($registration->updated_at->gt($registration->created_at->copy()->addMinute())) {
+        $registrationActivityLog->push([
+            'at' => $registration->updated_at,
+            'title' => __('Registration record updated'),
+            'detail' => __('Status: :status', ['status' => $registration->status_label]),
+        ]);
+    }
+
+    foreach ($registration->whatsappNotificationLogs as $waLog) {
+        $registrationActivityLog->push($waLog->activityTimelineRow());
+    }
+
+    $registrationActivityLog = $registrationActivityLog
+        ->sortBy(fn (array $row) => $row['at']->timestamp)
+        ->values();
 @endphp
 <x-layouts::app :title="__('Registration') . ' — ' . $event->title">
     <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
@@ -43,7 +162,7 @@
                     {{ __('View order') }}
                 </flux:button>
             @endif
-            @if ($payment && $payment->isPending())
+            @if ($payment && ($payment->isPending() || $payment->isSubmitted()))
                 <flux:button variant="ghost" size="sm" :href="route('payments.index', ['status' => 'pending'])" wire:navigate icon="banknotes">
                     {{ __('Payments') }}
                 </flux:button>
@@ -56,18 +175,12 @@
             <flux:badge :color="$badgeColor" size="lg">{{ $registration->status_label }}</flux:badge>
         </div>
 
-        @if (session('status'))
-            <flux:callout variant="success" class="rounded-lg">{{ session('status') }}</flux:callout>
-        @endif
-        @if (session('error'))
-            <flux:callout variant="danger" class="rounded-lg">{{ session('error') }}</flux:callout>
-        @endif
 
         {{-- Dokumen verifikasi: Photo KIA + Bukti Transfer (prioritas untuk admin) --}}
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
                 <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Registration details') }}</h2>
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Registration Detail') }}</h2>
                 </div>
                 <dl class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
@@ -76,7 +189,35 @@
                             {{ $rider->name }}@if ($rider->nickname) ({{ $rider->nickname }})@endif
                             <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->dob?->format('d/m/Y') }} · {{ $rider->gender_label ?? $rider->gender }}</span>
                             @if ($rider->user?->whatsapp)
-                                <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->user->whatsapp }}</span>
+                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                                    <span>{{ $rider->user->whatsapp }}</span>
+                                    @if ($canUpdate)
+                                        <flux:modal.trigger name="edit-rider-whatsapp">
+                                            <flux:button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                                icon="pencil-square"
+                                                title="{{ __('Edit WhatsApp') }}"
+                                            ></flux:button>
+                                        </flux:modal.trigger>
+                                    @endif
+                                </span>
+                            @elseif ($rider->user && $canUpdate)
+                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                                    <span class="text-zinc-400 dark:text-zinc-500">{{ __('No WhatsApp') }}</span>
+                                    <flux:modal.trigger name="edit-rider-whatsapp">
+                                        <flux:button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                            icon="pencil-square"
+                                            title="{{ __('Add WhatsApp') }}"
+                                        ></flux:button>
+                                    </flux:modal.trigger>
+                                </span>
                             @endif
                         </dd>
                     </div>
@@ -92,7 +233,61 @@
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Registered at') }}</dt>
                         <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 sm:col-span-2 sm:mt-0">{{ $registration->created_at->format('d/m/Y H:i') }}</dd>
                     </div>
+                    @if ($ticket && $eTicketUrl)
+                        <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('E-ticket') }}</dt>
+                            <dd class="mt-1 space-y-2 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                                <p class="font-mono text-xs break-all text-sky-700 dark:text-sky-300">
+                                    <a href="{{ $eTicketUrl }}" target="_blank" rel="noopener noreferrer" class="hover:underline">{{ $eTicketUrl }}</a>
+                                </p>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:button variant="outline" size="sm" href="{{ $eTicketUrl }}" target="_blank" icon="arrow-top-right-on-square">
+                                        {{ __('Open e-ticket') }}
+                                    </flux:button>
+                                    @if ($canResendEticketWhatsapp)
+                                        <form action="{{ route('events.registrations.resend-ticket-whatsapp', [$event, $registration]) }}" method="post" class="inline" onsubmit="return confirm({{ json_encode(__('Send the e-ticket WhatsApp message again? It uses the same template as the first notification.')) }});">
+                                            @csrf
+                                            <flux:button type="submit" variant="outline" size="sm" icon="chat-bubble-left-right">
+                                                {{ __('Resend e-ticket via WhatsApp') }}
+                                            </flux:button>
+                                        </form>
+                                    @endif
+                                </div>
+                                @if ($canUpdate && ! $rider->user?->whatsapp)
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Save a WhatsApp number on the rider account to resend the e-ticket message.') }}</p>
+                                @endif
+                            </dd>
+                        </div>
+                    @endif
                 </dl>
+                @if ($canUpdate && $rider->user)
+                    <flux:modal name="edit-rider-whatsapp" focusable class="max-w-md" dismissible>
+                        <form method="post" action="{{ route('events.registrations.update-rider-user-whatsapp', [$event, $registration]) }}" class="space-y-4 p-2">
+                            @csrf
+                            <flux:heading size="lg">{{ __('WhatsApp number') }}</flux:heading>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Linked account: :name', ['name' => $rider->user->name]) }}</p>
+                            <flux:input
+                                name="whatsapp"
+                                type="text"
+                                :label="__('WhatsApp')"
+                                :value="old('whatsapp', $rider->user->whatsapp)"
+                                :placeholder="__('e.g. 62812…')"
+                            />
+                            @error('whatsapp')
+                                <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                            @enderror
+                            <div class="flex justify-end gap-2">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" variant="primary" size="sm">{{ __('Save') }}</flux:button>
+                            </div>
+                        </form>
+                    </flux:modal>
+                    @if ($errors->has('whatsapp'))
+                        <div x-data x-init="$nextTick(() => $dispatch('modal-show', { name: 'edit-rider-whatsapp' }))"></div>
+                    @endif
+                @endif
                 @if ($showStatusActions)
                     <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-3">
                         <div class="flex flex-wrap gap-2">
@@ -108,12 +303,13 @@
                                         {{ __('Approve registration') }}
                                     </flux:button>
                                 </form>
-                                <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
+                                <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline-flex flex-col gap-2 items-start">
                                     @csrf
                                     <input type="hidden" name="status" value="rejected" />
                                     <flux:button variant="outline" color="red" type="submit" size="sm" icon="x-mark">
                                         {{ __('Reject') }}
                                     </flux:button>
+                                    <textarea name="rejection_reason" rows="2" class="w-full max-w-md rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 px-3 py-2 text-sm text-zinc-900 dark:text-zinc-100" placeholder="{{ __('Optional reason (sent to participant)') }}"></textarea>
                                 </form>
                             @endif
                             <form action="{{ route('registrations.update-status', $registration) }}" method="post" class="inline">
@@ -160,7 +356,7 @@
         <div class="grid gap-6 lg:grid-cols-2">
             <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
                 <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
-                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payment') }}</h2>
+                    <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Payment Detail') }}</h2>
                 </div>
                 <div class="p-4">
                     @if ($payment)
@@ -168,6 +364,14 @@
                             <flux:badge :color="$payBadgeColor" size="sm">{{ $payment->status_label }}</flux:badge>
                             <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $payment->formatted_amount }}</span>
                         </div>
+                        @if ($payment->method === 'manual' && $payment->manual_transfer_amount && ($payment->isPending() || $payment->isSubmitted()))
+                            <p class="mt-2 text-xs text-amber-800 dark:text-amber-200">
+                                {{ __('Expected transfer amount') }}: <span class="font-mono font-semibold">{{ $payment->formatted_manual_transfer_amount }}</span>
+                                @if ($payment->manualUniqueSuffixFormatted())
+                                    ({{ __('unique code') }} {{ $payment->manualUniqueSuffixFormatted() }})
+                                @endif
+                            </p>
+                        @endif
                         <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Submitted') }}: {{ $payment->created_at->format('d/m/Y H:i') }}</p>
                         @if ($canUpdate)
                             <div class="mt-3 flex flex-wrap gap-2">
@@ -175,7 +379,7 @@
                                     <flux:button variant="primary" color="green" size="sm" icon="check" disabled>
                                         {{ __('Approved') }}
                                     </flux:button>
-                                @elseif ($payment->isPending() && $transferProofUrl)
+                                @elseif (($payment->isPending() || $payment->isSubmitted()) && $transferProofUrl)
                                     <form action="{{ route('payments.approve', $payment) }}" method="post" class="inline">
                                         @csrf
                                         <flux:button variant="primary" color="green" type="submit" size="sm" icon="check">
@@ -188,21 +392,68 @@
                                             {{ __('Reject payment') }}
                                         </flux:button>
                                     </form>
-                                @elseif ($payment->isPending() && ! $transferProofUrl && $waSendPaymentUrl)
-                                    <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
-                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                        {{ __('Send payment link via WhatsApp') }}
-                                    </a>
+                                @endif
+                                @if ($canResetPaymentDeadline)
+                                    <form action="{{ route('events.registrations.reset-payment-deadline', [$event, $registration]) }}" method="post" class="inline" onsubmit="return confirm({{ json_encode(__('Reset payment deadline from now? If the order was cancelled for expiry, a free slot is still required; the rider may receive a new unique transfer amount.')) }});">
+                                        @csrf
+                                        <flux:button variant="outline" color="amber" type="submit" size="sm" icon="arrow-path">
+                                            {{ __('Reset payment deadline') }}
+                                        </flux:button>
+                                    </form>
+                                @endif
+                                @if ($canReopenPayment)
+                                    <form action="{{ route('events.registrations.reopen-payment', [$event, $registration]) }}" method="post" class="inline" onsubmit="return confirm({{ json_encode(__('Create a new payment attempt? Quota for this bracket/package will be checked first.')) }});">
+                                        @csrf
+                                        <flux:button variant="outline" color="sky" type="submit" size="sm" icon="banknotes">
+                                            {{ __('Reopen payment') }}
+                                        </flux:button>
+                                    </form>
                                 @endif
                             </div>
                         @endif
                     @else
                         <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No payment yet') }}</p>
-                        @if ($registration->order && $waSendPaymentUrl)
-                            <a href="{{ $waSendPaymentUrl }}" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-3 py-2 text-sm font-medium text-white hover:bg-[#20BD5A] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2 dark:focus:ring-offset-zinc-900">
-                                <svg class="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                {{ __('Send payment link via WhatsApp') }}
-                            </a>
+
+                        @if ($canGeneratePayment)
+                            <form action="{{ route('events.registrations.generate-payment', [$event, $registration]) }}" method="post" class="mt-4 space-y-3" onsubmit="return confirm({{ json_encode(__('Create a new payment attempt? Quota for this bracket/package will be checked first.')) }});">
+                                @csrf
+                                @if ($generatePaymentBothOptions)
+                                    <fieldset class="space-y-2 rounded-lg border border-zinc-200 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 p-3">
+                                        <legend class="text-xs font-medium text-zinc-600 dark:text-zinc-300">{{ __('Payment method') }}</legend>
+                                        <label class="flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                                            <input type="radio" name="payment_method" value="manual" class="mt-0.5 border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-zinc-400" required @checked(old('payment_method') === 'manual')>
+                                            <span>{{ __('Manual transfer (upload proof)') }}</span>
+                                        </label>
+                                        <label class="flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+                                            <input type="radio" name="payment_method" value="qris" class="mt-0.5 border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-zinc-400" @checked(old('payment_method') === 'qris')>
+                                            <span>{{ __('Automatic transfer (Moota)') }}</span>
+                                        </label>
+                                    </fieldset>
+                                    @error('payment_method')
+                                        <p class="text-xs text-red-600 dark:text-red-400">{{ $message }}</p>
+                                    @enderror
+                                @endif
+                                <flux:button variant="primary" type="submit" size="sm" icon="banknotes">
+                                    {{ __('Generate payment') }}
+                                </flux:button>
+                            </form>
+                        @endif
+
+                        @if ($canResetPaymentDeadline)
+                            <form action="{{ route('events.registrations.reset-payment-deadline', [$event, $registration]) }}" method="post" class="mt-3 inline" onsubmit="return confirm({{ json_encode(__('Reset payment deadline from now? If the order was cancelled for expiry, a free slot is still required; the rider may receive a new unique transfer amount.')) }});">
+                                @csrf
+                                <flux:button variant="outline" color="amber" type="submit" size="sm" icon="arrow-path">
+                                    {{ __('Reset payment deadline') }}
+                                </flux:button>
+                            </form>
+                        @endif
+                        @if ($canReopenPayment)
+                            <form action="{{ route('events.registrations.reopen-payment', [$event, $registration]) }}" method="post" class="mt-3 inline" onsubmit="return confirm({{ json_encode(__('Create a new payment attempt? Quota for this bracket/package will be checked first.')) }});">
+                                @csrf
+                                <flux:button variant="outline" color="sky" type="submit" size="sm" icon="banknotes">
+                                    {{ __('Reopen payment') }}
+                                </flux:button>
+                            </form>
                         @endif
                     @endif
                 </div>
@@ -275,5 +526,35 @@
                 </div>
             </div>
         @endif
+
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
+            <div class="border-b border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 px-4 py-3">
+                <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Activity log') }}</h2>
+            </div>
+            <div class="p-4">
+                <ol class="flex flex-col" role="list">
+                    @foreach ($registrationActivityLog as $entry)
+                        <li class="relative pb-8 last:pb-0">
+                            @unless ($loop->first)
+                                <div class="absolute start-[1.125rem] top-0 h-2 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-600" aria-hidden="true"></div>
+                            @endunless
+                            @unless ($loop->last)
+                                <div class="absolute start-[1.125rem] top-5 bottom-0 w-px -translate-x-1/2 bg-zinc-200 dark:bg-zinc-600" aria-hidden="true"></div>
+                            @endunless
+                            <span class="absolute start-[1.125rem] top-2 z-[1] size-3 -translate-x-1/2 rounded-full border-2 border-white bg-zinc-400 shadow-sm dark:border-zinc-800 dark:bg-zinc-500" aria-hidden="true"></span>
+                            <div class="min-w-0 ps-10 pt-0.5 sm:ps-11">
+                                <p class="text-sm font-medium leading-snug text-zinc-900 dark:text-zinc-100">{{ $entry['title'] }}</p>
+                                <time class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400" datetime="{{ $entry['at']->format('c') }}">
+                                    {{ $entry['at']->format('d/m/Y H:i') }}
+                                </time>
+                                @if (! empty($entry['detail']))
+                                    <p class="mt-1 text-xs text-zinc-600 dark:text-zinc-400">{{ $entry['detail'] }}</p>
+                                @endif
+                            </div>
+                        </li>
+                    @endforeach
+                </ol>
+            </div>
+        </div>
     </div>
 </x-layouts::app>

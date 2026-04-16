@@ -7,25 +7,32 @@ use Illuminate\Console\Command;
 
 class ExpirePendingOrdersCommand extends Command
 {
-    protected $signature = 'orders:expire-pending';
+    protected $signature = 'orders:enforce-deadlines';
 
-    protected $description = 'Mark orders that passed expired_at as expired and release bracket/package slots';
+    protected $description = 'Batalkan draft lewat batas; batalkan unpaid lewat expired_at hanya jika payment masih pending tanpa submitted (kuota lepas; registrasi payment-expired jadi cancelled)';
 
     public function handle(): int
     {
-        $orders = Order::query()
-            ->expiredPending()
-            ->with('registration')
-            ->get();
+        $draftCount = 0;
+        Order::query()->expiredDraft()->with('registration')->chunkById(100, function ($orders) use (&$draftCount) {
+            foreach ($orders as $order) {
+                if ($order->enforceExpiredDraftIfNeeded()) {
+                    $draftCount++;
+                }
+            }
+        });
 
-        $count = 0;
-        foreach ($orders as $order) {
-            $order->update(['status' => Order::STATUS_EXPIRED]);
-            $count++;
-        }
+        $pendingCount = 0;
+        Order::query()->expiredPendingUnpaid()->with('registration')->chunkById(100, function ($orders) use (&$pendingCount) {
+            foreach ($orders as $order) {
+                if ($order->enforceExpiredPaymentWindowIfNeeded()) {
+                    $pendingCount++;
+                }
+            }
+        });
 
-        if ($count > 0) {
-            $this->info("Marked {$count} order(s) as expired and released slot(s).");
+        if ($draftCount > 0 || $pendingCount > 0) {
+            $this->info("Cancelled {$draftCount} draft order(s), {$pendingCount} unpaid pending order(s) (payment not submitted).");
         }
 
         return self::SUCCESS;

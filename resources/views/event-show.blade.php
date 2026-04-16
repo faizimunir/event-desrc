@@ -9,7 +9,8 @@
         }
 
         #registration-form,
-        #registration-packages {
+        #registration-packages,
+        #event-participants {
             scroll-margin-top: 5rem;
         }
     </style>
@@ -108,6 +109,28 @@
                                         {{ $event->organizer->name }}
                                     @endif
                                 </p>
+                                @if ($event->organizer->user)
+                                    @php $orgAdmin = $event->organizer->user; @endphp
+                                    <div>
+                                        <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                            <span
+                                                class="font-medium text-zinc-500 dark:text-zinc-500">{{ __('Admin') }} :</span>
+                                        </p>
+                                        @if (filled($orgAdmin->whatsapp))
+                                            @php
+                                                $orgAdminWa = \App\Services\WhacenterService::normalizeWhatsApp(
+                                                    $orgAdmin->whatsapp,
+                                                );
+                                            @endphp
+                                            <p class="text-xs text-zinc-600 dark:text-zinc-400">
+                                                <span
+                                                    class="font-medium text-zinc-500 dark:text-zinc-500">{{ $orgAdmin->name }}</span>
+                                                <a href="https://wa.me/{{ $orgAdminWa }}" target="_blank" rel="noopener"
+                                                    class="text-emerald-600 hover:underline dark:text-emerald-400">({{ $orgAdmin->whatsapp }})</a>
+                                            </p>
+                                        @endif
+                                    </div>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -124,7 +147,7 @@
                                             <img src="{{ $rc->photo_rc_url }}" alt="{{ $rc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity
+                                        <div x-show="previewOpen" x-transition.opacity x-cloak
                                             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                             @click.self="previewOpen = false"
                                             role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -164,7 +187,7 @@
                                             <img src="{{ $mc->avatar_mc_url }}" alt="{{ $mc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity
+                                        <div x-show="previewOpen" x-transition.opacity x-cloak
                                             class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                             @click.self="previewOpen = false"
                                             role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -326,7 +349,7 @@
                                                 <img src="{{ $track->photoTrackUrl() }}" alt="{{ $track->name }}"
                                                     class="h-20 w-28 object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer hover:opacity-90 transition-opacity" />
                                             </button>
-                                            <div x-show="previewOpen" x-transition.opacity
+                                            <div x-show="previewOpen" x-transition.opacity x-cloak
                                                 class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                                 @click.self="previewOpen = false"
                                                 role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
@@ -371,6 +394,39 @@
             </div>
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
+                @php
+                    $participantTabActive = request()->has('participant_page');
+                    $participantRegistrations = \App\Models\Registration::query()
+                        ->with(['rider.teams', 'bracket', 'package'])
+                        ->where('event_id', $event->id)
+                        ->where('status', \App\Models\Registration::STATUS_APPROVED)
+                        ->whereHas('order', function ($orderQuery) {
+                            $orderQuery->whereIn('status', [
+                                \App\Models\Order::STATUS_PAID,
+                                \App\Models\Order::STATUS_COMPLETED,
+                            ])->whereHas('payments', function ($paymentQuery) {
+                                $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
+                            });
+                        })
+                        ->latest('id')
+                        ->paginate(20, ['*'], 'participant_page')
+                        ->withQueryString()
+                        ->fragment('event-participants');
+                    $participantBracketOptions = $event->brackets_sorted_for_display
+                        ->map(fn ($bracket) => [
+                            'id' => (string) $bracket->id,
+                            'name' => (string) $bracket->name,
+                        ])
+                        ->values();
+                @endphp
+
+                <flux:tab.group>
+                    <flux:tabs variant="segmented">
+                        <flux:tab icon="pencil-square" name="registration" :selected="!$participantTabActive">{{ __('Registration') }}</flux:tab>
+                        <flux:tab icon="users" name="participant" :selected="$participantTabActive">{{ __('Participant') }}</flux:tab>
+                    </flux:tabs>
+
+                    <flux:tab.panel name="registration" :selected="!$participantTabActive">
                 @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                     @php
                         $showDuplicateRiderModal = session('similar_riders_choice') && session('similar_riders');
@@ -526,7 +582,17 @@
                                                 @endif
                                             </div>
                                             <div class="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
-                                                {{ $package->formatted_price }}</div>
+                                                {{ $package->formatted_payable_amount }}
+                                                @if ($package->hasAdminFee() && $package->adminFeeIsIncludedInPrice())
+                                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('Includes platform admin fee :fee', ['fee' => $package->formatted_admin_fee]) }}
+                                                    </span>
+                                                @elseif ($package->hasAdminFee() && ! $package->adminFeeIsIncludedInPrice())
+                                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('Registration :reg + admin :adm', ['reg' => $package->formatted_price, 'adm' => $package->formatted_admin_fee]) }}
+                                                    </span>
+                                                @endif
+                                            </div>
                                             @if (!$package->hide_quota && $package->quota !== null)
                                                 @php $rem = $package->remainingQuota(); @endphp
                                                 <div class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -666,7 +732,7 @@
                                                             {{ __('View size chart') }}
                                                         </button>
                                                     </p>
-                                                    <div x-show="sizeChartPreviewOpen" x-transition.opacity
+                                                    <div x-show="sizeChartPreviewOpen" x-transition.opacity x-cloak
                                                         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
                                                         @click.self="sizeChartPreviewOpen = false"
                                                         role="dialog" aria-modal="true" :aria-hidden="!sizeChartPreviewOpen">
@@ -850,6 +916,95 @@
                         </flux:button>
                     </div>
                 @endif
+                    </flux:tab.panel>
+
+                    <flux:tab.panel name="participant" :selected="$participantTabActive">
+                        <div
+                            class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden"
+                            x-data="{ search: '', selectedBracket: '' }">
+                            <div class="p-5 sm:p-6">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h2 class="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                            {{ __('Participant') }}
+                                        </h2>
+                                        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                            {{ __('Riders with confirmed registration.') }}
+                                        </p>
+                                    </div>
+                                    <flux:badge variant="solid" color="zinc" size="sm">
+                                        {{ $participantRegistrations->total() }} {{ __('Rider') }}
+                                    </flux:badge>
+                                </div>
+
+                                <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <flux:input type="search" :label="__('Search')"
+                                        :placeholder="__('Search rider name, nickname, team, or number plate…')"
+                                        x-model.debounce.300ms="search" />
+                                    <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
+                                        <option value="">{{ __('All brackets') }}</option>
+                                        @foreach ($participantBracketOptions as $participantBracketOption)
+                                            <option value="{{ $participantBracketOption['id'] }}">
+                                                {{ $participantBracketOption['name'] }}
+                                            </option>
+                                        @endforeach
+                                    </flux:select>
+                                </div>
+                            </div>
+
+                            <div id="event-participants" class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
+                                <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    <thead class="bg-zinc-50 dark:bg-zinc-800">
+                                        <tr>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Rider') }}</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Team') }}</th>
+                                            <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Bracket') }}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
+                                        @forelse ($participantRegistrations as $participantRegistration)
+                                            @php
+                                                $participantSearchText = mb_strtolower(trim(implode(' ', [
+                                                    (string) ($participantRegistration->rider?->name ?? ''),
+                                                    (string) ($participantRegistration->rider?->nickname ?? ''),
+                                                    (string) ($participantRegistration->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->number_plate ?? ''),
+                                                    (string) ($participantRegistration->rider?->teams->pluck('name')->implode(' ') ?? ''),
+                                                ])));
+                                            @endphp
+                                            <tr
+                                                x-show="(selectedBracket === '' || selectedBracket === '{{ (string) $participantRegistration->bracket_id }}') && (search.trim() === '' || '{{ addslashes($participantSearchText) }}'.includes(search.trim().toLowerCase()))">
+                                                <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                    {{ $participantRegistration->rider?->name ?? '—' }}
+                                                    <span class="text-zinc-500 dark:text-zinc-400 block">
+                                                        {{ $participantRegistration->rider?->nickname ?? '—' }} ({{ $participantRegistration->rider?->number_plate ?? '—' }})
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                    {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
+                                                </td>
+                                                <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                    {{ $participantRegistration->bracket?->name ?? '—' }}
+                                                </td>
+                                            </tr>
+                                        @empty
+                                            <tr>
+                                                <td colspan="3" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('No participants yet.') }}
+                                                </td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if ($participantRegistrations->hasPages())
+                                <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-4 sm:px-6">
+                                    {{ $participantRegistrations->links() }}
+                                </div>
+                            @endif
+                        </div>
+                    </flux:tab.panel>
+                </flux:tab.group>
 
                 {{-- Modal: input access code for early registration (shown when registration not open) --}}
                 @if (!$event->isRegistrationOpen())

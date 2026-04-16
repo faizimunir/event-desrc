@@ -1,0 +1,1 @@
+{{ trim(__('Yah sayang banget kak :name, jendela pembayaran untuk :event sudah kadaluarsa. Coba info admin ya, jika ingin open payment kembali.', ['name' => $recipientName, 'event' => $eventTitle])) }}

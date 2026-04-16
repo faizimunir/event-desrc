@@ -36,10 +36,11 @@ class OrganizerPendingDigestCommand extends Command
 
         if (! config('services.whacenter.device_id') && ! $checkOnly) {
             $this->warn('WHACENTER_DEVICE_ID belum di-set, skip digest.');
+
             return self::SUCCESS;
         }
 
-        // Pending orders (status pending_payment) yang baru dibuat dalam N jam terakhir
+        // Pending orders (draft / menunggu bayar) yang baru dibuat dalam N jam terakhir
         $orders = Order::query()
             ->pendingPayment()
             ->where('created_at', '>=', $since)
@@ -48,7 +49,7 @@ class OrganizerPendingDigestCommand extends Command
 
         // Pending payments yang baru dibuat dalam N jam terakhir
         $payments = Payment::query()
-            ->where('status', Payment::STATUS_PENDING)
+            ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUBMITTED])
             ->where('created_at', '>=', $since)
             ->with(['registration.event.organizer.user'])
             ->get();
@@ -57,6 +58,7 @@ class OrganizerPendingDigestCommand extends Command
 
         if ($orders->isEmpty() && $payments->isEmpty()) {
             $this->info('Tidak ada pending order/payment baru dalam jangka waktu tersebut.');
+
             return self::SUCCESS;
         }
 
@@ -81,10 +83,12 @@ class OrganizerPendingDigestCommand extends Command
 
             if (! $user) {
                 $skippedNoUser++;
+
                 continue;
             }
             if (empty(trim((string) $user->whatsapp))) {
                 $skippedNoWhatsapp++;
+
                 continue;
             }
 
@@ -106,10 +110,12 @@ class OrganizerPendingDigestCommand extends Command
 
             if (! $user) {
                 $skippedNoUser++;
+
                 continue;
             }
             if (empty(trim((string) $user->whatsapp))) {
                 $skippedNoWhatsapp++;
+
                 continue;
             }
 
@@ -137,19 +143,22 @@ class OrganizerPendingDigestCommand extends Command
                     collect($byOrganizer)->map(function ($data) {
                         $u = $data['user'];
                         $eventTitles = collect($data['events'])->pluck('event.title')->filter()->unique()->values()->join(', ');
+
                         return [$u->id, $u->name ?? '-', $u->whatsapp ?? '(kosong)', $eventTitles ?: '-'];
                     })->values()->all()
                 );
             }
+
             return self::SUCCESS;
         }
 
         if ($byOrganizer === []) {
             $this->warn('Tidak ada organizer dengan WhatsApp untuk dikirimi digest. Jalankan dengan --check untuk cek data.');
+
             return self::SUCCESS;
         }
 
-        $totalSent = 0;
+        $totalQueued = 0;
 
         foreach ($byOrganizer as $data) {
             $user = $data['user'];
@@ -164,7 +173,7 @@ class OrganizerPendingDigestCommand extends Command
             }
 
             $lines = [];
-            $lines[] = 'Halo, ' . ($user->name ?? 'Admin') . '.';
+            $lines[] = 'Halo, '.($user->name ?? 'Admin').'.';
             $lines[] = '';
             $lines[] = 'Ringkasan pendaftar yang masih menunggu pembayaran / review bukti dalam 1 jam terakhir:';
             $lines[] = '';
@@ -175,13 +184,13 @@ class OrganizerPendingDigestCommand extends Command
                 $paymentCount = $evtData['payments'] ?? 0;
 
                 $title = $event?->title ?? '-';
-                $eventLine = '• ' . $title . ': ';
+                $eventLine = '• '.$title.': ';
                 $parts = [];
                 if ($orderCount > 0) {
-                    $parts[] = $orderCount . ' pending order';
+                    $parts[] = $orderCount.' pending order';
                 }
                 if ($paymentCount > 0) {
-                    $parts[] = $paymentCount . ' pending payment';
+                    $parts[] = $paymentCount.' pending payment';
                 }
 
                 if ($parts !== []) {
@@ -195,15 +204,12 @@ class OrganizerPendingDigestCommand extends Command
 
             $message = implode("\n", $lines);
 
-            if ($whacenter->sendMessage($user->whatsapp, $message)) {
-                $this->info('Digest terkirim ke ' . $user->whatsapp);
-                $totalSent++;
-            } else {
-                $this->error('Gagal mengirim digest ke ' . $user->whatsapp);
-            }
+            $whacenter->queueMessage($user->whatsapp, $message);
+            $this->info('Digest di-antrekan untuk '.$user->whatsapp.' (jeda acak + worker).');
+            $totalQueued++;
         }
 
-        $this->info("Total digest terkirim: {$totalSent}");
+        $this->info("Total digest di-antrekan: {$totalQueued} — pastikan `php artisan queue:work` berjalan.");
 
         return self::SUCCESS;
     }
@@ -215,6 +221,7 @@ class OrganizerPendingDigestCommand extends Command
     {
         if (! $event) {
             $this->line("  [{$type} #{$itemId}] Event: (null)");
+
             return;
         }
         $key = $event->id;
@@ -225,6 +232,6 @@ class OrganizerPendingDigestCommand extends Command
         $organizer = $event->organizer;
         $user = $organizer?->user;
         $wa = $user && trim((string) $user->whatsapp) !== '' ? $user->whatsapp : '(kosong/tidak ada)';
-        $this->line("  Event: {$event->title} (id={$event->id}) | Organizer: " . ($organizer?->name ?? 'null') . " (id=" . ($organizer?->id ?? 'null') . ") | User: " . ($user?->name ?? 'null') . " (id=" . ($user?->id ?? 'null') . ") | WA: {$wa}");
+        $this->line("  Event: {$event->title} (id={$event->id}) | Organizer: ".($organizer?->name ?? 'null').' (id='.($organizer?->id ?? 'null').') | User: '.($user?->name ?? 'null').' (id='.($user?->id ?? 'null').") | WA: {$wa}");
     }
 }

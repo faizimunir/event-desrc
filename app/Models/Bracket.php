@@ -69,10 +69,13 @@ class Bracket extends Model
         return $this->hasMany(Registration::class, 'bracket_id');
     }
 
-    /** Number of registrations that count toward quota (pending + approved). */
+    /** Slot terpakai: registrasi pending/approved dengan order pending (hold) atau confirmed. Draft tidak mengikat. */
     public function registeredCount(): int
     {
-        return $this->registrations()->countsTowardQuota()->count();
+        return $this->registrations()
+            ->countsTowardQuota()
+            ->whereHas('order', fn ($q) => $q->holdsQuota())
+            ->count();
     }
 
     /** Remaining quota (null means unlimited). */
@@ -81,6 +84,7 @@ class Bracket extends Model
         if ($this->quota === null) {
             return null;
         }
+
         return max(0, $this->quota - $this->registeredCount());
     }
 
@@ -88,6 +92,7 @@ class Bracket extends Model
     public function hasQuota(): bool
     {
         $remaining = $this->remainingQuota();
+
         return $remaining === null || $remaining > 0;
     }
 }

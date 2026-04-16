@@ -135,7 +135,10 @@
                             <ul class="mt-3 space-y-3 text-sm text-zinc-700 dark:text-zinc-300">
                                 @foreach ($event->packages as $pkg)
                                     <li>
-                                        <span class="font-medium">{{ $pkg->name }}</span> — {{ $pkg->formatted_price }}
+                                        <span class="font-medium">{{ $pkg->name }}</span> — {{ $pkg->formatted_payable_amount }}
+                                        @if ($pkg->hasAdminFee() && ! $pkg->adminFeeIsIncludedInPrice())
+                                            <span class="text-zinc-500 dark:text-zinc-400"> ({{ $pkg->formatted_price }} + {{ $pkg->formatted_admin_fee }})</span>
+                                        @endif
                                         @if ($pkg->quota !== null)
                                             @php $rem = $pkg->remainingQuota(); @endphp
                                             <span class="text-zinc-500 dark:text-zinc-400">({{ $rem !== null ? $rem . ' / ' . $pkg->quota . ' ' . __('slots') : __('Full') }})</span>

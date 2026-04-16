@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
-use App\Models\EventCodeAccess;
 use App\Models\Location;
+use App\Models\Order;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
@@ -52,7 +52,10 @@ class EventController extends Controller
             abort(404);
         }
 
-        $event->load(['location', 'organizer', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+        $event->load(['location', 'organizer.user', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+
+        Order::enforceExpiredDraftsForEvent($event->id);
+        Order::enforceExpiredPaymentWindowsForEvent($event->id);
 
         $hasEarlyAccess = $this->hasEarlyAccessForEvent($event);
 

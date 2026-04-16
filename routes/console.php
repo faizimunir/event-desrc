@@ -11,5 +11,8 @@ Artisan::command('inspire', function () {
 // Otomatis ubah status event: Published → Open Regist dan Open Regist → Closed Regist sesuai tanggal
 Schedule::command('events:sync-status')->everyMinute();
 
-// Batalkan order yang sudah lewat expired_at (15 menit), lepaskan slot bracket/package
-Schedule::command('orders:expire-pending')->everyMinute();
+// Draft / pending unpaid lewat expired_at → cancelled (kuota lepas otomatis di query)
+Schedule::command('orders:enforce-deadlines')->everyMinute();
+
+// Opsional: confirmed → completed setelah event selesai
+Schedule::command('orders:mark-completed')->daily();

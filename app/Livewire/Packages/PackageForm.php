@@ -20,6 +20,10 @@ class PackageForm extends Component
 
     public string $price = '';
 
+    public string $admin_fee = '0';
+
+    public bool $admin_fee_included_in_price = true;
+
     public ?string $quota = null;
 
     public bool $hide_quota = false;
@@ -44,6 +48,8 @@ class PackageForm extends Component
 
             $this->name = $this->package->name;
             $this->price = (string) $this->package->price;
+            $this->admin_fee = (string) $this->package->admin_fee;
+            $this->admin_fee_included_in_price = (bool) $this->package->admin_fee_included_in_price;
             $this->quota = $this->package->quota !== null ? (string) $this->package->quota : null;
             $this->hide_quota = (bool) $this->package->hide_quota;
             $this->status = $this->package->status ?? Package::STATUS_ACTIVE;
@@ -66,6 +72,8 @@ class PackageForm extends Component
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'price' => ['required', 'numeric', 'min:0'],
+            'admin_fee' => ['required', 'numeric', 'min:0'],
+            'admin_fee_included_in_price' => ['boolean'],
             'quota' => ['nullable', 'integer', 'min:1'],
             'hide_quota' => ['boolean'],
             'status' => ['required', 'string', 'in:'.Package::STATUS_ACTIVE.','.Package::STATUS_NOT_ACTIVE],
@@ -85,6 +93,8 @@ class PackageForm extends Component
             $this->package->update([
                 'name' => $validated['name'],
                 'price' => $validated['price'],
+                'admin_fee' => $validated['admin_fee'],
+                'admin_fee_included_in_price' => (bool) ($validated['admin_fee_included_in_price'] ?? true),
                 'quota' => $quota,
                 'hide_quota' => $hideQuota,
                 'status' => $status,
@@ -100,6 +110,8 @@ class PackageForm extends Component
             $pkg = $this->event->packages()->create([
                 'name' => $validated['name'],
                 'price' => $validated['price'],
+                'admin_fee' => $validated['admin_fee'],
+                'admin_fee_included_in_price' => (bool) ($validated['admin_fee_included_in_price'] ?? true),
                 'quota' => $quota,
                 'hide_quota' => $hideQuota,
                 'status' => $status,

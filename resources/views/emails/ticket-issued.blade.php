@@ -29,7 +29,7 @@
         @endif
         @if($registration?->package)
             <p style="margin: 0;"><strong>{{ __('Package') }}:</strong> {{ $registration->package->name }}</p>
-            <p style="margin: 0;"><strong>{{ __('Amount') }}:</strong> {{ $registration->package->formatted_price }}</p>
+            <p style="margin: 0;"><strong>{{ __('Amount') }}:</strong> {{ $registration->package->formatted_payable_amount }}</p>
         @endif
     </div>
 

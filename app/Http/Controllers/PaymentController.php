@@ -6,9 +6,13 @@ use App\Mail\PaymentLinkMail;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Registration;
+use App\Models\WhatsappNotificationLog;
+use App\Services\ManualTransferNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
+use App\Services\WinpayQrisService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
@@ -23,13 +27,24 @@ class PaymentController extends Controller
     {
         $registration = null;
         $orderExpiredOrCancelled = false;
+        $allowsManual = false;
+        $allowsQris = false;
+        $manualAccounts = collect();
         $bank = Payment::getManualBankInfo();
         $orderCode = $request->old('order_code', $request->query('order_code'));
         $whatsapp = $request->old('whatsapp', $request->query('whatsapp'));
+        $preferredPaymentMethod = $request->query('payment_method');
+        if (! in_array($preferredPaymentMethod, ['manual', 'qris'], true)) {
+            $preferredPaymentMethod = null;
+        }
 
         if ($orderCode) {
-            $order = Order::with(['registration.event.account', 'registration.rider.user', 'registration.bracket', 'registration.package'])
+            $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.bracket', 'registration.package', 'payments'])
                 ->where('order_code', $orderCode)->first();
+            if ($order) {
+                $order->enforceExpiredDraftIfNeeded();
+                $order->enforceExpiredPaymentWindowIfNeeded();
+            }
             if ($order && ($order->isExpired() || $order->isCancelled())) {
                 $orderExpiredOrCancelled = true;
                 $order = null;
@@ -44,44 +59,87 @@ class PaymentController extends Controller
                     if (! $whatsapp && $reg->rider->user->whatsapp) {
                         $whatsapp = $reg->rider->user->whatsapp;
                     }
-                    // Konfirmasi order (batas 15 menit sudah terlewati dengan klik Pay now)
-                    if (! $order->confirmed_at) {
-                        $order->update([
-                            'confirmed_at' => now(),
-                            'expired_at' => null,
-                        ]);
-                        $this->sendPaymentLinkNotifications($order, $reg);
+                    // Resmikan order (draft → pending): FOR UPDATE bracket/package/order di dalam transaksi
+                    if ($order->isDraft()) {
+                        if (! $order->finalizeForPayment()) {
+                            $registration = null;
+                            $orderExpiredOrCancelled = true;
+                            $request->session()->flash('error', __('There is no remaining quota for this bracket or package.'));
+                        } else {
+                            $order->refresh();
+                            $this->sendPaymentLinkNotifications($order, $reg);
+                        }
                     }
-                    // Buat payment pending dengan batas upload bukti 30 menit
-                    $payment = $reg->payment;
-                    if (! $payment) {
-                        $payment = Payment::create([
-                            'registration_id' => $reg->id,
-                            'amount' => $reg->package?->price ?? 0,
-                            'status' => Payment::STATUS_PENDING,
-                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
-                        ]);
-                    } elseif ($payment->isPending() && ! $payment->expires_at) {
-                        $payment->update([
-                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
-                        ]);
-                    } elseif ($payment->isExpired() || $payment->isCancelled() || $payment->isFailed()) {
-                        $payment->update([
-                            'status' => Payment::STATUS_PENDING,
-                            'expires_at' => now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES),
-                            'transfer_proof_path' => null,
-                            'admin_notes' => null,
-                            'reviewed_at' => null,
-                            'reviewed_by' => null,
-                        ]);
+
+                    if ($registration && $order && ! $order->isDraft()) {
+                        $freshPayment = $request->boolean('fresh_payment');
+                        $amount = $reg->package ? $reg->package->payableAmount() : 0;
+                        $expires = $order->expired_at;
+                        $wantManual = $preferredPaymentMethod === 'manual';
+                        $wantQris = $preferredPaymentMethod === 'qris';
+                        $active = $order->activePendingPayment();
+                        $methodClash = $active && (
+                            ($wantManual && $active->method !== 'manual')
+                            || ($wantQris && $active->method !== 'moota')
+                        );
+
+                        $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
+                            && $active->isPending() && $active->manual_transfer_amount !== null;
+
+                        // QRIS/Moota: baris payment dibuat di MootaPaymentController@confirm (nominal unik).
+                        if ($order->isPendingUnpaid() && ! $wantQris && ! $keepExistingManual && ($freshPayment || $methodClash || ! $active)) {
+                            $order->createNewPaymentAttempt([
+                                'amount' => $amount,
+                                'method' => 'manual',
+                                'status' => Payment::STATUS_PENDING,
+                                'expires_at' => $expires,
+                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                            ]);
+                        } elseif ($order->isPendingUnpaid() && $active && $active->isPending() && $active->expires_at === null) {
+                            $active->update(['expires_at' => $expires]);
+                        }
+
+                        $order->refresh();
+                        $ensureManual = $order->activePendingPayment();
+                        if ($ensureManual && $ensureManual->method === 'manual' && $ensureManual->isPending()
+                            && $ensureManual->manual_transfer_amount === null) {
+                            $ensureManual->update([
+                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                            ]);
+                        }
                     }
                 }
             }
         }
 
-        $account = $registration?->event?->account;
+        if ($registration) {
+            $registration->event->loadMissing('accounts');
+            $allowsManual = $registration->event->allowsManualPayment();
+            $allowsQris = $registration->event->allowsQrisPayment();
+            $manualAccounts = $registration->event->accounts;
+            if ($preferredPaymentMethod === 'manual' && ! $allowsManual) {
+                $preferredPaymentMethod = null;
+            }
+            if ($preferredPaymentMethod === 'qris' && ! $allowsQris) {
+                $preferredPaymentMethod = null;
+            }
 
-        return view('payments.create', compact('registration', 'bank', 'account', 'orderCode', 'whatsapp', 'orderExpiredOrCancelled'));
+            $this->ensureWinpayQrisWhenViewingPaymentPage($registration);
+
+            $registration->unsetRelation('payment');
+        }
+
+        return view('payments.create', compact(
+            'registration',
+            'bank',
+            'manualAccounts',
+            'allowsManual',
+            'allowsQris',
+            'preferredPaymentMethod',
+            'orderCode',
+            'whatsapp',
+            'orderExpiredOrCancelled'
+        ));
     }
 
     /**
@@ -95,6 +153,8 @@ class PaymentController extends Controller
         ]);
 
         $order = Order::with('registration.rider.user')->where('order_code', $validated['order_code'])->firstOrFail();
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
             return redirect()->route('payment.create')
                 ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
@@ -119,63 +179,134 @@ class PaymentController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $request->validate([
             'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
             'transfer_proof' => ['required', 'file', 'image', 'max:5120'], // 5MB
         ]);
 
-        $order = Order::with('registration.rider.user', 'registration.package')->where('order_code', $validated['order_code'])->firstOrFail();
+        $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.package'])
+            ->where('order_code', $request->input('order_code'))
+            ->firstOrFail();
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
             return redirect()->route('payment.create')
                 ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
                 ->withInput();
         }
         $registration = $order->registration;
-        $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
+        $normalized = WhacenterService::normalizeWhatsApp($request->input('whatsapp'));
         if ($registration->rider->user->whatsapp !== $normalized) {
             return redirect()->route('payment.create')
                 ->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
                 ->withInput();
         }
 
-        $amount = $registration->package?->price ?? 0;
+        if ($order->isDraft()) {
+            if (! $order->finalizeForPayment()) {
+                return redirect()->route('payment.create', [
+                    'order_code' => $order->order_code,
+                    'whatsapp' => $request->input('whatsapp'),
+                ])->with('error', __('There is no remaining quota for this bracket or package.'));
+            }
+            $order->refresh();
+        }
 
-        $payment = $registration->payment;
+        $event = $registration->event;
+        if (! $event->allowsManualPayment()) {
+            return redirect()->route('payment.create', [
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+            ])->with('error', __('Manual transfer is not available for this event.'));
+        }
 
-        if ($payment) {
-            if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()) {
-                return redirect()->route('payment.create', ['order_code' => $order->order_code])
-                    ->with('error', __('This payment has already been processed.'))
-                    ->withInput();
-            }
-            if ($payment->isExpired()) {
-                $payment->status = Payment::STATUS_PENDING;
-                $payment->admin_notes = null;
-                $payment->reviewed_at = null;
-                $payment->reviewed_by = null;
-            }
-            if ($payment->transfer_proof_path && Storage::disk('public')->exists($payment->transfer_proof_path)) {
-                Storage::disk('public')->delete($payment->transfer_proof_path);
-            }
-        } else {
-            $payment = new Payment;
-            $payment->registration_id = $registration->id;
-            $payment->amount = $amount;
-            $payment->status = Payment::STATUS_PENDING;
-            $payment->expires_at = now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES);
+        if ($event->accounts->isEmpty()) {
+            return redirect()->route('payment.create', [
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+            ])->with('error', __('No bank account is configured for this event.'));
+        }
+
+        $allowedAccountIds = $event->accounts->pluck('id')->all();
+        $accountRules = $event->accounts->count() > 1
+            ? ['required', 'integer', Rule::in($allowedAccountIds)]
+            : ['nullable', 'integer'];
+
+        $validatedProof = $request->validate([
+            'manual_account_id' => $accountRules,
+        ]);
+
+        $manualAccountId = $event->accounts->count() === 1
+            ? (int) $event->accounts->first()->id
+            : (int) $validatedProof['manual_account_id'];
+
+        if (! $event->accounts->pluck('id')->contains($manualAccountId)) {
+            return redirect()->route('payment.create', [
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+            ])->with('error', __('Invalid bank account selection.'));
+        }
+
+        $amount = $registration->package ? $registration->package->payableAmount() : 0;
+        $manualTransferAmount = Payment::stableManualTransferAmountForOrder($order, (float) $amount);
+
+        if ($order->isPaid()) {
+            return redirect()->route('payment.create', ['order_code' => $order->order_code])
+                ->with('error', __('This order is already paid.'))
+                ->withInput();
+        }
+
+        $payment = $order->activePendingPayment();
+        if (! $payment) {
+            $payment = $order->createNewPaymentAttempt([
+                'amount' => $amount,
+                'method' => 'manual',
+                'status' => Payment::STATUS_PENDING,
+                'expires_at' => $order->expired_at,
+                'manual_transfer_amount' => $manualTransferAmount,
+            ]);
+        } elseif ($payment->manual_transfer_amount === null && $payment->method === 'manual') {
+            $payment->manual_transfer_amount = $manualTransferAmount;
+        }
+
+        if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()
+            || $payment->isVoid() || $payment->isRefunded() || $payment->isExpired()) {
+            return redirect()->route('payment.create', ['order_code' => $order->order_code])
+                ->with('error', __('This payment has already been processed.'))
+                ->withInput();
+        }
+
+        if ($payment->transfer_proof_path && Storage::disk('public')->exists($payment->transfer_proof_path)) {
+            Storage::disk('public')->delete($payment->transfer_proof_path);
         }
 
         $path = $request->file('transfer_proof')->store('payments/proofs', 'public');
         $payment->transfer_proof_path = $path;
+        $payment->method = 'manual';
+        $payment->manual_account_id = $manualAccountId;
+        $payment->moota_transfer_amount = null;
+        $payment->moota_mutation_id = null;
+        $payment->moota_raw = null;
+        $payment->winpay_qr_url = null;
+        $payment->winpay_qr_content = null;
+        $payment->winpay_contract_id = null;
+        $payment->winpay_partner_reference_no = null;
+        $payment->winpay_expired_at = null;
+        $payment->winpay_external_id = null;
+        $payment->winpay_raw = null;
         $payment->admin_notes = null;
         $payment->reviewed_at = null;
         $payment->reviewed_by = null;
+        $payment->status = Payment::STATUS_SUBMITTED;
         $payment->save();
+
+        ManualTransferNotifier::transferProofSubmitted($registration);
 
         return redirect()->route('payment.create', [
             'order_code' => $order->order_code,
             'whatsapp' => $request->input('whatsapp'),
+            'payment_method' => 'manual',
         ])->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
     }
 
@@ -207,9 +338,14 @@ class PaymentController extends Controller
 
         $registration = $payment->registration;
 
-        if (! $payment->isPending()) {
+        if (! $payment->isPending() && ! $payment->isSubmitted()) {
             return redirect()->route('events.registrations.show', [$registration->event, $registration])
                 ->with('error', __('Payment is not pending.'));
+        }
+
+        if ($payment->order && $payment->order->isPaid()) {
+            return redirect()->route('events.registrations.show', [$registration->event, $registration])
+                ->with('error', __('This order is already paid.'));
         }
 
         $validated = $request->validate([
@@ -218,12 +354,19 @@ class PaymentController extends Controller
 
         $payment->update([
             'status' => Payment::STATUS_SUCCESS,
+            'paid_at' => now(),
             'admin_notes' => $validated['admin_notes'] ?? null,
             'reviewed_at' => now(),
             'reviewed_by' => auth()->id(),
         ]);
 
-        $payment->registration->order?->update(['status' => Order::STATUS_PAID]);
+        $ord = $payment->order;
+        if ($ord && ! $ord->isPaid()) {
+            $ord->update([
+                'status' => Order::STATUS_PAID,
+                'paid_at' => now(),
+            ]);
+        }
 
         TicketService::ensureTicketForRegistration($payment->registration);
 
@@ -240,9 +383,9 @@ class PaymentController extends Controller
 
         $registration = $payment->registration;
 
-        if (! $payment->isPending()) {
+        if (! $payment->isPending() && ! $payment->isSubmitted()) {
             return redirect()->route('events.registrations.show', [$registration->event, $registration])
-                ->with('error', __('Payment is not pending.'));
+                ->with('error', __('Payment cannot be rejected in its current state.'));
         }
 
         $validated = $request->validate([
@@ -255,6 +398,8 @@ class PaymentController extends Controller
             'reviewed_at' => now(),
             'reviewed_by' => auth()->id(),
         ]);
+
+        ManualTransferNotifier::paymentRejected($registration, $validated['admin_notes'] ?? null);
 
         return redirect()->route('events.registrations.show', [$registration->event, $registration])
             ->with('status', __('Payment rejected.'));
@@ -272,20 +417,51 @@ class PaymentController extends Controller
                 ->with('error', __('Cannot expire a successful payment.'));
         }
 
-        $registration = $payment->registration;
-
         $payment->update(['status' => Payment::STATUS_EXPIRED]);
 
-        $newOrder = Order::createNewOrderForRegistration($registration);
-
         return redirect()->route('payments.index')
-            ->with('status', __('Payment marked as expired. New order code: :order_code. Send new payment link to the customer.', ['order_code' => $newOrder->order_code]))
-            ->with('new_order_code', $newOrder->order_code);
+            ->with('status', __('Payment attempt marked as expired. Order is not cancelled by this action; use order deadline or cancel order if needed.'));
     }
 
     /**
      * Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay.
      */
+    /**
+     * Jika user sudah punya pembayaran Moota + nominal unik tapi QRIS Winpay belum ada
+     * (mis. gagal saat POST, lalu .env diperbaiki), coba generate sekali saat GET halaman bayar.
+     */
+    private function ensureWinpayQrisWhenViewingPaymentPage(Registration $registration): void
+    {
+        $order = $registration->order;
+        if (! $order || $order->isExpired() || $order->isCancelled()) {
+            return;
+        }
+
+        $payment = $order->activePendingPayment();
+        if (! $payment || $payment->method !== 'moota' || $payment->moota_transfer_amount === null) {
+            return;
+        }
+
+        if (is_string($payment->winpay_qr_url) && $payment->winpay_qr_url !== '') {
+            return;
+        }
+
+        $winpay = app(WinpayQrisService::class);
+        if (! $winpay->isConfigured()) {
+            return;
+        }
+
+        try {
+            $winpay->generateDynamicQris($order, $payment);
+        } catch (\Throwable $e) {
+            Log::warning('Winpay QRIS lazy generate on payment page failed', [
+                'order_code' => $order->order_code,
+                'payment_id' => $payment->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
+
     private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
     {
         $user = $reg->rider->user;
@@ -304,11 +480,19 @@ class PaymentController extends Controller
             $waMessage = trim(View::make('whatsapp.payment-link', [
                 'recipientName' => $recipientName,
                 'eventTitle' => $eventTitle,
-                'registration' => $reg->loadMissing(['rider', 'bracket', 'package']),
+                'registration' => $reg->loadMissing(['rider', 'bracket', 'package', 'event.organizer.user']),
                 'paymentLinkUrl' => $paymentLinkUrl,
                 'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
             ])->render());
-            app(WhacenterService::class)->sendMessage($user->whatsapp, $waMessage);
+            $logId = null;
+            if (WhatsappNotificationLog::tableExists()) {
+                $logId = $reg->whatsappNotificationLogs()->create([
+                    'type' => WhatsappNotificationLog::TYPE_PAYMENT_LINK,
+                    'recipient' => WhacenterService::normalizeWhatsApp($user->whatsapp),
+                    'status' => WhatsappNotificationLog::STATUS_QUEUED,
+                ])->id;
+            }
+            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage, $logId);
         }
 
         if ($user->email) {

@@ -11,6 +11,8 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
+use App\Http\Controllers\MootaPaymentController;
+use App\Http\Controllers\MyRiderController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
 use App\Http\Controllers\PackageController;
@@ -27,6 +29,7 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
 use App\Models\Event;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -39,9 +42,16 @@ Route::get('/', function () {
     return view('home', compact('events'));
 })->name('home');
 
+// Public events list (event cards)
+Route::get('events-public', function () {
+    return view('events.public.index');
+})->name('events.public.index');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('switch-role', SwitchRoleController::class)->name('switch-role');
     Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::get('my-rider', [MyRiderController::class, 'index'])->name('my-rider.index');
+    Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
     Route::resource('users', UserController::class)->except(['show']);
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['show', 'store', 'update'])->scoped();
@@ -76,6 +86,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('print-center/export', [LiveResultCategoryController::class, 'printCenterExport'])->name('print-center.export');
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
     Route::post('registrations/{registration}/approve-all', [RegistrationController::class, 'approveAll'])->name('registrations.approve-all');
+    Route::post('events/{event}/registrations/{registration}/reset-payment-deadline', [RegistrationController::class, 'resetPaymentDeadline'])->name('events.registrations.reset-payment-deadline');
+    Route::post('events/{event}/registrations/{registration}/reopen-payment', [RegistrationController::class, 'reopenPayment'])->name('events.registrations.reopen-payment');
+    Route::post('events/{event}/registrations/{registration}/generate-payment', [RegistrationController::class, 'generatePayment'])->name('events.registrations.generate-payment');
+    Route::post('events/{event}/registrations/{registration}/resend-ticket-whatsapp', [RegistrationController::class, 'resendTicketWhatsapp'])->name('events.registrations.resend-ticket-whatsapp');
+    Route::post('events/{event}/registrations/{registration}/rider-user-whatsapp', [RegistrationController::class, 'updateRiderUserWhatsapp'])->name('events.registrations.update-rider-user-whatsapp');
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('locations', LocationController::class)->except(['show']);
     Route::resource('organizers', OrganizerController::class)->except(['show', 'store', 'update']);
@@ -109,6 +124,16 @@ Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
+
+// Moota: konfirmasi nominal unik + webhook mutasi bank
+Route::post('payment/moota/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.moota.confirm');
+Route::get('webhooks/moota', fn () => response()->json([
+    'message' => 'ok',
+    'method' => 'POST',
+]));
+Route::post('webhooks/moota', [MootaPaymentController::class, 'webhook'])
+    ->withoutMiddleware([VerifyCsrfToken::class])
+    ->name('webhooks.moota');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');

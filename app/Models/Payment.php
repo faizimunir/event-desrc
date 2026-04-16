@@ -8,8 +8,11 @@ use Illuminate\Support\Facades\Storage;
 
 class Payment extends Model
 {
-    /** Gateway-style: pending, success, failed, expired, cancelled */
+    /** Menunggu transfer / upload bukti (belum ada bukti). */
     public const STATUS_PENDING = 'pending';
+
+    /** Bukti sudah diunggah; menunggu verifikasi admin. */
+    public const STATUS_SUBMITTED = 'submitted';
 
     public const STATUS_SUCCESS = 'success';
 
@@ -19,34 +22,64 @@ class Payment extends Model
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /** Registrasi ditolak admin tanpa pembayaran sukses — percobaan tidak berlaku. */
+    public const STATUS_VOID = 'void';
+
+    /** Pembayaran sukses lalu registrasi ditolak — arsip refund (proses di luar app). */
+    public const STATUS_REFUNDED = 'refunded';
+
     public const STATUSES = [
         self::STATUS_PENDING,
+        self::STATUS_SUBMITTED,
         self::STATUS_SUCCESS,
         self::STATUS_FAILED,
         self::STATUS_EXPIRED,
         self::STATUS_CANCELLED,
+        self::STATUS_VOID,
+        self::STATUS_REFUNDED,
     ];
 
     /** Menit untuk upload bukti transfer setelah order dikonfirmasi. */
     public const PAYMENT_PROOF_DEADLINE_MINUTES = 30;
 
     protected $fillable = [
+        'order_id',
         'registration_id',
         'amount',
+        'method',
+        'manual_account_id',
+        'manual_transfer_amount',
         'transfer_proof_path',
         'status',
         'expires_at',
         'admin_notes',
         'reviewed_at',
         'reviewed_by',
+        'paid_at',
+        'moota_transfer_amount',
+        'moota_mutation_id',
+        'moota_raw',
+        'winpay_qr_url',
+        'winpay_qr_content',
+        'winpay_contract_id',
+        'winpay_partner_reference_no',
+        'winpay_expired_at',
+        'winpay_external_id',
+        'winpay_raw',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
+            'manual_transfer_amount' => 'decimal:2',
+            'moota_transfer_amount' => 'decimal:2',
             'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'moota_raw' => 'array',
+            'winpay_expired_at' => 'datetime',
+            'winpay_raw' => 'array',
         ];
     }
 
@@ -56,9 +89,19 @@ class Payment extends Model
         return $this->isPending() && $this->expires_at && $this->expires_at->isPast();
     }
 
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
+    }
+
     public function registration(): BelongsTo
     {
         return $this->belongsTo(Registration::class);
+    }
+
+    public function manualAccount(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'manual_account_id');
     }
 
     public function reviewedByUser(): BelongsTo
@@ -69,6 +112,11 @@ class Payment extends Model
     public function isPending(): bool
     {
         return $this->status === self::STATUS_PENDING;
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->status === self::STATUS_SUBMITTED;
     }
 
     public function isSuccess(): bool
@@ -91,14 +139,153 @@ class Payment extends Model
         return $this->status === self::STATUS_CANCELLED;
     }
 
+    public function isVoid(): bool
+    {
+        return $this->status === self::STATUS_VOID;
+    }
+
+    public function isRefunded(): bool
+    {
+        return $this->status === self::STATUS_REFUNDED;
+    }
+
+    /** Admin menolak bukti / pembayaran tidak valid. */
+    public function isRejected(): bool
+    {
+        return $this->isFailed();
+    }
+
+    public function isMoota(): bool
+    {
+        return $this->method === 'moota';
+    }
+
+    /** Batas bawah / atas sufiks unik (rupiah) untuk transfer manual — tampilan 01–99. */
+    public const MANUAL_UNIQUE_SUFFIX_MIN = 1;
+
+    public const MANUAL_UNIQUE_SUFFIX_MAX = 99;
+
+    /**
+     * Nominal transfer manual = harga paket (dibulatkan ke rupiah) + sufiks unik 1–99.
+     * Menghindari tabrakan dengan pending lain (manual atau Moota) pada nominal yang sama.
+     */
+    public static function allocateUniqueManualTransferAmount(float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+
+        for ($i = 0; $i < 200; $i++) {
+            $suffix = random_int(self::MANUAL_UNIQUE_SUFFIX_MIN, self::MANUAL_UNIQUE_SUFFIX_MAX);
+            $candidate = (float) ($base + $suffix);
+
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return (float) ($base + random_int(1000, 9999));
+    }
+
+    /**
+     * Sama seperti allocate unik, tetapi sufiks awal deterministik dari order_code order
+     * sehingga refresh / GET berulang tidak mengganti nominal selama order sama.
+     */
+    public static function stableManualTransferAmountForOrder(Order $order, float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+        $code = (string) ($order->order_code ?? $order->getKey());
+        $start = (int) (abs(crc32($code)) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+
+        $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
+        for ($i = 0; $i < $span; $i++) {
+            $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+            $candidate = (float) ($base + $suffix);
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return static::allocateUniqueManualTransferAmount((float) $baseAmount);
+    }
+
+    /**
+     * Nominal unik untuk Moota / mutasi (harga paket + sufiks 1–999).
+     */
+    public static function allocateUniqueMootaTransferAmount(float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+
+        for ($i = 0; $i < 50; $i++) {
+            $suffix = random_int(1, 999);
+            $candidate = (float) ($base + $suffix);
+
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return (float) ($base + random_int(1000, 9999));
+    }
+
+    /** Apakah nominal sudah dipakai percobaan bayar pending (manual atau Moota). */
+    public static function pendingTransferAmountExists(float $amount): bool
+    {
+        return static::query()
+            ->whereIn('status', [self::STATUS_PENDING, self::STATUS_SUBMITTED])
+            ->where(function ($q) use ($amount) {
+                $q->where('moota_transfer_amount', $amount)
+                    ->orWhere('manual_transfer_amount', $amount);
+            })
+            ->exists();
+    }
+
+    /** Sufiks 2 digit (01–99) untuk tampilan; null jika tidak relevan atau data lama di luar rentang. */
+    public function manualUniqueSuffixFormatted(): ?string
+    {
+        if ($this->method !== 'manual' || $this->manual_transfer_amount === null) {
+            return null;
+        }
+
+        $base = (int) round((float) $this->amount);
+        $total = (int) round((float) $this->manual_transfer_amount);
+        $n = $total - $base;
+
+        if ($n < self::MANUAL_UNIQUE_SUFFIX_MIN || $n > self::MANUAL_UNIQUE_SUFFIX_MAX) {
+            return null;
+        }
+
+        return str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+    }
+
+    public function getFormattedManualTransferAmountAttribute(): ?string
+    {
+        if ($this->manual_transfer_amount === null) {
+            return null;
+        }
+
+        return 'Rp '.number_format((float) $this->manual_transfer_amount, 0, ',', '.');
+    }
+
+    /** Rekening Moota dari config (instruksi transfer). */
+    public static function getMootaBankInfo(): array
+    {
+        return [
+            'bank_name' => config('moota.bank_name'),
+            'account_number' => config('moota.account_number'),
+            'account_holder' => config('moota.account_holder'),
+        ];
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return match ($this->status) {
             self::STATUS_PENDING => __('Pending'),
+            self::STATUS_SUBMITTED => __('Submitted'),
             self::STATUS_SUCCESS => __('Success'),
             self::STATUS_FAILED => __('Failed'),
             self::STATUS_EXPIRED => __('Expired'),
             self::STATUS_CANCELLED => __('Cancelled'),
+            self::STATUS_VOID => __('Void'),
+            self::STATUS_REFUNDED => __('Refunded'),
             default => $this->status,
         };
     }

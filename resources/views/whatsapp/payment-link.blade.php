@@ -1,24 +1,38 @@
-{{ __('Hello') }}, {{ $recipientName }}.
+@php
+    $organizerUser = $registration->event?->organizer?->user;
+@endphp
 
-{{ __('Your payment link for the event below is ready.') }}
+Halo kak {{ $recipientName }} 👋
+Aku dari {{ config('app.name') }} ya.
 
-📌 *{{ $eventTitle }}*
+Link pembayaran untuk event *{{ $eventTitle }}* sudah siap 🙌
 
-👤 *{{ __('Rider') }}:* {{ $registration->rider->name }}{{ $registration->rider->nickname ? ' (' . $registration->rider->nickname . ')' : '' }}
+👤 Rider: {{ $registration->rider->name }}{{ $registration->rider->nickname ? ' (' . $registration->rider->nickname . ')' : '' }}
 @if($registration->bracket)
-📋 *{{ __('Bracket') }}:* {{ $registration->bracket->name }}
+📋 Kelas: {{ $registration->bracket->name }}
 @endif
 @if($registration->package)
-📦 *{{ __('Package') }}:* {{ $registration->package->name }}
-💰 *{{ __('Amount') }}:* {{ $registration->package->formatted_price }}
+📦 Paket: {{ $registration->package->name }}
+💰 Total: {{ $registration->package->formatted_payable_amount }}
 @endif
 
-{{ __('Please complete your payment by opening the link below (valid for :minutes minutes):', ['minutes' => $paymentProofDeadlineMinutes]) }}
+Bisa lanjut lewat link ini ya, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
 
-{!! $paymentLinkUrl !!}
+{{ $paymentLinkUrl }}
 
-{{ __('After opening the link, transfer to the account shown and upload your transfer proof.') }}
+Nanti tinggal ikuti aja petunjuk di sana ya kak 🙏
 
-{{ __('Thank you.') }}
+Makasih ya 🙌
+
 —
-{{ config('app.name') }}
+@if($organizerUser)
+Kalau ada yang mau ditanyakan, bisa langsung hubungi panitia:
+@if($organizerUser->name)
+👤 {{ $organizerUser->name }}
+@endif
+@if($organizerUser->whatsapp)
+📱 {{ $organizerUser->whatsapp }}
+@endif
+@else
+Kalau butuh bantuan, bisa hubungi panitia lewat kontak resmi event ya.
+@endif

@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Rider;
 use App\Models\User;
+use App\Services\UserMergeService;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -73,4 +75,22 @@ test('super_admin cannot delete own account', function () {
     $response->assertRedirect(route('users.index'));
     $response->assertSessionHas('error');
     $this->assertDatabaseHas('users', ['id' => $user->id]);
+});
+
+test('user merge reassigns riders and deletes secondary account', function () {
+    $primary = User::factory()->create(['email' => 'primary-merge@example.com']);
+    $secondary = User::factory()->create(['email' => 'secondary-merge@example.com']);
+    $primary->assignRole('member');
+    $secondary->assignRole('member');
+
+    $rider = Rider::query()->create([
+        'user_id' => $secondary->id,
+        'name' => 'Merged Rider',
+    ]);
+
+    app(UserMergeService::class)->mergeIntoPrimary([(int) $primary->id, (int) $secondary->id], (int) $primary->id);
+
+    expect(User::query()->find($secondary->id))->toBeNull();
+    expect($rider->fresh()->user_id)->toBe($primary->id);
+    expect($primary->fresh()->hasRole('member'))->toBeTrue();
 });

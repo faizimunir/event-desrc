@@ -1,6 +1,6 @@
 <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
     <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="route('riders.index')" wire:navigate icon="arrow-left">
+        <flux:button variant="ghost" size="sm" :href="route($forMyRider ? 'my-rider.index' : 'riders.index')" wire:navigate icon="arrow-left">
             {{ __('Back') }}
         </flux:button>
     </div>
@@ -121,7 +121,7 @@
 
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="primary" type="submit">{{ $rider ? __('Update Rider') : __('Create Rider') }}</flux:button>
-            <flux:button variant="ghost" :href="route('riders.index')" wire:navigate>{{ __('Cancel') }}</flux:button>
+            <flux:button variant="ghost" :href="route($forMyRider ? 'my-rider.index' : 'riders.index')" wire:navigate>{{ __('Cancel') }}</flux:button>
         </div>
     </form>
 

@@ -3,6 +3,7 @@
 namespace App\Livewire\Events;
 
 use App\Models\Event;
+use App\Models\Order;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,10 +20,15 @@ class EventRegistrationsList extends Component
 
     public array $paymentStatusFilter = [];
 
+    /** @var list<string> Bracket IDs (from pillbox) */
+    public array $bracketFilter = [];
+
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
         $this->event = $event;
+        Order::enforceExpiredDraftsForEvent($event->id);
+        Order::enforceExpiredPaymentWindowsForEvent($event->id);
     }
 
     public function updatedSearch(): void
@@ -40,11 +46,17 @@ class EventRegistrationsList extends Component
         $this->resetPage();
     }
 
+    public function updatedBracketFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function resetFilters(): void
     {
         $this->search = '';
         $this->statusFilter = [];
         $this->paymentStatusFilter = [];
+        $this->bracketFilter = [];
         $this->resetPage();
     }
 
@@ -71,6 +83,18 @@ class EventRegistrationsList extends Component
                     }
                 });
             })
+            ->when($this->bracketFilter !== [], function ($q) {
+                $allowedIds = $this->event->brackets()->pluck('id')->all();
+                $ids = array_values(array_intersect(
+                    array_map('intval', $this->bracketFilter),
+                    $allowedIds
+                ));
+                if ($ids === []) {
+                    $q->whereRaw('1 = 0');
+                } else {
+                    $q->whereIn('bracket_id', $ids);
+                }
+            })
             ->latest();
     }
 
@@ -86,6 +110,7 @@ class EventRegistrationsList extends Component
         $params = array_filter([
             'status' => $this->statusFilter,
             'payment_status' => $this->paymentStatusFilter,
+            'bracket' => $this->bracketFilter,
         ], fn ($v) => is_array($v) ? $v !== [] : true);
 
         return route('events.registrations.export', $this->event).(empty($params) ? '' : '?'.http_build_query($params));

@@ -12,22 +12,49 @@
                 {{ __('My orders') }}
             </h1>
             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                {{ __('Your orders and payment status.') }}
+                @if ($showAll ?? false)
+                    {{ __('Your orders and payment status.') }}
+                @else
+                    {{ __('Pending payment only (matches the cart icon).') }}
+                @endif
+            </p>
+            <p class="mt-2 text-sm">
+                @if ($showAll ?? false)
+                    <a href="{{ route('orders.index') }}" class="text-amber-700 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300">
+                        {{ __('Show only pending payment') }}
+                    </a>
+                @else
+                    <a href="{{ route('orders.index', ['all' => true]) }}" class="text-zinc-600 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200">
+                        {{ __('Show all orders (including paid)') }}
+                    </a>
+                @endif
             </p>
         </div>
 
         @if ($orders->isEmpty())
             <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-8 text-center">
                 <flux:icon name="shopping-bag" class="mx-auto size-12 text-zinc-400 dark:text-zinc-500" />
-                <p class="mt-4 text-zinc-600 dark:text-zinc-400">
-                    {{ __('You have no orders yet.') }}
-                </p>
-                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
-                    {{ __('Register for an event to see your orders here.') }}
-                </p>
-                <flux:button href="{{ route('home') }}#events" variant="primary" class="mt-6">
-                    {{ __('Browse events') }}
-                </flux:button>
+                @if (! ($showAll ?? false))
+                    <p class="mt-4 text-zinc-600 dark:text-zinc-400">
+                        {{ __('No orders are awaiting payment.') }}
+                    </p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                        {{ __('Paid or confirmed orders may appear in the full list.') }}
+                    </p>
+                    <flux:button href="{{ route('orders.index', ['all' => true]) }}" variant="primary" class="mt-6">
+                        {{ __('Show all orders') }}
+                    </flux:button>
+                @else
+                    <p class="mt-4 text-zinc-600 dark:text-zinc-400">
+                        {{ __('You have no orders yet.') }}
+                    </p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-500">
+                        {{ __('Register for an event to see your orders here.') }}
+                    </p>
+                    <flux:button href="{{ route('home') }}#events" variant="primary" class="mt-6">
+                        {{ __('Browse events') }}
+                    </flux:button>
+                @endif
             </div>
         @else
             <ul class="space-y-4">
@@ -36,7 +63,7 @@
                         $reg = $order->registration;
                         $event = $reg->event;
                         $rider = $reg->rider;
-                        $amount = $reg->package ? $reg->package->price : 0;
+                        $amount = $reg->package ? $reg->package->payableAmount() : 0;
                     @endphp
                     <li>
                         <a href="{{ route('orders.show', $order) }}" class="block rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-5 shadow-sm transition hover:border-zinc-300 hover:shadow-md dark:hover:border-zinc-600">
@@ -50,10 +77,11 @@
                                         @endif
                                     </p>
                                     @php
-                                        $orderPaid = $order->status === \App\Models\Order::STATUS_PAID || $order->isPaid();
-                                        $showConfirmCountdown = !$order->isPaid() && !$order->isConfirmed() && $order->expired_at;
+                                        $orderPaid = $order->isPaid();
+                                        $showConfirmCountdown = ! $order->isPaid() && ! $order->isConfirmed() && $order->expired_at;
                                         $payment = $reg->payment;
-                                        $showProofCountdown = !$order->isPaid() && !$order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && $payment->expires_at;
+                                        $showProofCountdown = ! $order->isPaid() && ! $order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && empty($payment->transfer_proof_path) && $payment->expires_at;
+                                        $flowLabel = $order->participantCheckoutLabel();
                                     @endphp
                                     <p class="mt-2 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                                         @if ($orderPaid) bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300
@@ -62,7 +90,7 @@
                                         @if ($showProofCountdown)
                                         data-expires-at="{{ $payment->expires_at->format('c') }}"
                                         data-time-up="{{ __('Expired') }}"
-                                        data-upload-within="{{ __('Upload proof within') }}"
+                                        data-upload-within="{{ __('Waiting for payment in') }}"
                                         x-data="paymentProofCountdown()"
                                         x-init="init()"
                                         x-text="text"
@@ -75,7 +103,7 @@
                                                     const sec = Math.max(0, Math.floor((this.expiresAt - new Date()) / 1000));
                                                     if (sec <= 0) { this.text = '{{ __('Expired') }}'; return; }
                                                     const m = Math.floor(sec / 60), s = sec % 60;
-                                                    this.text = '{{ __('Confirm order within') }} ' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+                                                    this.text = '{{ __('Confirm your order in') }} ' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
                                                 };
                                                 update();
                                                 setInterval(update, 1000);
@@ -83,9 +111,9 @@
                                         }" x-init="init()" x-text="text"
                                         @endif>
                                         @if ($orderPaid)
-                                            {{ __('Paid') }}
-                                        @elseif (!$showConfirmCountdown && !$showProofCountdown)
-                                            {{ $order->status_label }}
+                                            {{ $flowLabel }}
+                                        @elseif (! $showConfirmCountdown && ! $showProofCountdown)
+                                            {{ $flowLabel }}
                                         @endif
                                     </p>
                                 </div>
@@ -128,7 +156,7 @@
                     const el = this.$el;
                     this.expiresAt = new Date(el.dataset.expiresAt);
                     const timeUpLabel = el.dataset.timeUp || "Expired";
-                    const uploadWithinLabel = el.dataset.uploadWithin || "Upload proof within";
+                    const uploadWithinLabel = el.dataset.uploadWithin || "Waiting for payment in";
                     const update = () => {
                         const sec = Math.max(0, Math.floor((this.expiresAt - new Date()) / 1000));
                         if (sec <= 0) {

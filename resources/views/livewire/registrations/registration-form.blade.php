@@ -39,7 +39,7 @@
                     <option value="">{{ __('— Select package —') }}</option>
                     @foreach ($event->packages as $pkg)
                         <option value="{{ $pkg->id }}" @if ($pkg->isQuotaFull()) disabled @endif>
-                            {{ $pkg->name }} — {{ $pkg->formatted_price }}
+                            {{ $pkg->name }} — {{ $pkg->formatted_payable_amount }}
                             @if ($pkg->quota !== null)
                                 @php $rem = $pkg->remainingQuota(); @endphp
                                 ({{ $rem !== null ? $rem . ' / ' . $pkg->quota : __('Full') }})
