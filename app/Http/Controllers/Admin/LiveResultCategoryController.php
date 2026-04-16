@@ -7,13 +7,17 @@ use App\Models\Event;
 use App\Models\LiveResultCategory;
 use App\Services\GoogleSheetsService;
 use App\Services\LiveResultSheetParser;
+use App\Services\PrintCenterExcelExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class LiveResultCategoryController extends Controller
 {
     public function __construct(
-        protected GoogleSheetsService $googleSheetsService
+        protected GoogleSheetsService $googleSheetsService,
+        protected PrintCenterExcelExportService $printCenterExcelExportService
     ) {}
 
     /**
@@ -277,6 +281,74 @@ class LiveResultCategoryController extends Controller
         $event = Event::with('location')->findOrFail($request->event_id);
         $this->authorize('view', $event);
 
+        $categoriesData = $this->resolvePrintCenterCategoriesData($event);
+
+        if (empty($categoriesData)) {
+            $hasCategory = LiveResultCategory::where('event_id', $event->id)
+                ->where('is_active', true)
+                ->whereNotNull('selected_sheets')
+                ->whereJsonLength('selected_sheets', '>', 0)
+                ->exists();
+
+            return redirect()
+                ->route('print-center.index')
+                ->with(
+                    'error',
+                    $hasCategory
+                        ? __('Tidak ada kategori dengan round final untuk event ini.')
+                        : __('Tidak ada kategori tersedia untuk event ini.')
+                );
+        }
+
+        return view('admin.print-center.preview-all', compact('event', 'categoriesData'));
+    }
+
+    /**
+     * Export Print Center ke file Excel (.xlsx) — sama data dengan preview (round final per kategori).
+     */
+    public function printCenterExport(Request $request)
+    {
+        abort_unless(auth()->user()->canAs('access_print_center'), 403);
+
+        $request->validate(['event_id' => 'required|exists:events,id']);
+
+        $event = Event::with('location')->findOrFail($request->event_id);
+        $this->authorize('view', $event);
+
+        $categoriesData = $this->resolvePrintCenterCategoriesData($event);
+
+        if (empty($categoriesData)) {
+            $hasCategory = LiveResultCategory::where('event_id', $event->id)
+                ->where('is_active', true)
+                ->whereNotNull('selected_sheets')
+                ->whereJsonLength('selected_sheets', '>', 0)
+                ->exists();
+
+            return redirect()
+                ->route('print-center.index')
+                ->with(
+                    'error',
+                    $hasCategory
+                        ? __('Tidak ada kategori dengan round final untuk event ini.')
+                        : __('Tidak ada kategori tersedia untuk event ini.')
+                );
+        }
+
+        $spreadsheet = $this->printCenterExcelExportService->build($event, $categoriesData);
+        $filename = 'print-center-'.Str::slug($event->slug).'-'.now()->format('Y-m-d_His').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            (new Xlsx($spreadsheet))->save('php://output');
+        }, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    /**
+     * @return array<int, array{category: LiveResultCategory, round: string, sheetData: array}>
+     */
+    protected function resolvePrintCenterCategoriesData(Event $event): array
+    {
         $categories = LiveResultCategory::where('event_id', $event->id)
             ->where('is_active', true)
             ->whereNotNull('selected_sheets')
@@ -284,12 +356,6 @@ class LiveResultCategoryController extends Controller
             ->orderBy('order')
             ->orderByRaw('LOWER(title) ASC')
             ->get();
-
-        if ($categories->isEmpty()) {
-            return redirect()
-                ->route('print-center.index')
-                ->with('error', __('Tidak ada kategori tersedia untuk event ini.'));
-        }
 
         $categoriesData = [];
         foreach ($categories as $category) {
@@ -320,13 +386,7 @@ class LiveResultCategoryController extends Controller
             $categoriesData[] = ['category' => $category, 'round' => $finalRound, 'sheetData' => $sheetData];
         }
 
-        if (empty($categoriesData)) {
-            return redirect()
-                ->route('print-center.index')
-                ->with('error', __('Tidak ada kategori dengan round final untuk event ini.'));
-        }
-
-        return view('admin.print-center.preview-all', compact('event', 'categoriesData'));
+        return $categoriesData;
     }
 
     protected function resolveFinalRound(array $selectedSheets): ?string
@@ -349,8 +409,10 @@ class LiveResultCategoryController extends Controller
                     continue;
                 }
             }
+
             return $sheet;
         }
+
         return null;
     }
 

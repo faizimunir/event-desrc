@@ -90,7 +90,7 @@ class LiveResultSheetParser
             $isEmpty = ! is_array($row) || array_reduce($row, fn ($c, $cell) => $c && trim($cell ?? '') === '', true);
             if ($isEmpty) {
                 if ($currentGroup !== []) {
-                    $currentGroup = self::sortGroup($currentGroup);
+                    $currentGroup = self::sortGroup($currentGroup, $colRank !== null);
                     $groups[] = ['name' => $currentGroupName !== '' ? trim($currentGroupName) : 'Batch '.$groupNumber, 'data' => $currentGroup];
                     $currentGroup = [];
                     $currentGroupName = '';
@@ -103,6 +103,7 @@ class LiveResultSheetParser
                         $currentGroupName = trim($row[0] ?? '');
                     }
                     $skipNextRow = false;
+
                     continue;
                 }
                 if (! is_array($row)) {
@@ -119,7 +120,7 @@ class LiveResultSheetParser
             }
         }
         if ($currentGroup !== []) {
-            $currentGroup = self::sortGroup($currentGroup);
+            $currentGroup = self::sortGroup($currentGroup, $colRank !== null);
             $groups[] = ['name' => $currentGroupName !== '' ? trim($currentGroupName) : 'Batch '.$groupNumber, 'data' => $currentGroup];
         }
 
@@ -144,6 +145,7 @@ class LiveResultSheetParser
                 return $headerMap[$name];
             }
         }
+
         return null;
     }
 
@@ -158,20 +160,36 @@ class LiveResultSheetParser
                 $mapped[$key] = '';
             }
         }
+
         return $mapped;
     }
 
-    protected static function sortGroup(array $groupData): array
+    /**
+     * Urutan baris dalam grup: jika sheet punya kolom Rank, urutkan rank angka naik (1,2,3…),
+     * lalu rank non-angka (DNS, huruf, dll.), lalu "-" / kosong di paling bawah.
+     * Tanpa kolom Rank, urutkan seperti sebelumnya menurut gate.
+     *
+     * @param  array<int, array<string, mixed>>  $groupData
+     * @return array<int, array<string, mixed>>
+     */
+    protected static function sortGroup(array $groupData, bool $hasRankColumn): array
     {
-        $hasRank = false;
-        foreach ($groupData as $row) {
-            if (isset($row['rank']) && $row['rank'] !== '' && is_numeric($row['rank'])) {
-                $hasRank = true;
-                break;
-            }
-        }
-        if ($hasRank) {
-            usort($groupData, fn ($a, $b) => (int) ($a['rank'] ?? 9999) <=> (int) ($b['rank'] ?? 9999));
+        if ($hasRankColumn) {
+            usort($groupData, function (array $a, array $b): int {
+                $ma = self::rankSortMeta((string) ($a['rank'] ?? ''));
+                $mb = self::rankSortMeta((string) ($b['rank'] ?? ''));
+                if ($ma['tier'] !== $mb['tier']) {
+                    return $ma['tier'] <=> $mb['tier'];
+                }
+                if ($ma['tier'] === 0) {
+                    return $ma['value'] <=> $mb['value'];
+                }
+                if ($ma['tier'] === 1) {
+                    return strnatcasecmp($ma['label'], $mb['label']);
+                }
+
+                return 0;
+            });
         } else {
             usort($groupData, function ($a, $b) {
                 $vA = isset($a['gate_moto_1']) && $a['gate_moto_1'] !== '' && is_numeric($a['gate_moto_1'])
@@ -180,9 +198,28 @@ class LiveResultSheetParser
                 $vB = isset($b['gate_moto_1']) && $b['gate_moto_1'] !== '' && is_numeric($b['gate_moto_1'])
                     ? (int) $b['gate_moto_1']
                     : (isset($b['gate']) && $b['gate'] !== '' && is_numeric($b['gate']) ? (int) $b['gate'] : 9999);
+
                 return $vA <=> $vB;
             });
         }
+
         return $groupData;
+    }
+
+    /**
+     * @return array{tier: int, value: float, label: string}
+     *                                                       tier 0 = angka murni, 1 = teks non-angka, 2 = "-" atau kosong (paling bawah)
+     */
+    protected static function rankSortMeta(string $rank): array
+    {
+        $t = trim($rank);
+        if ($t === '' || $t === '-') {
+            return ['tier' => 2, 'value' => 0.0, 'label' => ''];
+        }
+        if (preg_match('/^-?\d+(\.\d+)?$/', $t)) {
+            return ['tier' => 0, 'value' => (float) $t, 'label' => ''];
+        }
+
+        return ['tier' => 1, 'value' => 0.0, 'label' => $t];
     }
 }

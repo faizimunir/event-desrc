@@ -1,15 +1,17 @@
 <?php
 
-use App\Models\Event;
 use App\Http\Controllers\AccountController;
-use App\Http\Controllers\BracketLevelController;
+use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\BracketController;
+use App\Http\Controllers\BracketLevelController;
 use App\Http\Controllers\EventCodeAccessController;
 use App\Http\Controllers\EventController;
-use App\Http\Controllers\OrderController;
+use App\Http\Controllers\Events\EventCheckinController;
 use App\Http\Controllers\LevelController;
+use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
 use App\Http\Controllers\PackageController;
 use App\Http\Controllers\PaymentController;
@@ -22,11 +24,9 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\SwitchRoleController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TicketController;
-use App\Http\Controllers\Events\EventCheckinController;
-use App\Http\Controllers\LiveResultController;
-use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
+use App\Models\Event;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -35,6 +35,7 @@ Route::get('/', function () {
         ->orderBy('start_at', 'desc')
         ->limit(12)
         ->get();
+
     return view('home', compact('events'));
 })->name('home');
 
@@ -72,6 +73,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/live-result-flag', [EventController::class, 'updateLiveResultFlag'])->name('events.live-result.flag');
     Route::get('print-center', [LiveResultCategoryController::class, 'printCenter'])->name('print-center.index');
     Route::get('print-center/preview', [LiveResultCategoryController::class, 'printCenterPreview'])->name('print-center.preview');
+    Route::get('print-center/export', [LiveResultCategoryController::class, 'printCenterExport'])->name('print-center.export');
     Route::post('registrations/{registration}/status', [RegistrationController::class, 'updateStatus'])->name('registrations.update-status');
     Route::post('registrations/{registration}/approve-all', [RegistrationController::class, 'approveAll'])->name('registrations.approve-all');
     Route::resource('accounts', AccountController::class)->except(['show']);
