@@ -389,31 +389,77 @@ class LiveResultCategoryController extends Controller
         return $categoriesData;
     }
 
+    /**
+     * Sheet untuk Print Center: utamakan tab yang benar-benar bernama "Final",
+     * lalu tab lain yang mengandung "final" dengan filter semi/quarter,
+     * serta menolak nama seperti "replaycharge final" (bukan final balapan).
+     */
     protected function resolveFinalRound(array $selectedSheets): ?string
     {
         foreach ($selectedSheets as $sheet) {
-            $sheetLower = strtolower(trim($sheet));
-            if (stripos($sheetLower, 'final') === false) {
-                continue;
+            if (strcasecmp(trim((string) $sheet), 'Final') === 0) {
+                return $sheet;
             }
-            if (preg_match('/\b(semi[\s\-]?final|final[\s\-]?semi)\b/i', $sheetLower)) {
-                continue;
-            }
-            if (preg_match('/\b(quarter[\s\-]?final|final[\s\-]?quarter)\b/i', $sheetLower)) {
-                continue;
-            }
-            $finalPos = stripos($sheetLower, 'final');
-            if ($finalPos > 0) {
-                $before = trim(substr($sheetLower, 0, $finalPos));
-                if (preg_match('/\b(semi|quarter)\s*$/i', $before)) {
-                    continue;
-                }
-            }
+        }
 
-            return $sheet;
+        foreach ($selectedSheets as $sheet) {
+            if ($this->sheetQualifiesAsPrintCenterFinal((string) $sheet)) {
+                return $sheet;
+            }
         }
 
         return null;
+    }
+
+    protected function sheetQualifiesAsPrintCenterFinal(string $sheet): bool
+    {
+        $sheetLower = strtolower(trim($sheet));
+        if (stripos($sheetLower, 'final') === false) {
+            return false;
+        }
+        if (preg_match('/\b(semi[\s\-]?final|final[\s\-]?semi)\b/i', $sheetLower)) {
+            return false;
+        }
+        if (preg_match('/\b(quarter[\s\-]?final|final[\s\-]?quarter)\b/i', $sheetLower)) {
+            return false;
+        }
+
+        $finalPos = stripos($sheetLower, 'final');
+        if ($finalPos > 0) {
+            $before = trim(substr($sheetLower, 0, $finalPos));
+            if (preg_match('/\b(semi|quarter)\s*$/i', $before)) {
+                return false;
+            }
+            if ($this->isPrintCenterFinalNoisePrefix($before)) {
+                return false;
+            }
+        }
+
+        if (str_contains($sheetLower, 'replaycharge') || str_contains($sheetLower, 'replay charge')) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Prefiks sebelum kata "final" yang menandakan sheet bukan final balapan (tooling, replay, charge, dll.).
+     */
+    protected function isPrintCenterFinalNoisePrefix(string $beforeLower): bool
+    {
+        if ($beforeLower === '') {
+            return false;
+        }
+
+        if (preg_match('/^(replaycharge|replay|recharge|re[\s\-]?charge|chargeback|sheet[\s\-]?copy|backup|admin|temp|test|draft)\b/i', $beforeLower)) {
+            return true;
+        }
+
+        if (str_contains($beforeLower, 'replaycharge')) {
+            return true;
+        }
+
+        return false;
     }
 
     protected function reorderCategories(Event $event): void
