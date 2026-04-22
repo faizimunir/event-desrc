@@ -14,9 +14,19 @@ class TeamPillboxField extends Component
 
     public ?int $organizerId = null;
 
-    public function mount(?int $organizerId = null): void
-    {
+    public string $fieldLabel = '';
+
+    public function mount(
+        ?int $organizerId = null,
+        array $initialTeamIds = [],
+        ?string $fieldLabel = null,
+    ): void {
         $this->organizerId = $organizerId;
+        $this->fieldLabel = $fieldLabel ?? __('Community / Team / Sponsor');
+        $this->selectedTeamIds = array_values(array_unique(array_filter(
+            array_map('intval', $initialTeamIds),
+            fn (int $id) => $id > 0
+        )));
     }
 
     public function getTeamsProperty()

@@ -2,8 +2,14 @@
     @foreach ($selectedTeamIds as $id)
         <input type="hidden" name="team_ids[]" value="{{ $id }}">
     @endforeach
-    <flux:pillbox wire:model.live="selectedTeamIds" label="{{ __('Community / Team / Sponsor') }}" variant="combobox" multiple :filter="false"
-        placeholder="{{ __('Search or add team...') }}" required>
+    <flux:label class="mb-2 block">{{ $fieldLabel }}</flux:label>
+    <flux:pillbox
+        wire:model.live="selectedTeamIds"
+        variant="combobox"
+        multiple
+        :filter="false"
+        placeholder="{{ __('Search or add team...') }}"
+    >
         <x-slot name="input">
             <flux:pillbox.input wire:model.live="teamSearch" placeholder="{{ __('Search or add team...') }}" />
         </x-slot>

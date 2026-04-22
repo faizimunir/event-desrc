@@ -512,6 +512,67 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: update rider profile and this registration’s teams (team_ids + rider pivot sync). Rider must stay eligible for the current bracket.
+     */
+    public function updateRegistrationRider(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'nickname' => ['nullable', 'string', 'max:255'],
+            'pob' => ['nullable', 'string', 'max:255'],
+            'dob' => ['required', 'date', 'before_or_equal:today'],
+            'gender' => ['required', 'string', 'in:boys,girls,other'],
+            'number_plate' => ['nullable', 'string', 'max:50'],
+            'team_ids' => ['nullable', 'array'],
+            'team_ids.*' => ['integer', 'exists:teams,id'],
+        ]);
+
+        $registration->loadMissing('bracket.event');
+        $rider = $registration->rider;
+        $bracket = $registration->bracket;
+
+        $clone = $rider->replicate();
+        $clone->fill([
+            'name' => $validated['name'],
+            'nickname' => $validated['nickname'] ?? null,
+            'pob' => $validated['pob'] ?? null,
+            'dob' => $validated['dob'],
+            'gender' => $validated['gender'],
+            'number_plate' => $validated['number_plate'] ?? null,
+        ]);
+        $eligibilityCheck = $this->eligibility->checkEligibility($clone, $bracket);
+        if (! $eligibilityCheck['eligible']) {
+            throw ValidationException::withMessages([
+                'rider_data' => $eligibilityCheck['message'],
+            ]);
+        }
+
+        $teamIds = array_values(array_unique(array_map('intval', $validated['team_ids'] ?? [])));
+
+        $rider->update([
+            'name' => $validated['name'],
+            'nickname' => $validated['nickname'] ?? null,
+            'pob' => $validated['pob'] ?? null,
+            'dob' => $validated['dob'],
+            'gender' => $validated['gender'],
+            'number_plate' => $validated['number_plate'] ?? null,
+        ]);
+
+        $registration->update([
+            'team_ids' => $teamIds,
+        ]);
+        $rider->teams()->sync($teamIds);
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Rider and team details updated.'));
+    }
+
+    /**
      * Admin: update registration status (approve / reject / cancel).
      */
     public function updateStatus(Request $request, Registration $registration)

@@ -1,5 +1,16 @@
 @php
     $rider = $registration->rider;
+    $parent = $rider->user;
+    $riderNumberPlate = filled($registration->number_plate) ? $registration->number_plate : $rider->number_plate;
+    $registrationTeamIds = collect($registration->team_ids ?? [])
+        ->map(fn ($id) => (int) $id)
+        ->filter(fn ($id) => $id > 0)
+        ->unique()
+        ->values()
+        ->all();
+    $riderBoxTeams = $registrationTeamIds !== []
+        ? \App\Models\Team::query()->whereIn('id', $registrationTeamIds)->orderBy('name')->get()
+        : collect();
     $payment = $registration->payment;
     $photoKiaUrl = $rider->getFirstMediaUrl('photo_kia') ?: $rider->photo_kia;
     $transferProofUrl = $payment?->transfer_proof_url;
@@ -18,6 +29,12 @@
         default => 'zinc',
     } : null;
     $canUpdate = auth()->user()->canAs('event.update');
+    $openEditRiderDataModal = $canUpdate && (
+        $errors->hasAny([
+            'name', 'nickname', 'pob', 'dob', 'gender', 'number_plate', 'rider_data', 'team_ids',
+        ])
+        || collect($errors->keys())->contains(fn (string $k) => str_starts_with($k, 'team_ids.'))
+    );
     $showStatusActions = $canUpdate && in_array($registration->status, ['pending', 'approved', 'rejected'], true);
     $canApproveAll = $canUpdate && (! $registration->isApproved() || ($payment && ($payment->isPending() || $payment->isSubmitted())));
     $canReopenPayment = $canUpdate
@@ -184,40 +201,61 @@
                 </div>
                 <dl class="divide-y divide-zinc-200 dark:divide-zinc-700">
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
-                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Rider') }}</dt>
-                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
-                            {{ $rider->name }}@if ($rider->nickname) ({{ $rider->nickname }})@endif
-                            <span class="block text-zinc-500 dark:text-zinc-400">{{ $rider->dob?->format('d/m/Y') }} · {{ $rider->gender_label ?? $rider->gender }}</span>
-                            @if ($rider->user?->whatsapp)
-                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                                    <span>{{ $rider->user->whatsapp }}</span>
-                                    @if ($canUpdate)
-                                        <flux:modal.trigger name="edit-rider-whatsapp">
-                                            <flux:button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                class="!min-h-0 shrink-0 !px-1 !py-0.5"
-                                                icon="pencil-square"
-                                                title="{{ __('Edit WhatsApp') }}"
-                                            ></flux:button>
-                                        </flux:modal.trigger>
+                        <dt class="flex flex-wrap items-center justify-between gap-2 text-sm font-medium text-zinc-500 dark:text-zinc-400 sm:block">
+                            <span>{{ __('Rider') }}</span>
+                        </dt>
+                        <dd class="mt-1 space-y-1.5 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                            <p>
+                                <span class="font-medium">{{ $rider->name }}</span>
+                                @if ($rider->nickname)
+                                    <span class="text-zinc-500 dark:text-zinc-400">({{ $rider->nickname }})</span>
+                                @endif
+                            </p>
+                            @if ($rider->dob)
+                                <p class="text-zinc-600 dark:text-zinc-300">
+                                    {{ $rider->dob->format('d/m/Y') }}
+                                    @if (($age = $rider->ageOn()) !== null)
+                                        <span class="text-zinc-500 dark:text-zinc-400">· {{ trans_choice(':count year|:count years', $age, ['count' => $age]) }}</span>
                                     @endif
-                                </span>
-                            @elseif ($rider->user && $canUpdate)
-                                <span class="mt-0.5 flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
-                                    <span class="text-zinc-400 dark:text-zinc-500">{{ __('No WhatsApp') }}</span>
-                                    <flux:modal.trigger name="edit-rider-whatsapp">
-                                        <flux:button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            class="!min-h-0 shrink-0 !px-1 !py-0.5"
-                                            icon="pencil-square"
-                                            title="{{ __('Add WhatsApp') }}"
-                                        ></flux:button>
-                                    </flux:modal.trigger>
-                                </span>
+                                </p>
+                            @endif
+                            @if (filled($rider->pob))
+                                <p class="text-zinc-600 dark:text-zinc-300">
+                                    <span class="text-zinc-500 dark:text-zinc-400">{{ __('Place of birth') }}:</span>
+                                    {{ $rider->pob }}
+                                </p>
+                            @endif
+                            @if ($rider->gender)
+                                <p class="text-zinc-600 dark:text-zinc-300">
+                                    <span class="text-zinc-500 dark:text-zinc-400">{{ __('Gender') }}:</span>
+                                    {{ $rider->gender_label ?? $rider->gender }}
+                                </p>
+                            @endif
+                            @if (filled($riderNumberPlate))
+                                <p class="text-zinc-600 dark:text-zinc-300">
+                                    <span class="text-zinc-500 dark:text-zinc-400">{{ __('Number plate') }}:</span>
+                                    {{ $riderNumberPlate }}
+                                </p>
+                            @endif
+                            <p class="text-zinc-600 dark:text-zinc-300">
+                                <span class="text-zinc-500 dark:text-zinc-400">{{ __('Teams') }}:</span>
+                                @if ($riderBoxTeams->isNotEmpty())
+                                    {{ $riderBoxTeams->pluck('name')->join(', ') }}
+                                @else
+                                    <span class="text-zinc-400 dark:text-zinc-500">—</span>
+                                @endif
+                            </p>
+                            @if ($canUpdate)
+                                <flux:modal.trigger name="edit-rider-data">
+                                    <flux:button
+                                        type="button"
+                                        variant="ghost"
+                                        size="xs"
+                                        class="!min-h-0 shrink-0 !px-1 !py-0.5 sm:mt-1"
+                                        icon="pencil-square"
+                                        title="{{ __('Edit rider') }}"
+                                    ></flux:button>
+                                </flux:modal.trigger>
                             @endif
                         </dd>
                     </div>
@@ -232,6 +270,59 @@
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Registered at') }}</dt>
                         <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 sm:col-span-2 sm:mt-0">{{ $registration->created_at->format('d/m/Y H:i') }}</dd>
+                    </div>
+                    <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                        <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Parent') }}</dt>
+                        <dd class="mt-1 space-y-1.5 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                            @if ($parent)
+                                <p class="font-medium">{{ $parent->name }}</p>
+                                @if (filled($parent->email))
+                                    <p class="text-zinc-600 dark:text-zinc-300 break-all">{{ $parent->email }}</p>
+                                @else
+                                    <p class="text-zinc-500 dark:text-zinc-400">{{ __('No email yet') }}</p>
+                                @endif
+                                @if (filled($parent->phone))
+                                    <p class="text-zinc-600 dark:text-zinc-300">
+                                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Phone') }}:</span>
+                                        {{ $parent->phone }}
+                                    </p>
+                                @endif
+                                @if ($parent->whatsapp)
+                                    <p class="flex flex-wrap items-center gap-1 text-zinc-600 dark:text-zinc-300">
+                                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('WhatsApp') }}:</span>
+                                        <span>{{ $parent->whatsapp }}</span>
+                                        @if ($canUpdate)
+                                            <flux:modal.trigger name="edit-rider-whatsapp">
+                                                <flux:button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="xs"
+                                                    class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                                    icon="pencil-square"
+                                                    title="{{ __('Edit WhatsApp') }}"
+                                                ></flux:button>
+                                            </flux:modal.trigger>
+                                        @endif
+                                    </p>
+                                @elseif ($canUpdate)
+                                    <p class="flex flex-wrap items-center gap-1 text-zinc-500 dark:text-zinc-400">
+                                        <span>{{ __('No WhatsApp') }}</span>
+                                        <flux:modal.trigger name="edit-rider-whatsapp">
+                                            <flux:button
+                                                type="button"
+                                                variant="ghost"
+                                                size="xs"
+                                                class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                                icon="pencil-square"
+                                                title="{{ __('Add WhatsApp') }}"
+                                            ></flux:button>
+                                        </flux:modal.trigger>
+                                    </p>
+                                @endif
+                            @else
+                                <p class="text-zinc-500 dark:text-zinc-400">{{ __('No linked account') }}</p>
+                            @endif
+                        </dd>
                     </div>
                     @if ($ticket && $eTicketUrl)
                         <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
@@ -286,6 +377,58 @@
                     </flux:modal>
                     @if ($errors->has('whatsapp'))
                         <div x-data x-init="$nextTick(() => $dispatch('modal-show', { name: 'edit-rider-whatsapp' }))"></div>
+                    @endif
+                @endif
+                @if ($canUpdate)
+                    <flux:modal name="edit-rider-data" focusable class="max-w-lg" dismissible>
+                        <form method="post" action="{{ route('events.registrations.update-rider-data', [$event, $registration]) }}" class="max-h-[85vh] space-y-4 overflow-y-auto p-2">
+                            @csrf
+                            <flux:heading size="lg">{{ __('Edit rider') }}</flux:heading>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Updates the rider profile and teams for this registration. Data must still match this registration’s bracket rules.') }}</p>
+
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <flux:input name="name" type="text" :label="__('Full name')" :value="old('name', $rider->name)" required />
+                                <flux:input name="nickname" type="text" :label="__('Nickname')" :value="old('nickname', $rider->nickname)" />
+                            </div>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <flux:input name="pob" type="text" :label="__('Place of birth')" :value="old('pob', $rider->pob)" />
+                                <flux:input name="dob" type="date" :label="__('Date of birth')" :value="old('dob', $rider->dob?->format('Y-m-d'))" required />
+                            </div>
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <flux:select name="gender" :label="__('Gender')" required>
+                                    <option value="boys" @selected(old('gender', $rider->gender) === 'boys')>{{ __('Boys') }}</option>
+                                    <option value="girls" @selected(old('gender', $rider->gender) === 'girls')>{{ __('Girls') }}</option>
+                                    <option value="other" @selected(old('gender', $rider->gender) === 'other')>{{ __('Other') }}</option>
+                                </flux:select>
+                                <flux:input name="number_plate" type="text" :label="__('Number plate')" :value="old('number_plate', $rider->number_plate)" />
+                            </div>
+
+                            @php
+                                $pillboxInitialTeamIds = array_values(array_unique(array_map('intval', (array) old('team_ids', $registration->team_ids ?? []))));
+                            @endphp
+                            @livewire('team-pillbox-field', [
+                                'organizerId' => $event->organizer_id,
+                                'initialTeamIds' => $pillboxInitialTeamIds,
+                                'fieldLabel' => __('Teams / sponsors'),
+                            ])
+                            @error('team_ids')
+                                <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                            @enderror
+
+                            @error('rider_data')
+                                <flux:callout variant="danger" class="rounded-lg text-sm">{{ $message }}</flux:callout>
+                            @enderror
+
+                            <div class="flex justify-end gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" variant="primary" size="sm">{{ __('Save') }}</flux:button>
+                            </div>
+                        </form>
+                    </flux:modal>
+                    @if ($openEditRiderDataModal)
+                        <div x-data x-init="$nextTick(() => $dispatch('modal-show', { name: 'edit-rider-data' }))"></div>
                     @endif
                 @endif
                 @if ($showStatusActions)
