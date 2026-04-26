@@ -31,6 +31,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'team.create', 'team.read', 'team.update', 'team.delete',
             'account.create', 'account.read', 'account.update', 'account.delete',
             'payment.read',
+            'registration.delete',
             'manage_live_results',
             'access_print_center',
             'myrider.manage',
@@ -67,6 +68,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'team.create', 'team.read', 'team.update', 'team.delete',
             'account.create', 'account.read', 'account.update', 'account.delete',
             'payment.read',
+            'registration.delete',
             'manage_live_results',
             'access_print_center',
         ]);

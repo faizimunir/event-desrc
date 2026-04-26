@@ -1,4 +1,7 @@
 <div>
+    @if (session('status'))
+        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
+    @endif
     <div class="mb-4 flex flex-row gap-3 items-center flex-wrap">
         @canAs('event.update')
         <flux:button variant="primary" :href="route('events.registrations.create', $event)" wire:navigate icon="plus">
@@ -78,6 +81,9 @@
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Pack') }}</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Registration') }}</th>
                         <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Order') }}</th>
+                        @canAs('registration.delete')
+                            <th scope="col" class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
+                        @endcanAs
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
@@ -130,6 +136,18 @@
                                     <span class="text-zinc-400 text-sm">—</span>
                                 @endif
                             </td>
+                            @canAs('registration.delete')
+                                <td class="px-4 py-3 text-right" x-on:click.stop>
+                                    <flux:button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        color="red"
+                                        icon="trash"
+                                        x-on:click.stop="if (confirm({{ json_encode(__('Delete this registration? This cannot be undone.')) }})) { $wire.deleteRegistration({{ $reg->id }}) }"
+                                    >{{ __('Delete') }}</flux:button>
+                                </td>
+                            @endcanAs
                         </tr>
                     @endforeach
                 </tbody>

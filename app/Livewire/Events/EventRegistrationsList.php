@@ -4,6 +4,7 @@ namespace App\Livewire\Events;
 
 use App\Models\Event;
 use App\Models\Order;
+use App\Models\Registration;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -114,6 +115,20 @@ class EventRegistrationsList extends Component
         ], fn ($v) => is_array($v) ? $v !== [] : true);
 
         return route('events.registrations.export', $this->event).(empty($params) ? '' : '?'.http_build_query($params));
+    }
+
+    public function deleteRegistration(int $registrationId): void
+    {
+        auth()->user()->authorizeAs('registration.delete');
+
+        $registration = Registration::query()
+            ->where('id', $registrationId)
+            ->where('event_id', $this->event->id)
+            ->firstOrFail();
+
+        $registration->delete();
+
+        session()->flash('status', __('Registration deleted.'));
     }
 
     public function render()
