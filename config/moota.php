@@ -51,12 +51,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Proses webhook: sinkron (seperti deltae) vs queue
+    |--------------------------------------------------------------------------
+    | true  = proses MootaWebhookProcessor langsung di request (tidak butuh queue worker).
+    | false = simpan event lalu disp ProcessMootaWebhookEvent (favor throughput besar).
+    */
+    'webhook_sync' => (bool) env('MOOTA_WEBHOOK_SYNC', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | QRIS statis (opsional)
     |--------------------------------------------------------------------------
     | URL gambar QRIS yang ditampilkan untuk pembayaran metode qris/moota.
-    | Pembayaran tetap dicocokkan lewat webhook Moota menggunakan nominal unik.
-    | Isi URL absolut (https://...) atau path relatif public (mis. /images/qris.png).
+    | MOOTA_QRIS_IMAGE_URL alias deltae; jika kosong, pakai MOOTA_STATIC_QRIS_IMAGE_URL.
     */
-    'static_qris_image_url' => env('MOOTA_STATIC_QRIS_IMAGE_URL', ''),
+    'static_qris_image_url' => env('MOOTA_QRIS_IMAGE_URL', env('MOOTA_STATIC_QRIS_IMAGE_URL', '')),
 
 ];

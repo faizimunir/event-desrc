@@ -136,6 +136,15 @@ Route::post('webhooks/moota', [MootaPaymentController::class, 'webhook'])
     ->withoutMiddleware([VerifyCsrfToken::class])
     ->name('webhooks.moota');
 
+// Sama dengan deltae: {APP_URL}/api/webhooks/moota (beberapa setelan Moota / dokumentasi memakai prefix /api)
+Route::get('api/webhooks/moota', fn () => response()->json([
+    'message' => 'ok',
+    'method' => 'POST',
+]));
+Route::post('api/webhooks/moota', [MootaPaymentController::class, 'webhook'])
+    ->withoutMiddleware([VerifyCsrfToken::class])
+    ->name('api.webhooks.moota');
+
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');
 Route::post('{event}/register', [RegistrationController::class, 'store'])->name('registrations.store');

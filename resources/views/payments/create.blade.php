@@ -221,7 +221,7 @@
                                                         <img
                                                             src="{{ $staticQrisImageUrl }}"
                                                             alt="{{ __('QRIS payment code') }}"
-                                                            class="w-full rounded-2xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600/80"
+                                                            class="max-h-72 w-full max-w-full rounded-2xl bg-white object-contain p-3 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600/80"
                                                             loading="lazy"
                                                         >
                                                 </div>

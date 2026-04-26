@@ -8,6 +8,37 @@ use Illuminate\Support\Facades\DB;
 
 class MootaWebhookProcessor
 {
+    /**
+     * Samakan deltae `MootaWebhookService::normalizePayload`: satu objek mutasi JSON atau array of objects.
+     * Tanpa ini, payload satu objek `{ "mutation_id": "..." }` jatuh ke `foreach` yang memecah jadi per-field, bukan per-mutasi.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function normalizeMutationsPayload(mixed $decoded): array
+    {
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        if ($decoded === []) {
+            return [];
+        }
+
+        if (isset($decoded['mutation_id']) && is_string($decoded['mutation_id'])) {
+            return [$decoded];
+        }
+
+        $first = reset($decoded);
+        if (is_array($first) && isset($first['mutation_id'])) {
+            return array_values(array_filter(
+                $decoded,
+                static fn ($row) => is_array($row) && isset($row['mutation_id'])
+            ));
+        }
+
+        return [];
+    }
+
     private function parseMoneyScalar(mixed $value): ?float
     {
         if (is_int($value) || is_float($value)) {
@@ -157,7 +188,19 @@ class MootaWebhookProcessor
                 throw new \RuntimeException('Invalid JSON payload');
             }
 
-            $this->processItems($items, $eventId);
+            $mutations = $this->normalizeMutationsPayload($items);
+            if ($mutations === []) {
+                DB::table('moota_webhook_events')->where('id', $eventId)->update([
+                    'status' => 'processed',
+                    'processed_at' => now(),
+                    'last_error' => null,
+                    'updated_at' => now(),
+                ]);
+
+                return;
+            }
+
+            $this->processItems($mutations, $eventId);
 
             DB::table('moota_webhook_events')->where('id', $eventId)->update([
                 'status' => 'processed',

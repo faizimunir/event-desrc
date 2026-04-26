@@ -6,9 +6,11 @@ use App\Jobs\ProcessMootaWebhookEvent;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Services\MootaSignature;
+use App\Services\MootaWebhookProcessor;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class MootaPaymentController extends Controller
 {
@@ -138,7 +140,6 @@ class MootaPaymentController extends Controller
             return response()->json(['message' => 'Invalid webhook token'], 401);
         }
 
-        // Best practice (sesuai tips Moota): simpan dulu, balas cepat, proses via queue.
         $payload = json_decode($raw, true);
         if (! is_array($payload)) {
             return response()->json(['message' => 'Invalid JSON'], 400);
@@ -157,7 +158,22 @@ class MootaPaymentController extends Controller
             'updated_at' => now(),
         ]);
 
-        ProcessMootaWebhookEvent::dispatch((int) $eventId);
+        $eventId = (int) $eventId;
+
+        if (config('moota.webhook_sync', true)) {
+            try {
+                app(MootaWebhookProcessor::class)->processEventId($eventId);
+            } catch (\Throwable $e) {
+                Log::error('moota.webhook.sync_failed', [
+                    'moota_webhook_event_id' => $eventId,
+                    'message' => $e->getMessage(),
+                ]);
+
+                return response()->json(['message' => 'Processing failed'], 500);
+            }
+        } else {
+            ProcessMootaWebhookEvent::dispatch($eventId);
+        }
 
         return response()->json(['message' => 'received'], 200);
     }
