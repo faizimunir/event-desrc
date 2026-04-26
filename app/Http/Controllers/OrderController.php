@@ -56,10 +56,13 @@ class OrderController extends Controller
         $hasChosenMethod = is_string($method) && $method !== '';
 
         if ($order->isPendingUnpaid() && $payment && $payment->isPending() && $hasChosenMethod) {
+            $e = $order->registration?->event;
+
             return redirect()->route('payment.create', array_filter([
                 'order_code' => $order->order_code,
                 'whatsapp' => $order->registration?->rider?->user?->whatsapp ?: null,
-            ]));
+                'payment_method' => $e?->allowsQrisPayment() ? 'qris' : ($e?->allowsManualPayment() ? 'manual' : null),
+            ], static fn ($v) => $v !== null && $v !== ''));
         }
 
         $freshPayment = false;

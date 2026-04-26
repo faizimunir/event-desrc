@@ -31,10 +31,8 @@ class PaymentController extends Controller
         $bank = Payment::getManualBankInfo();
         $orderCode = $request->old('order_code', $request->query('order_code'));
         $whatsapp = $request->old('whatsapp', $request->query('whatsapp'));
-        $preferredPaymentMethod = $request->query('payment_method');
-        if (! in_array($preferredPaymentMethod, ['manual', 'qris'], true)) {
-            $preferredPaymentMethod = null;
-        }
+        $rawPaymentMethod = $request->old('payment_method', $request->query('payment_method'));
+        $preferredPaymentMethod = in_array($rawPaymentMethod, ['manual', 'qris'], true) ? $rawPaymentMethod : null;
 
         if ($orderCode) {
             $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.bracket', 'registration.package', 'payments'])
@@ -104,7 +102,7 @@ class PaymentController extends Controller
                                     'expires_at' => $expires,
                                     'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                                 ]);
-                            } elseif (! $keepExistingManual && $eventAllowsManual && ! $wantQris) {
+                            } elseif ($wantManual && $eventAllowsManual && ! $keepExistingManual) {
                                 $order->createNewPaymentAttempt([
                                     'amount' => $amount,
                                     'method' => 'manual',
@@ -112,6 +110,26 @@ class PaymentController extends Controller
                                     'expires_at' => $expires,
                                     'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                                 ]);
+                            } elseif (! $wantQris && ! $wantManual && ! $keepExistingManual) {
+                                // Tanpa `payment_method` di URL: default ke Moota jika QRIS diizinkan, supaya tidak
+                                // (sebelumnya) jatuh ke manual lalu section QRIS "terkunci" (deltae sering bawa ?qris).
+                                if ($eventAllowsQris) {
+                                    $order->createNewPaymentAttempt([
+                                        'amount' => $amount,
+                                        'method' => 'moota',
+                                        'status' => Payment::STATUS_PENDING,
+                                        'expires_at' => $expires,
+                                        'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
+                                    ]);
+                                } elseif ($eventAllowsManual) {
+                                    $order->createNewPaymentAttempt([
+                                        'amount' => $amount,
+                                        'method' => 'manual',
+                                        'status' => Payment::STATUS_PENDING,
+                                        'expires_at' => $expires,
+                                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                    ]);
+                                }
                             }
                         } elseif ($order->isPendingUnpaid() && $active && $active->isPending() && $active->expires_at === null) {
                             $active->update(['expires_at' => $expires]);
@@ -455,10 +473,12 @@ class PaymentController extends Controller
             return;
         }
 
-        $paymentLinkUrl = route('payment.create', [
+        $event = $reg->event;
+        $paymentLinkUrl = route('payment.create', array_filter([
             'order_code' => $order->order_code,
-            'whatsapp' => $user->whatsapp ?? '',
-        ]);
+            'whatsapp' => $user->whatsapp ?: null,
+            'payment_method' => $event->allowsQrisPayment() ? 'qris' : ($event->allowsManualPayment() ? 'manual' : null),
+        ], static fn ($v) => $v !== null && $v !== ''));
         $eventTitle = $reg->event->title ?? config('app.name');
         $recipientName = $user->name ?: $reg->rider->name;
 

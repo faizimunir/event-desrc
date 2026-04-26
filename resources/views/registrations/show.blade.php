@@ -45,7 +45,13 @@
     $order = $registration->order;
     $canResetPaymentDeadline = $canUpdate && $order && $order->adminCanResetPaymentDeadline($registration);
     $waNumber = $rider->user?->whatsapp ? \App\Services\WhacenterService::normalizeWhatsApp($rider->user->whatsapp) : '';
-    $paymentLinkUrl = $registration->order ? route('payment.create', ['order_code' => $registration->order->order_code, 'whatsapp' => $rider->user?->whatsapp ?? '']) : '';
+    $paymentLinkUrl = $registration->order
+        ? route('payment.create', array_filter([
+            'order_code' => $registration->order->order_code,
+            'whatsapp' => $rider->user?->whatsapp,
+            'payment_method' => $event->allowsQrisPayment() ? 'qris' : ($event->allowsManualPayment() ? 'manual' : null),
+        ], static fn ($v) => $v !== null && $v !== ''))
+        : '';
     $waSendPaymentUrl = $waNumber && $paymentLinkUrl ? 'https://wa.me/'.$waNumber.'?text='.rawurlencode($paymentLinkUrl) : '';
 
     $event->loadMissing('accounts');
