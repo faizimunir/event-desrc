@@ -73,6 +73,8 @@ class PaymentController extends Controller
                         $freshPayment = $request->boolean('fresh_payment');
                         $amount = $reg->package ? $reg->package->payableAmount() : 0;
                         $expires = $order->expired_at;
+                        $eventAllowsQris = $reg->event->allowsQrisPayment();
+                        $eventAllowsManual = $reg->event->allowsManualPayment();
                         $wantManual = $preferredPaymentMethod === 'manual';
                         $wantQris = $preferredPaymentMethod === 'qris';
                         $active = $order->activePendingPayment();
@@ -94,7 +96,7 @@ class PaymentController extends Controller
                             && (! $active || $methodClash || ($freshPayment && ! $activeHasFixedAmount));
 
                         if ($shouldCreateAttempt) {
-                            if ($wantQris) {
+                            if ($wantQris && $eventAllowsQris) {
                                 $order->createNewPaymentAttempt([
                                     'amount' => $amount,
                                     'method' => 'moota',
@@ -102,7 +104,7 @@ class PaymentController extends Controller
                                     'expires_at' => $expires,
                                     'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                                 ]);
-                            } elseif (! $keepExistingManual) {
+                            } elseif (! $keepExistingManual && $eventAllowsManual && ! $wantQris) {
                                 $order->createNewPaymentAttempt([
                                     'amount' => $amount,
                                     'method' => 'manual',
@@ -169,28 +171,38 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
+            'payment_method' => ['nullable', 'in:manual,qris'],
         ]);
 
         $order = Order::with('registration.rider.user')->where('order_code', $validated['order_code'])->firstOrFail();
         $order->enforceExpiredDraftIfNeeded();
         $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
-            return redirect()->route('payment.create')
-                ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
+            return redirect()->route('payment.create', array_filter([
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+                'payment_method' => $validated['payment_method'] ?? null,
+            ]))->withErrors(['order_code' => __('This order has expired or was cancelled.')])
                 ->withInput();
         }
         $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
-            return redirect()->route('payment.create')
-                ->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
+            return redirect()->route('payment.create', array_filter([
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+                'payment_method' => $validated['payment_method'] ?? null,
+            ]))->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
                 ->withInput();
         }
 
-        return redirect()->route('payment.create', [
+        $params = array_filter([
             'order_code' => $order->order_code,
             'whatsapp' => $request->input('whatsapp'),
-        ])->withInput();
+            'payment_method' => $validated['payment_method'] ?? null,
+        ], static fn ($v) => $v !== null && $v !== '');
+
+        return redirect()->route('payment.create', $params)->withInput();
     }
 
     /**
@@ -436,7 +448,6 @@ class PaymentController extends Controller
     }
 
     /** Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay. */
-
     private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
     {
         $user = $reg->rider->user;

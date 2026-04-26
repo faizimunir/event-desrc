@@ -118,6 +118,9 @@
                                 {{ __('Use the same number you used when registering.') }}
                             </p>
                         </div>
+                        @if (in_array(old('payment_method', request('payment_method')), ['manual', 'qris'], true))
+                            <input type="hidden" name="payment_method" value="{{ old('payment_method', request('payment_method')) }}">
+                        @endif
                         @if ($errors->any() && !$errors->has('order_code') && !$errors->has('whatsapp'))
                             <div class="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200/80 dark:bg-red-950/40 dark:text-red-200 dark:ring-red-900/50">
                                 {{ $errors->first() }}
