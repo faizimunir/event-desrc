@@ -137,7 +137,16 @@ class MootaWebhookProcessor
                 || str_contains($lk, 'nett')
                 || str_contains($lk, 'net')
                 || str_contains($lk, 'credit')
-                || str_contains($lk, 'debit');
+                || str_contains($lk, 'debit')
+                || str_contains($lk, 'jumlah')
+                || str_contains($lk, 'nilai')
+                || str_contains($lk, 'tagihan')
+                || str_contains($lk, 'bayar')
+                || str_contains($lk, 'bruto')
+                || str_contains($lk, 'diterima')
+                || str_contains($lk, 'masuk')
+                || str_contains($lk, 'inflow')
+                || str_contains($lk, 'trf');
 
             if (! $looksMoneyKey) {
                 return;
@@ -159,10 +168,103 @@ class MootaWebhookProcessor
             }
         }
 
+        foreach ($this->candidatesFromFeeSumWithBase($mutation) as $n) {
+            $out[] = $n;
+        }
+
+        foreach ($this->candidatesFromKeteranganLikeStrings($mutation) as $n) {
+            $out[] = $n;
+        }
+
         $out = array_values(array_unique($out));
         rsort($out, SORT_NUMERIC);
 
         return $out;
+    }
+
+    /**
+     * Kadang Moota mengirim `amount` = nilai net/dasar (10.000) sementara total uang yang masuk = amount + MDR/fee
+     * (11.591). Sertakan jumlah penjumlahan jika keduanya ada.
+     *
+     * @return list<float>
+     */
+    private function candidatesFromFeeSumWithBase(array $mutation): array
+    {
+        $base = $this->parseMoneyScalar($mutation['amount'] ?? null);
+        if ($base === null || $base <= 0) {
+            return [];
+        }
+
+        $feeKeys = ['mdr', 'fee', 'admin_fee', 'biaya', 'fees', 'qris_fee', 'fee_mdr', 'mdr_fee', 'service_fee', 'biaya_admin'];
+        $sumFees = 0.0;
+        $any = false;
+        foreach ($feeKeys as $k) {
+            if (! array_key_exists($k, $mutation)) {
+                continue;
+            }
+            $p = $this->parseMoneyScalar($mutation[$k]);
+            if ($p !== null && $p > 0) {
+                $sumFees += $p;
+                $any = true;
+            }
+        }
+
+        if (! $any) {
+            return [];
+        }
+
+        return [round($base + $sumFees, 2)];
+    }
+
+    /**
+     * Angka di keterangan / deskripsi (mis. "TRF ... 11.591" QRIS) sering = nominal yg masuk rekening, berbeda dari `amount` net.
+     *
+     * @return list<float>
+     */
+    private function candidatesFromKeteranganLikeStrings(array $mutation): array
+    {
+        $chunks = [];
+        $scrape = function (array $a) use (&$scrape, &$chunks): void {
+            foreach ($a as $k => $v) {
+                if (is_string($k)) {
+                    $ln = strtolower($k);
+                    if (str_contains($ln, 'keterangan')
+                        || str_contains($ln, 'description')
+                        || str_contains($ln, 'label')
+                        || $ln === 'note'
+                        || $ln === 'message'
+                        || $ln === 'narration'
+                        || $ln === 'text'
+                    ) {
+                        if (is_string($v) && $v !== '') {
+                            $chunks[] = $v;
+                        }
+                    }
+                }
+                if (is_array($v)) {
+                    $scrape($v);
+                }
+            }
+        };
+        $scrape($mutation);
+        if ($chunks === []) {
+            return [];
+        }
+
+        $candidates = [];
+        foreach ($chunks as $text) {
+            if (preg_match_all('/\d{1,3}(?:[.\s]\d{3})+|\d{4,}|\d{1,3}(?:[.,]\d{1,2})(?![0-9])/u', (string) $text, $m) !== false) {
+                foreach ($m[0] as $raw) {
+                    $clean = preg_replace('/\s+/', '', (string) $raw) ?? $raw;
+                    $p = $this->parseMoneyScalar($clean);
+                    if ($p !== null && $p >= 1_000) {
+                        $candidates[] = $p;
+                    }
+                }
+            }
+        }
+
+        return $candidates;
     }
 
     public function processEventId(int $eventId): void
@@ -367,9 +469,10 @@ class MootaWebhookProcessor
     private function persistSettlementRecord(int $eventId, array $mutation, string $mutationId): void
     {
         $candidates = $this->creditAmountCandidates($mutation);
-        $amount = $candidates[0] ?? (array_key_exists('amount', $mutation)
-            ? round((float) $mutation['amount'], 2)
-            : null);
+        // Tampilkan nilai paling representatif: sering 10.000 di `amount` net vs 11.591 di keterangan/amount+fee
+        $amount = $candidates !== []
+            ? max($candidates)
+            : (array_key_exists('amount', $mutation) ? round((float) $mutation['amount'], 2) : null);
         $orderCodeRaw = trim((string) data_get($mutation, 'payment_detail.order_id', ''));
         $orderCode = $orderCodeRaw !== '' ? $orderCodeRaw : null;
 
