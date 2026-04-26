@@ -569,7 +569,7 @@
                                         </label>
                                         <label class="flex cursor-pointer items-start gap-2 text-sm text-zinc-800 dark:text-zinc-200">
                                             <input type="radio" name="payment_method" value="qris" class="mt-0.5 border-zinc-300 text-zinc-900 focus:ring-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:focus:ring-zinc-400" @checked(old('payment_method') === 'qris')>
-                                            <span>{{ __('Automatic transfer (Moota)') }}</span>
+                                            <span>{{ __('QRIS (auto confirm)') }}</span>
                                         </label>
                                     </fieldset>
                                     @error('payment_method')

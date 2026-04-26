@@ -19,15 +19,37 @@
                         </h1>
                         <p class="mt-2 max-w-prose text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
                             @if (($allowsManual ?? false) && ($allowsQris ?? false))
-                                {{ __('You can pay with automatic or manual transfer and proof upload, use whichever you prefer.') }}
+                                {{ __('You can pay with QRIS or manual transfer (upload proof), use whichever you prefer.') }}
                             @elseif ($allowsQris ?? false)
-                                {{ __('Complete payment using automatic transfer as shown below.') }}
+                                {{ __('Complete payment by scanning the QRIS code below.') }}
                             @elseif ($allowsManual ?? false)
                                 {{ __('Transfer to the selected account and upload your transfer proof.') }}
                             @else
                                 {{ __('Follow the instructions below to complete payment.') }}
                             @endif
                         </p>
+                        @php
+                            $headerPayment = $registration?->payment;
+                            $showHeaderCountdown = $headerPayment
+                                && $headerPayment->isPending()
+                                && $headerPayment->expires_at
+                                && ! $headerPayment->transfer_proof_path;
+                            $headerCountdownLabel = $headerPayment && $headerPayment->method === 'moota'
+                                ? __('Waiting for payment in')
+                                : __('Upload proof within');
+                        @endphp
+                        @if ($showHeaderCountdown)
+                            <span
+                                class="mt-3 inline-flex max-w-full flex-wrap items-center gap-x-2 gap-y-0.5 rounded-full px-3 py-1.5 text-xs font-medium ring-1 ring-inset bg-amber-50 text-amber-900 ring-amber-200/80 dark:bg-amber-950/40 dark:text-amber-100 dark:ring-amber-800/50"
+                                data-expires-at="{{ $headerPayment->expires_at->format('c') }}"
+                                data-time-up="{{ __('Time\'s up') }}"
+                                data-upload-within="{{ $headerCountdownLabel }}"
+                                x-data="paymentProofCountdown()"
+                                x-init="init()">
+                                <flux:icon name="clock" class="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                                <span class="min-w-0 leading-snug" x-text="text"></span>
+                            </span>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -112,7 +134,7 @@
                         $proofSubmitted = $payment && $payment->isPending() && $payment->transfer_proof_path;
                         $showProofCountdown = $payment && $payment->isPending() && $payment->expires_at && !$proofSubmitted;
                         $isMoota = $payment && $payment->method === 'moota';
-                        $mootaBank = \App\Models\Payment::getMootaBankInfo();
+                        $staticQrisImageUrl = \App\Models\Payment::getStaticQrisImageUrl();
                         $allowsManual = $allowsManual ?? false;
                         $allowsQris = $allowsQris ?? false;
                         $manualAccounts = $manualAccounts ?? collect();
@@ -142,23 +164,6 @@
                                     </p>
                                 </div>
                             </div>
-                        @elseif ($showProofCountdown && !($payment && $payment->method === 'moota'))
-                            <div
-                                data-expires-at="{{ $payment->expires_at->format('c') }}"
-                                data-time-up="{{ __('Time\'s up') }}"
-                                data-upload-within="{{ __('Upload proof within') }}"
-                                x-data="paymentProofCountdown()"
-                                x-init="init()">
-                                <div class="flex gap-3 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-200/70 dark:bg-amber-950/30 dark:ring-amber-800/50">
-                                    <flux:icon name="clock" class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
-                                    <div>
-                                        <p class="text-sm font-medium text-amber-950 dark:text-amber-100" x-text="text"></p>
-                                        <p class="mt-1 text-xs text-amber-800/90 dark:text-amber-200/75">
-                                            {{ __('Payment will expire if proof is not uploaded in time.') }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
                         @endif
 
                         @if (!$proofSubmitted && !($payment && $payment->isSuccess()))
@@ -175,9 +180,6 @@
                                         · {{ $registration->package->name }}
                                     @endif
                                 </p>
-                                <p class="mt-4 text-2xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50">
-                                    {{ 'Rp ' . number_format((float) $amount, 0, ',', '.') }}
-                                </p>
                             </div>
 
                             <div class="flex flex-col gap-8">
@@ -188,68 +190,54 @@
                                                 <div class="flex items-center gap-2">
                                                     <span class="size-2 shrink-0 rounded-full bg-violet-500"></span>
                                                     <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                                        {{ __('Pay via Moota (QRIS / bank transfer)') }}
+                                                        {{ __('Pay via QRIS') }}
                                                     </h2>
                                                 </div>
                                                 <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                                                    @if ($isMoota && $payment->winpay_qr_url)
-                                                        {{ __('Scan the QRIS code below or transfer the exact amount to our account. Confirmation is automatic when Moota receives the payment.') }}
+                                                    @if ($isMoota && $staticQrisImageUrl)
+                                                        {{ __('Scan the QRIS code and pay exact amount below. Confirmation is automatic when amount is matched.') }}
                                                     @else
-                                                        {{ __('Transfer the exact amount below to our account. Confirmation is automatic when the transfer appears in Moota.') }}
+                                                        {{ __('Pay with QRIS and use the exact amount below. Confirmation is automatic when amount is matched.') }}
                                                     @endif
                                                 </p>
                                             </div>
-                                            <form action="{{ route('payment.moota.confirm') }}" method="post" class="shrink-0">
-                                                @csrf
-                                                <input type="hidden" name="order_code" value="{{ $orderCode }}">
-                                                <input type="hidden" name="whatsapp" value="{{ $whatsapp }}">
-                                                <flux:button type="submit" variant="primary" size="sm" class="w-full sm:w-auto">
-                                                    {{ $isMoota && $payment->moota_transfer_amount ? __('Show transfer details') : __('Use Moota') }}
-                                                </flux:button>
-                                            </form>
                                         </div>
 
                                         @if ($isMoota && $payment->moota_transfer_amount)
-                                            @if ($payment->winpay_qr_url)
-                                                <div class="mt-6 rounded-2xl bg-zinc-50 p-5 dark:bg-zinc-800/50">
-                                                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('QRIS (Winpay)') }}
-                                                    </p>
-                                                    <div class="mt-4 flex flex-col items-center gap-3">
+                                            @php
+                                                $qrisUniqueCode = null;
+                                                $qrisBase = (int) round((float) $payment->amount);
+                                                $qrisTotal = (int) round((float) $payment->moota_transfer_amount);
+                                                $qrisDelta = $qrisTotal - $qrisBase;
+                                                if ($qrisDelta >= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MIN && $qrisDelta <= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MAX) {
+                                                    $qrisUniqueCode = str_pad((string) $qrisDelta, 2, '0', STR_PAD_LEFT);
+                                                }
+                                            @endphp
+                                            @if ($staticQrisImageUrl)
+                                                <div class="mt-6 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50">
                                                         <img
-                                                            src="{{ $payment->winpay_qr_url }}"
+                                                            src="{{ $staticQrisImageUrl }}"
                                                             alt="{{ __('QRIS payment code') }}"
-                                                            class="max-w-[220px] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600/80"
+                                                            class="w-full rounded-2xl bg-white p-3 shadow-sm ring-1 ring-zinc-200/80 dark:ring-zinc-600/80"
                                                             loading="lazy"
-                                                            width="220"
-                                                            height="220"
                                                         >
-                                                        @if ($payment->winpay_expired_at)
-                                                            <p class="text-center text-xs text-zinc-500 dark:text-zinc-400">
-                                                                {{ __('QRIS expires at') }} {{ $payment->winpay_expired_at->timezone(config('app.timezone'))->format('d M Y H:i') }}
-                                                            </p>
-                                                        @endif
-                                                    </div>
                                                 </div>
                                             @endif
                                             <div class="mt-6 grid gap-4 sm:grid-cols-2">
-                                                <div class="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
-                                                    <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('Transfer to') }}
-                                                    </p>
-                                                    <p class="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ $mootaBank['bank_name'] }}</p>
-                                                    <p class="mt-1 font-mono text-lg font-semibold tabular-nums text-zinc-800 dark:text-zinc-200">{{ $mootaBank['account_number'] }}</p>
-                                                    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ $mootaBank['account_holder'] }}</p>
-                                                </div>
-                                                <div class="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
+                                                <div class="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-800/50 sm:col-span-2">
                                                     <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
                                                         {{ __('Exact amount (IDR)') }}
                                                     </p>
                                                     <p class="mt-2 font-mono text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
                                                         {{ 'Rp ' . number_format((float) $payment->moota_transfer_amount, 0, ',', '.') }}
                                                     </p>
+                                                    @if ($qrisUniqueCode)
+                                                        <p class="mt-2 text-xs font-medium text-violet-700 dark:text-violet-300">
+                                                            {{ __('Unique code') }}: {{ $qrisUniqueCode }}
+                                                        </p>
+                                                    @endif
                                                     <p class="mt-2 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('Transfer this exact amount so we can match your payment. Do not round.') }}
+                                                        {{ __('Pay this exact amount so we can match your payment. Do not round.') }}
                                                     </p>
                                                 </div>
                                             </div>

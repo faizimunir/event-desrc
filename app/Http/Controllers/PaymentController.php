@@ -10,9 +10,7 @@ use App\Models\WhatsappNotificationLog;
 use App\Services\ManualTransferNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
-use App\Services\WinpayQrisService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
@@ -86,15 +84,26 @@ class PaymentController extends Controller
                         $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
                             && $active->isPending() && $active->manual_transfer_amount !== null;
 
-                        // QRIS/Moota: baris payment dibuat di MootaPaymentController@confirm (nominal unik).
-                        if ($order->isPendingUnpaid() && ! $wantQris && ! $keepExistingManual && ($freshPayment || $methodClash || ! $active)) {
-                            $order->createNewPaymentAttempt([
-                                'amount' => $amount,
-                                'method' => 'manual',
-                                'status' => Payment::STATUS_PENDING,
-                                'expires_at' => $expires,
-                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
-                            ]);
+                        // Saat metode sudah dipilih di halaman sebelumnya, langsung siapkan payment attempt
+                        // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
+                        if ($order->isPendingUnpaid() && ($freshPayment || $methodClash || ! $active)) {
+                            if ($wantQris) {
+                                $order->createNewPaymentAttempt([
+                                    'amount' => $amount,
+                                    'method' => 'moota',
+                                    'status' => Payment::STATUS_PENDING,
+                                    'expires_at' => $expires,
+                                    'moota_transfer_amount' => Payment::allocateUniqueMootaTransferAmount((float) $amount),
+                                ]);
+                            } elseif (! $keepExistingManual) {
+                                $order->createNewPaymentAttempt([
+                                    'amount' => $amount,
+                                    'method' => 'manual',
+                                    'status' => Payment::STATUS_PENDING,
+                                    'expires_at' => $expires,
+                                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                ]);
+                            }
                         } elseif ($order->isPendingUnpaid() && $active && $active->isPending() && $active->expires_at === null) {
                             $active->update(['expires_at' => $expires]);
                         }
@@ -105,6 +114,11 @@ class PaymentController extends Controller
                             && $ensureManual->manual_transfer_amount === null) {
                             $ensureManual->update([
                                 'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                            ]);
+                        } elseif ($ensureManual && $ensureManual->method === 'moota' && $ensureManual->isPending()
+                            && $ensureManual->moota_transfer_amount === null) {
+                            $ensureManual->update([
+                                'moota_transfer_amount' => Payment::allocateUniqueMootaTransferAmount((float) $amount),
                             ]);
                         }
                     }
@@ -123,8 +137,6 @@ class PaymentController extends Controller
             if ($preferredPaymentMethod === 'qris' && ! $allowsQris) {
                 $preferredPaymentMethod = null;
             }
-
-            $this->ensureWinpayQrisWhenViewingPaymentPage($registration);
 
             $registration->unsetRelation('payment');
         }
@@ -288,13 +300,6 @@ class PaymentController extends Controller
         $payment->moota_transfer_amount = null;
         $payment->moota_mutation_id = null;
         $payment->moota_raw = null;
-        $payment->winpay_qr_url = null;
-        $payment->winpay_qr_content = null;
-        $payment->winpay_contract_id = null;
-        $payment->winpay_partner_reference_no = null;
-        $payment->winpay_expired_at = null;
-        $payment->winpay_external_id = null;
-        $payment->winpay_raw = null;
         $payment->admin_notes = null;
         $payment->reviewed_at = null;
         $payment->reviewed_by = null;
@@ -423,44 +428,7 @@ class PaymentController extends Controller
             ->with('status', __('Payment attempt marked as expired. Order is not cancelled by this action; use order deadline or cancel order if needed.'));
     }
 
-    /**
-     * Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay.
-     */
-    /**
-     * Jika user sudah punya pembayaran Moota + nominal unik tapi QRIS Winpay belum ada
-     * (mis. gagal saat POST, lalu .env diperbaiki), coba generate sekali saat GET halaman bayar.
-     */
-    private function ensureWinpayQrisWhenViewingPaymentPage(Registration $registration): void
-    {
-        $order = $registration->order;
-        if (! $order || $order->isExpired() || $order->isCancelled()) {
-            return;
-        }
-
-        $payment = $order->activePendingPayment();
-        if (! $payment || $payment->method !== 'moota' || $payment->moota_transfer_amount === null) {
-            return;
-        }
-
-        if (is_string($payment->winpay_qr_url) && $payment->winpay_qr_url !== '') {
-            return;
-        }
-
-        $winpay = app(WinpayQrisService::class);
-        if (! $winpay->isConfigured()) {
-            return;
-        }
-
-        try {
-            $winpay->generateDynamicQris($order, $payment);
-        } catch (\Throwable $e) {
-            Log::warning('Winpay QRIS lazy generate on payment page failed', [
-                'order_code' => $order->order_code,
-                'payment_id' => $payment->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
-    }
+    /** Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay. */
 
     private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
     {

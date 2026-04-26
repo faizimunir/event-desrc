@@ -45,9 +45,18 @@ return [
     | settle       — Moota yang menyelesaikan pembayaran (payment method moota,
     |                cocokkan order_code / nominal unik, lalu tandai order paid).
     | record_only  — Hanya simpan mutasi ke tabel moota_settlement_records (audit /
-    |                rekonsiliasi). Pakai ini jika QRIS/pembayaran resmi lewat Winpay
-    |                atau gateway lain; Moota hanya merekam arus kas di rekening.
+    |                rekonsiliasi), tanpa mengubah status pembayaran/order.
     */
     'webhook_mode' => env('MOOTA_WEBHOOK_MODE', 'settle'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | QRIS statis (opsional)
+    |--------------------------------------------------------------------------
+    | URL gambar QRIS yang ditampilkan untuk pembayaran metode qris/moota.
+    | Pembayaran tetap dicocokkan lewat webhook Moota menggunakan nominal unik.
+    | Isi URL absolut (https://...) atau path relatif public (mis. /images/qris.png).
+    */
+    'static_qris_image_url' => env('MOOTA_STATIC_QRIS_IMAGE_URL', ''),
 
 ];

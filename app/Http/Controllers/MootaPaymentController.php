@@ -7,11 +7,8 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Services\MootaSignature;
 use App\Services\WhacenterService;
-use App\Services\WinpayQrisService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 class MootaPaymentController extends Controller
 {
@@ -19,8 +16,8 @@ class MootaPaymentController extends Controller
      * Public: pilih pembayaran Moota.
      *
      * Catatan:
-     * - Untuk transfer bank (mutasi), kita pakai nominal unik (moota_transfer_amount) agar bisa dicocokkan.
-     * - Untuk Moota Dynamic QRIS, biasanya webhook membawa payment_detail.order_id/trx_id untuk pencocokan.
+     * - Untuk transfer bank / QRIS statis, kita pakai nominal unik (moota_transfer_amount)
+     *   agar bisa dicocokkan otomatis dari webhook Moota.
      */
     public function confirm(Request $request)
     {
@@ -108,39 +105,6 @@ class MootaPaymentController extends Controller
             'reviewed_by' => null,
         ])->save();
 
-        $order->refresh();
-        $payment->refresh();
-
-        $winpay = app(WinpayQrisService::class);
-        if ($winpay->isConfigured()) {
-            try {
-                $winpay->generateDynamicQris($order, $payment);
-            } catch (\Throwable $e) {
-                Log::error('Winpay QRIS generate failed', [
-                    'order_code' => $order->order_code,
-                    'payment_id' => $payment->id,
-                    'message' => $e->getMessage(),
-                ]);
-                $payment->forceFill([
-                    'winpay_qr_url' => null,
-                    'winpay_qr_content' => null,
-                    'winpay_contract_id' => null,
-                    'winpay_partner_reference_no' => null,
-                    'winpay_expired_at' => null,
-                    'winpay_external_id' => null,
-                    'winpay_raw' => null,
-                ])->save();
-
-                $flash = $this->winpayQrisUserErrorMessage($e->getMessage());
-
-                return redirect()->route('payment.create', [
-                    'order_code' => $order->order_code,
-                    'whatsapp' => $validated['whatsapp'],
-                    'payment_method' => 'qris',
-                ])->with('error', $flash);
-            }
-        }
-
         return redirect()->route('payment.create', [
             'order_code' => $order->order_code,
             'whatsapp' => $validated['whatsapp'],
@@ -148,9 +112,7 @@ class MootaPaymentController extends Controller
         ])->with('status', __('Transfer the exact amount shown below. Payment will be confirmed automatically when we receive it.'));
     }
 
-    /**
-     * Webhook: Moota (mutasi bank / Dynamic QRIS) (POST + HMAC Signature).
-     */
+    /** Webhook: Moota (mutasi bank / QRIS statis) (POST + HMAC Signature). */
     public function webhook(Request $request)
     {
         $secret = (string) config('moota.webhook_secret');
@@ -196,32 +158,5 @@ class MootaPaymentController extends Controller
         ProcessMootaWebhookEvent::dispatch((int) $eventId);
 
         return response()->json(['message' => 'received'], 200);
-    }
-
-    private function winpayQrisUserErrorMessage(string $technicalMessage): string
-    {
-        $base = __('QRIS could not be generated. You can still pay using the bank transfer amount below.');
-
-        if (Str::contains($technicalMessage, ['4014700', 'Invalid signature', '4015100'])) {
-            return $base.' '.__('Winpay rejected the request signature. Use the private key PEM that belongs to this merchant account, and make sure the matching public key is registered in the Winpay dashboard (not a random test key).');
-        }
-
-        if (Str::contains($technicalMessage, ['4044716', 'Partner not found'])) {
-            return $base.' '.__('Check WINPAY_PARTNER_ID (ID merchant in Winpay) and WINPAY_BASE_URL (sandbox vs production).');
-        }
-
-        if (Str::contains($technicalMessage, ['4094700', 'X-EXTERNAL-ID', '4094701', 'Duplicate partnerReferenceNo'])) {
-            return $base.' '.__('Please tap “Use Moota” once more to get a new QRIS reference.');
-        }
-
-        if (Str::contains($technicalMessage, ['HTTP 404', 'Winpay: WINPAY_BASE_URL'])) {
-            return $base.' '.__('The Winpay API URL is wrong or missing. Production must be https://snap.winpay.id (no /snap segment). After changing .env, run: php artisan config:clear');
-        }
-
-        if (config('app.debug')) {
-            return $base.' '.$technicalMessage;
-        }
-
-        return $base.' '.__('If this keeps happening, contact the organizer.');
     }
 }

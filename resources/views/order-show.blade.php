@@ -269,8 +269,8 @@
                                                 <flux:radio
                                                     value="qris"
                                                     icon="bolt"
-                                                    :label="__('QRIS / Moota (automatic)')"
-                                                    :description="__('Payment is confirmed automatically when we receive it.')"
+                                                    :label="__('QRIS')"
+                                                    :description="__('Scan QRIS and pay the exact amount shown on the payment page.')"
                                                 />
                                             @endif
                                             @if ($allowManualPay)

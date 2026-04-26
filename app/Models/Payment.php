@@ -59,13 +59,6 @@ class Payment extends Model
         'moota_transfer_amount',
         'moota_mutation_id',
         'moota_raw',
-        'winpay_qr_url',
-        'winpay_qr_content',
-        'winpay_contract_id',
-        'winpay_partner_reference_no',
-        'winpay_expired_at',
-        'winpay_external_id',
-        'winpay_raw',
     ];
 
     protected function casts(): array
@@ -78,8 +71,6 @@ class Payment extends Model
             'reviewed_at' => 'datetime',
             'paid_at' => 'datetime',
             'moota_raw' => 'array',
-            'winpay_expired_at' => 'datetime',
-            'winpay_raw' => 'array',
         ];
     }
 
@@ -208,14 +199,14 @@ class Payment extends Model
     }
 
     /**
-     * Nominal unik untuk Moota / mutasi (harga paket + sufiks 1–999).
+     * Nominal unik untuk Moota / QRIS statis (harga paket + sufiks 1–99).
      */
     public static function allocateUniqueMootaTransferAmount(float $baseAmount): float
     {
         $base = (int) round($baseAmount);
 
-        for ($i = 0; $i < 50; $i++) {
-            $suffix = random_int(1, 999);
+        for ($i = 0; $i < 200; $i++) {
+            $suffix = random_int(self::MANUAL_UNIQUE_SUFFIX_MIN, self::MANUAL_UNIQUE_SUFFIX_MAX);
             $candidate = (float) ($base + $suffix);
 
             if (! static::pendingTransferAmountExists($candidate)) {
@@ -273,6 +264,21 @@ class Payment extends Model
             'account_number' => config('moota.account_number'),
             'account_holder' => config('moota.account_holder'),
         ];
+    }
+
+    /** URL QRIS statis dari konfigurasi Moota (null jika tidak diisi). */
+    public static function getStaticQrisImageUrl(): ?string
+    {
+        $url = trim((string) config('moota.static_qris_image_url', ''));
+        if ($url === '') {
+            return null;
+        }
+
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        return asset(ltrim($url, '/'));
     }
 
     public function getStatusLabelAttribute(): string

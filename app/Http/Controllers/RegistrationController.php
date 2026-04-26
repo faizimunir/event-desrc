@@ -20,11 +20,9 @@ use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
-use App\Services\WinpayQrisService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -746,18 +744,6 @@ class RegistrationController extends Controller
                         'expires_at' => $expiry,
                         'moota_transfer_amount' => $mootaAmount,
                     ]);
-                    $payment = $order->fresh()->activePendingPayment();
-                    if ($payment && app(WinpayQrisService::class)->isConfigured()) {
-                        try {
-                            app(WinpayQrisService::class)->generateDynamicQris($order->fresh(), $payment);
-                        } catch (\Throwable $e) {
-                            Log::warning('Winpay QRIS generate failed after admin generate payment', [
-                                'order_code' => $order->order_code,
-                                'payment_id' => $payment->id,
-                                'message' => $e->getMessage(),
-                            ]);
-                        }
-                    }
                 }
 
                 return null;

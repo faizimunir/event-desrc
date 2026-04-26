@@ -151,7 +151,7 @@ class MootaWebhookProcessor
     }
 
     /**
-     * Arsip mutasi Moota (rekonsiliasi / audit), terpisah dari status pembayaran gateway (mis. Winpay).
+     * Arsip mutasi Moota (rekonsiliasi / audit).
      *
      * @param  array<string, mixed>  $mutation
      */
