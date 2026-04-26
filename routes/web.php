@@ -126,7 +126,8 @@ Route::get('payment', [PaymentController::class, 'create'])->name('payment.creat
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
 
-// Moota: konfirmasi nominal unik + webhook mutasi bank
+// QRIS (Moota): konfirmasi + webhook — path mengikuti deltae + alias lama
+Route::post('payment/qris/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.qris.confirm');
 Route::post('payment/moota/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.moota.confirm');
 Route::get('webhooks/moota', fn () => response()->json([
     'message' => 'ok',

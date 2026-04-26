@@ -34,7 +34,7 @@
                                 && $headerPayment->isPending()
                                 && $headerPayment->expires_at
                                 && ! $headerPayment->transfer_proof_path;
-                            $headerCountdownLabel = $headerPayment && $headerPayment->method === 'moota'
+                            $headerCountdownLabel = $headerPayment && $headerPayment->method === \App\Models\Payment::METHOD_QRIS
                                 ? __('Waiting for payment in')
                                 : __('Upload proof within');
                         @endphp
@@ -136,13 +136,13 @@
                         $amount = $registration->package ? $registration->package->payableAmount() : 0;
                         $proofSubmitted = $payment && $payment->isPending() && $payment->transfer_proof_path;
                         $showProofCountdown = $payment && $payment->isPending() && $payment->expires_at && !$proofSubmitted;
-                        $isMoota = $payment && $payment->method === 'moota';
+                        $isQris = $payment && $payment->method === \App\Models\Payment::METHOD_QRIS;
                         $staticQrisImageUrl = \App\Models\Payment::getStaticQrisImageUrl();
                         $allowsManual = $allowsManual ?? false;
                         $allowsQris = $allowsQris ?? false;
                         $manualAccounts = $manualAccounts ?? collect();
                         $manualMisconfigured = $allowsManual && $manualAccounts->isEmpty();
-                        $mootaPendingBlocksManual = $payment && $payment->method === 'moota' && $payment->isPending();
+                        $qrisPendingBlocksManual = $payment && $payment->method === \App\Models\Payment::METHOD_QRIS && $payment->isPending();
                         $showQrisFirst = ($preferredPaymentMethod ?? null) !== 'manual';
                         $lockToSelectedMethod = $payment && $payment->isPending() && is_string($payment->method) && $payment->method !== '';
                         $hideManualForQrisChoice = ($preferredPaymentMethod ?? null) === 'qris' && $allowsQris;
@@ -186,7 +186,7 @@
                             </div>
 
                             <div class="flex flex-col gap-8">
-                                @if ($allowsQris && (! $lockToSelectedMethod || ($payment && $payment->method === 'moota')))
+                                @if ($allowsQris && (! $lockToSelectedMethod || ($payment && $payment->method === \App\Models\Payment::METHOD_QRIS)))
                                     <section class="rounded-2xl p-6 ring-1 ring-zinc-200/90 dark:ring-zinc-700/90 {{ $showQrisFirst ? 'order-1' : 'order-2' }}">
                                         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                             <div class="min-w-0">
@@ -197,7 +197,7 @@
                                                     </h2>
                                                 </div>
                                                 <p class="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-                                                    @if ($isMoota && $staticQrisImageUrl)
+                                                    @if ($isQris && $staticQrisImageUrl)
                                                         {{ __('Scan the QRIS code and pay exact amount below. Confirmation is automatic when amount is matched.') }}
                                                     @else
                                                         {{ __('Pay with QRIS and use the exact amount below. Confirmation is automatic when amount is matched.') }}
@@ -206,11 +206,11 @@
                                             </div>
                                         </div>
 
-                                        @if ($isMoota && $payment->moota_transfer_amount)
+                                        @if ($isQris && $payment->amount)
                                             @php
                                                 $qrisUniqueCode = null;
-                                                $qrisBase = (int) round((float) $payment->amount);
-                                                $qrisTotal = (int) round((float) $payment->moota_transfer_amount);
+                                                $qrisBase = (int) round((float) ($amount ?? 0));
+                                                $qrisTotal = (int) round((float) $payment->amount);
                                                 $qrisDelta = $qrisTotal - $qrisBase;
                                                 if ($qrisDelta >= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MIN && $qrisDelta <= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MAX) {
                                                     $qrisUniqueCode = str_pad((string) $qrisDelta, 2, '0', STR_PAD_LEFT);
@@ -232,7 +232,7 @@
                                                         {{ __('Exact amount (IDR)') }}
                                                     </p>
                                                     <p class="mt-2 font-mono text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
-                                                        {{ 'Rp ' . number_format((float) $payment->moota_transfer_amount, 0, ',', '.') }}
+                                                        {{ 'Rp ' . number_format((float) $payment->amount, 0, ',', '.') }}
                                                     </p>
                                                     @if ($qrisUniqueCode)
                                                         <p class="mt-2 text-xs font-medium text-violet-700 dark:text-violet-300">
@@ -248,7 +248,7 @@
                                     </section>
                                 @endif
 
-                                @if (! $hideManualForQrisChoice && $allowsManual && (! $lockToSelectedMethod || ($payment && $payment->method === 'manual')) && ! $mootaPendingBlocksManual && ! $manualMisconfigured)
+                                @if (! $hideManualForQrisChoice && $allowsManual && (! $lockToSelectedMethod || ($payment && $payment->method === 'manual')) && ! $qrisPendingBlocksManual && ! $manualMisconfigured)
                                     <section class="rounded-2xl p-6 ring-1 ring-zinc-200/90 dark:ring-zinc-700/90 {{ $showQrisFirst ? 'order-2' : 'order-1' }}">
                                         <div class="flex items-center gap-2">
                                             <span class="size-2 shrink-0 rounded-full bg-amber-500"></span>
@@ -342,7 +342,7 @@
                                     @endif
                                 </div>
                             </div>
-                        @elseif (! $hideManualForQrisChoice && $allowsManual && (! $lockToSelectedMethod || ($payment && $payment->method === 'manual')) && ! $manualMisconfigured && ! $proofSubmitted && ! $mootaPendingBlocksManual)
+                        @elseif (! $hideManualForQrisChoice && $allowsManual && (! $lockToSelectedMethod || ($payment && $payment->method === 'manual')) && ! $manualMisconfigured && ! $proofSubmitted && ! $qrisPendingBlocksManual)
                             <form action="{{ route('payment.store') }}" method="post" enctype="multipart/form-data" class="space-y-6">
                                 @csrf
                                 <input type="hidden" name="order_code" value="{{ $orderCode }}">

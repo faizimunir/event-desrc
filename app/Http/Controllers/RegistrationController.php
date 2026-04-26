@@ -736,13 +736,12 @@ class RegistrationController extends Controller
                         'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                     ]);
                 } else {
-                    $mootaAmount = Payment::stableMootaTransferAmountForOrder($order, (float) $amount);
+                    $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
                     $order->createNewPaymentAttempt([
-                        'amount' => $amount,
-                        'method' => 'moota',
+                        'amount' => $qrisTotal,
+                        'method' => Payment::METHOD_QRIS,
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
-                        'moota_transfer_amount' => $mootaAmount,
                     ]);
                 }
 

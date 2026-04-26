@@ -78,7 +78,7 @@ class PaymentController extends Controller
                         $active = $order->activePendingPayment();
                         $methodClash = $active && (
                             ($wantManual && $active->method !== 'manual')
-                            || ($wantQris && $active->method !== 'moota')
+                            || ($wantQris && $active->method !== Payment::METHOD_QRIS)
                         );
 
                         $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
@@ -88,19 +88,19 @@ class PaymentController extends Controller
                         // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
                         $activeHasFixedAmount = $active && $active->isPending() && (
                             ($active->method === 'manual' && $active->manual_transfer_amount !== null)
-                            || ($active->method === 'moota' && $active->moota_transfer_amount !== null)
+                            || ($active->method === Payment::METHOD_QRIS && $active->amount > 0)
                         );
                         $shouldCreateAttempt = $order->isPendingUnpaid()
                             && (! $active || $methodClash || ($freshPayment && ! $activeHasFixedAmount));
 
                         if ($shouldCreateAttempt) {
                             if ($wantQris && $eventAllowsQris) {
+                                $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
                                 $order->createNewPaymentAttempt([
-                                    'amount' => $amount,
-                                    'method' => 'moota',
+                                    'amount' => $qrisTotal,
+                                    'method' => Payment::METHOD_QRIS,
                                     'status' => Payment::STATUS_PENDING,
                                     'expires_at' => $expires,
-                                    'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                                 ]);
                             } elseif ($wantManual && $eventAllowsManual && ! $keepExistingManual) {
                                 $order->createNewPaymentAttempt([
@@ -114,12 +114,12 @@ class PaymentController extends Controller
                                 // Tanpa `payment_method` di URL: default ke Moota jika QRIS diizinkan, supaya tidak
                                 // (sebelumnya) jatuh ke manual lalu section QRIS "terkunci" (deltae sering bawa ?qris).
                                 if ($eventAllowsQris) {
+                                    $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
                                     $order->createNewPaymentAttempt([
-                                        'amount' => $amount,
-                                        'method' => 'moota',
+                                        'amount' => $qrisTotal,
+                                        'method' => Payment::METHOD_QRIS,
                                         'status' => Payment::STATUS_PENDING,
                                         'expires_at' => $expires,
-                                        'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                                     ]);
                                 } elseif ($eventAllowsManual) {
                                     $order->createNewPaymentAttempt([
@@ -142,10 +142,10 @@ class PaymentController extends Controller
                             $ensureManual->update([
                                 'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                             ]);
-                        } elseif ($ensureManual && $ensureManual->method === 'moota' && $ensureManual->isPending()
-                            && $ensureManual->moota_transfer_amount === null) {
+                        } elseif ($ensureManual && $ensureManual->method === Payment::METHOD_QRIS && $ensureManual->isPending()
+                            && (float) $ensureManual->amount <= 0) {
                             $ensureManual->update([
-                                'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
+                                'amount' => Payment::allocateUniqueQrisAmount((float) $amount),
                             ]);
                         }
                     }
@@ -334,7 +334,6 @@ class PaymentController extends Controller
         $payment->transfer_proof_path = $path;
         $payment->method = 'manual';
         $payment->manual_account_id = $manualAccountId;
-        $payment->moota_transfer_amount = null;
         $payment->moota_mutation_id = null;
         $payment->moota_raw = null;
         $payment->admin_notes = null;

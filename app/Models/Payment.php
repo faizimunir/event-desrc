@@ -28,6 +28,11 @@ class Payment extends Model
     /** Pembayaran sukses lalu registrasi ditolak — arsip refund (proses di luar app). */
     public const STATUS_REFUNDED = 'refunded';
 
+    public const METHOD_MANUAL = 'manual';
+
+    /** QRIS statis (Moota); `amount` = total transfer (paket + sufiks unik), seperti deltae. */
+    public const METHOD_QRIS = 'qris';
+
     public const STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_SUBMITTED,
@@ -56,7 +61,6 @@ class Payment extends Model
         'reviewed_at',
         'reviewed_by',
         'paid_at',
-        'moota_transfer_amount',
         'moota_mutation_id',
         'moota_raw',
     ];
@@ -66,7 +70,6 @@ class Payment extends Model
         return [
             'amount' => 'decimal:2',
             'manual_transfer_amount' => 'decimal:2',
-            'moota_transfer_amount' => 'decimal:2',
             'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'paid_at' => 'datetime',
@@ -146,9 +149,9 @@ class Payment extends Model
         return $this->isFailed();
     }
 
-    public function isMoota(): bool
+    public function isQris(): bool
     {
-        return $this->method === 'moota';
+        return $this->method === self::METHOD_QRIS;
     }
 
     /** Batas bawah / atas sufiks unik (rupiah) untuk transfer manual — tampilan 01–99. */
@@ -199,54 +202,39 @@ class Payment extends Model
     }
 
     /**
-     * Nominal unik untuk Moota / QRIS statis (harga paket + sufiks 1–99).
+     * Total bayar unik untuk QRIS: dasar + sufiks 1–99 (sama inti alokasi di Herd/deltae `PaymentController::allocateUniquePaymentAmount`).
      */
-    public static function allocateUniqueMootaTransferAmount(float $baseAmount): float
+    public static function allocateUniqueQrisAmount(float $baseAmount): string
     {
-        $base = (int) round($baseAmount);
+        $base = max(1, (int) floor((float) $baseAmount));
+        $min = self::MANUAL_UNIQUE_SUFFIX_MIN;
+        $max = self::MANUAL_UNIQUE_SUFFIX_MAX;
+        $attempts = max(120, ($max - $min + 1) * 2);
 
-        for ($i = 0; $i < 200; $i++) {
-            $suffix = random_int(self::MANUAL_UNIQUE_SUFFIX_MIN, self::MANUAL_UNIQUE_SUFFIX_MAX);
-            $candidate = (float) ($base + $suffix);
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $suffix = random_int($min, $max);
+            $candidate = $base + $suffix;
+            $formatted = number_format($candidate, 2, '.', '');
 
-            if (! static::pendingTransferAmountExists($candidate)) {
-                return $candidate;
+            if (! static::pendingTransferAmountExists((float) $formatted)) {
+                return $formatted;
             }
         }
 
-        return (float) ($base + random_int(1000, 9999));
+        abort(503, __('Could not allocate a unique payment amount; try again.'));
     }
 
-    /**
-     * Sama seperti manual stable, tetapi untuk Moota / QRIS:
-     * suffix awal deterministik dari order_code agar refresh berulang tetap nominal sama.
-     */
-    public static function stableMootaTransferAmountForOrder(Order $order, float $baseAmount): float
-    {
-        $base = (int) round($baseAmount);
-        $code = (string) ($order->order_code ?? $order->getKey());
-        $start = (int) (abs(crc32($code.'-moota')) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
-
-        $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
-        for ($i = 0; $i < $span; $i++) {
-            $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
-            $candidate = (float) ($base + $suffix);
-            if (! static::pendingTransferAmountExists($candidate)) {
-                return $candidate;
-            }
-        }
-
-        return static::allocateUniqueMootaTransferAmount((float) $baseAmount);
-    }
-
-    /** Apakah nominal sudah dipakai percobaan bayar pending (manual atau Moota). */
+    /** Apakah nominal sudah dipakai percobaan bayar pending (QRIS: kolom `amount`, manual: `manual_transfer_amount`). */
     public static function pendingTransferAmountExists(float $amount): bool
     {
         return static::query()
             ->whereIn('status', [self::STATUS_PENDING, self::STATUS_SUBMITTED])
             ->where(function ($q) use ($amount) {
-                $q->where('moota_transfer_amount', $amount)
-                    ->orWhere('manual_transfer_amount', $amount);
+                $q->where('manual_transfer_amount', $amount)
+                    ->orWhere(function ($q2) use ($amount) {
+                        $q2->where('method', self::METHOD_QRIS)
+                            ->where('amount', $amount);
+                    });
             })
             ->exists();
     }
@@ -282,16 +270,16 @@ class Payment extends Model
     public static function getMootaBankInfo(): array
     {
         return [
-            'bank_name' => config('moota.bank_name'),
-            'account_number' => config('moota.account_number'),
-            'account_holder' => config('moota.account_holder'),
+            'bank_name' => config('services.moota.bank_name'),
+            'account_number' => config('services.moota.account_number'),
+            'account_holder' => config('services.moota.account_holder'),
         ];
     }
 
-    /** URL QRIS statis dari konfigurasi Moota (null jika tidak diisi). */
+    /** URL gambar QRIS statis (services.moota.qris_image_url), seperti deltae MOOTA_QRIS_IMAGE_URL. */
     public static function getStaticQrisImageUrl(): ?string
     {
-        $url = trim((string) config('moota.static_qris_image_url', ''));
+        $url = trim((string) config('services.moota.qris_image_url', ''));
         if ($url === '') {
             return null;
         }

@@ -2,24 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Jobs\ProcessMootaWebhookEvent;
 use App\Models\Order;
 use App\Models\Payment;
-use App\Services\MootaSignature;
-use App\Services\MootaWebhookProcessor;
+use App\Services\MootaWebhookService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 
 class MootaPaymentController extends Controller
 {
     /**
-     * Public: pilih pembayaran Moota.
-     *
-     * Catatan:
-     * - Untuk transfer bank / QRIS statis, kita pakai nominal unik (moota_transfer_amount)
-     *   agar bisa dicocokkan otomatis dari webhook Moota.
+     * Pilih / siapkan pembayaran QRIS (nominal unik, sama prinsip Herd/deltae).
      */
     public function confirm(Request $request)
     {
@@ -67,17 +61,19 @@ class MootaPaymentController extends Controller
         $baseAmount = round($registration->package ? $registration->package->payableAmount() : 0, 2);
 
         $payment = $order->activePendingPayment();
-        if ($payment && $payment->method !== 'moota') {
+        if ($payment && $payment->method !== Payment::METHOD_QRIS) {
+            $amount = Payment::allocateUniqueQrisAmount((float) $baseAmount);
             $payment = $order->createNewPaymentAttempt([
-                'amount' => $baseAmount,
-                'method' => 'moota',
+                'amount' => $amount,
+                'method' => Payment::METHOD_QRIS,
                 'status' => Payment::STATUS_PENDING,
                 'expires_at' => $order->expired_at,
             ]);
         } elseif (! $payment) {
+            $amount = Payment::allocateUniqueQrisAmount((float) $baseAmount);
             $payment = $order->createNewPaymentAttempt([
-                'amount' => $baseAmount,
-                'method' => 'moota',
+                'amount' => $amount,
+                'method' => Payment::METHOD_QRIS,
                 'status' => Payment::STATUS_PENDING,
                 'expires_at' => $order->expired_at,
             ]);
@@ -91,14 +87,13 @@ class MootaPaymentController extends Controller
             ])->with('status', __('Your payment has been verified.'));
         }
 
-        $transferAmount = $payment->moota_transfer_amount !== null
-            ? (float) $payment->moota_transfer_amount
-            : Payment::stableMootaTransferAmountForOrder($order, $baseAmount);
+        $payAmount = $payment->amount !== null
+            ? $payment->amount
+            : Payment::allocateUniqueQrisAmount((float) $baseAmount);
 
         $payment->forceFill([
-            'method' => 'moota',
-            'amount' => $baseAmount,
-            'moota_transfer_amount' => $transferAmount,
+            'method' => Payment::METHOD_QRIS,
+            'amount' => $payAmount,
             'status' => Payment::STATUS_PENDING,
             'expires_at' => $order->expired_at,
             'transfer_proof_path' => null,
@@ -113,68 +108,49 @@ class MootaPaymentController extends Controller
             'order_code' => $order->order_code,
             'whatsapp' => $validated['whatsapp'],
             'payment_method' => 'qris',
-        ])->with('status', __('Transfer the exact amount shown below. Payment will be confirmed automatically when we receive it.'));
+        ])->with('status', __('Complete your payment using the QR code and exact amount below.'));
     }
 
-    /** Webhook: Moota (mutasi bank / QRIS statis) (POST + HMAC Signature). */
-    public function webhook(Request $request)
+    /** Webhook: sama alur `MootaWebhookController` di Herd/deltae. */
+    public function webhook(Request $request, MootaWebhookService $service): Response
     {
-        $secret = (string) config('moota.webhook_secret');
+        $secret = trim((string) config('services.moota.webhook_secret', ''));
         if ($secret === '') {
-            abort(503, 'MOOTA_WEBHOOK_SECRET is empty. Set it in server .env to the same secret as the Moota webhook, then run php artisan config:clear (or config:cache).');
+            Log::warning('moota.webhook.missing_secret', [
+                'hint' => 'Set MOOTA_WEBHOOK_SECRET in .env (same as secret_token when creating the webhook in Moota), then run php artisan config:clear or php artisan config:cache.',
+            ]);
+
+            return response()->json([
+                'error' => 'moota_webhook_secret_missing',
+                'message' => 'MOOTA_WEBHOOK_SECRET is not set or empty. Add it to .env and refresh config cache.',
+            ], 503);
         }
 
-        $raw = $request->getContent();
-        $signature = $request->header('Signature');
+        $payload = $request->getContent();
+        $signature = $request->header('Signature') ?? $request->header('signature');
 
-        if (! MootaSignature::verify($raw, $secret, $signature)) {
-            return response()->json(['message' => 'Invalid signature'], 401);
+        if (! $service->verifySignature($signature, $payload, $secret)) {
+            Log::warning('moota.webhook.invalid_signature');
+
+            return response('Unauthorized', 401);
         }
 
-        $user = config('moota.webhook_user');
-        $token = config('moota.webhook_token');
-        if ($user !== null && $user !== '' && $request->header('X-MOOTA-USER') !== $user) {
-            return response()->json(['message' => 'Invalid webhook user'], 401);
-        }
-        if ($token !== null && $token !== '' && $request->header('X-MOOTA-WEBHOOK') !== $token) {
-            return response()->json(['message' => 'Invalid webhook token'], 401);
-        }
+        $decoded = json_decode($payload, true);
+        $mutations = $service->normalizePayload($decoded);
 
-        $payload = json_decode($raw, true);
-        if (! is_array($payload)) {
-            return response()->json(['message' => 'Invalid JSON'], 400);
-        }
-
-        $eventId = DB::table('moota_webhook_events')->insertGetId([
-            'signature' => $signature,
-            'moota_user' => $request->header('X-MOOTA-USER'),
-            'moota_webhook' => $request->header('X-MOOTA-WEBHOOK'),
-            'headers' => json_encode($request->headers->all()),
-            'raw_body' => $raw,
-            'payload' => json_encode($payload),
-            'status' => 'received',
-            'attempts' => 0,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
-        $eventId = (int) $eventId;
-
-        if (config('moota.webhook_sync', true)) {
+        foreach ($mutations as $mutation) {
             try {
-                app(MootaWebhookProcessor::class)->processEventId($eventId);
+                $service->processMutation($mutation);
             } catch (\Throwable $e) {
-                Log::error('moota.webhook.sync_failed', [
-                    'moota_webhook_event_id' => $eventId,
+                Log::error('moota.webhook.process_error', [
                     'message' => $e->getMessage(),
+                    'mutation_id' => $mutation['mutation_id'] ?? null,
                 ]);
 
-                return response()->json(['message' => 'Processing failed'], 500);
+                return response('Internal error', 500);
             }
-        } else {
-            ProcessMootaWebhookEvent::dispatch($eventId);
         }
 
-        return response()->json(['message' => 'received'], 200);
+        return response('OK', 200);
     }
 }
