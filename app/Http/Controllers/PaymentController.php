@@ -86,7 +86,14 @@ class PaymentController extends Controller
 
                         // Saat metode sudah dipilih di halaman sebelumnya, langsung siapkan payment attempt
                         // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
-                        if ($order->isPendingUnpaid() && ($freshPayment || $methodClash || ! $active)) {
+                        $activeHasFixedAmount = $active && $active->isPending() && (
+                            ($active->method === 'manual' && $active->manual_transfer_amount !== null)
+                            || ($active->method === 'moota' && $active->moota_transfer_amount !== null)
+                        );
+                        $shouldCreateAttempt = $order->isPendingUnpaid()
+                            && (! $active || $methodClash || ($freshPayment && ! $activeHasFixedAmount));
+
+                        if ($shouldCreateAttempt) {
                             if ($wantQris) {
                                 $order->createNewPaymentAttempt([
                                     'amount' => $amount,
