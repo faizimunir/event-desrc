@@ -217,6 +217,28 @@ class Payment extends Model
         return (float) ($base + random_int(1000, 9999));
     }
 
+    /**
+     * Sama seperti manual stable, tetapi untuk Moota / QRIS:
+     * suffix awal deterministik dari order_code agar refresh berulang tetap nominal sama.
+     */
+    public static function stableMootaTransferAmountForOrder(Order $order, float $baseAmount): float
+    {
+        $base = (int) round($baseAmount);
+        $code = (string) ($order->order_code ?? $order->getKey());
+        $start = (int) (abs(crc32($code.'-moota')) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+
+        $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
+        for ($i = 0; $i < $span; $i++) {
+            $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+            $candidate = (float) ($base + $suffix);
+            if (! static::pendingTransferAmountExists($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return static::allocateUniqueMootaTransferAmount((float) $baseAmount);
+    }
+
     /** Apakah nominal sudah dipakai percobaan bayar pending (manual atau Moota). */
     public static function pendingTransferAmountExists(float $amount): bool
     {

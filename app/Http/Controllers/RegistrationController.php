@@ -736,7 +736,7 @@ class RegistrationController extends Controller
                         'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                     ]);
                 } else {
-                    $mootaAmount = Payment::allocateUniqueMootaTransferAmount((float) $amount);
+                    $mootaAmount = Payment::stableMootaTransferAmountForOrder($order, (float) $amount);
                     $order->createNewPaymentAttempt([
                         'amount' => $amount,
                         'method' => 'moota',

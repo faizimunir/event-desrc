@@ -89,7 +89,7 @@ class MootaPaymentController extends Controller
             ])->with('status', __('Your payment has been verified.'));
         }
 
-        $transferAmount = Payment::allocateUniqueMootaTransferAmount($baseAmount);
+        $transferAmount = Payment::stableMootaTransferAmountForOrder($order, $baseAmount);
 
         $payment->forceFill([
             'method' => 'moota',

@@ -93,7 +93,7 @@ class PaymentController extends Controller
                                     'method' => 'moota',
                                     'status' => Payment::STATUS_PENDING,
                                     'expires_at' => $expires,
-                                    'moota_transfer_amount' => Payment::allocateUniqueMootaTransferAmount((float) $amount),
+                                    'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                                 ]);
                             } elseif (! $keepExistingManual) {
                                 $order->createNewPaymentAttempt([
@@ -118,7 +118,7 @@ class PaymentController extends Controller
                         } elseif ($ensureManual && $ensureManual->method === 'moota' && $ensureManual->isPending()
                             && $ensureManual->moota_transfer_amount === null) {
                             $ensureManual->update([
-                                'moota_transfer_amount' => Payment::allocateUniqueMootaTransferAmount((float) $amount),
+                                'moota_transfer_amount' => Payment::stableMootaTransferAmountForOrder($order, (float) $amount),
                             ]);
                         }
                     }
