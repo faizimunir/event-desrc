@@ -83,17 +83,37 @@ class MootaWebhookService
             return;
         }
 
+        $orderReference = $this->extractOrderReference($mutation);
+        if ($orderReference !== null) {
+            Log::info('MOOTA REFERENCE CHECK', [
+                'order_reference' => $orderReference,
+            ]);
+        }
+
+        $payment = $orderReference ? $this->findPendingQrisPaymentByReference($orderReference) : null;
+        if ($payment && (float) $payment->amount !== (float) $amount) {
+            Log::warning('moota.webhook.amount_mismatch_with_reference', [
+                'mutation_id' => $mutationId,
+                'order_reference' => $orderReference,
+                'expected_amount' => number_format((float) $payment->amount, 2, '.', ''),
+                'incoming_amount' => $amount,
+            ]);
+        }
+
         Log::info('MOOTA MATCH QUERY', [
             'amount' => $amount,
             'method_constant' => Payment::METHOD_QRIS,
         ]);
 
-        $payment = Payment::query()
-            ->where('method', Payment::METHOD_QRIS)
-            ->where('status', Payment::STATUS_PENDING)
-            ->where('amount', $amount)
-            ->orderBy('id')
-            ->first();
+        // Fallback legacy: exact amount match only when reference is absent / not resolvable.
+        if (! $payment) {
+            $payment = Payment::query()
+                ->where('method', Payment::METHOD_QRIS)
+                ->where('status', Payment::STATUS_PENDING)
+                ->where('amount', $amount)
+                ->orderBy('id')
+                ->first();
+        }
 
         if (! $payment) {
             Log::info('moota.webhook.unmatched', [
@@ -172,5 +192,52 @@ class MootaWebhookService
         }
 
         return now();
+    }
+
+    protected function extractOrderReference(array $mutation): ?string
+    {
+        $paymentDetailOrderId = $mutation['payment_detail']['order_id'] ?? null;
+        if (is_string($paymentDetailOrderId) && trim($paymentDetailOrderId) !== '') {
+            return trim($paymentDetailOrderId);
+        }
+
+        $trxId = $mutation['payment_detail']['trx_id'] ?? null;
+        if (is_string($trxId) && trim($trxId) !== '') {
+            return trim($trxId);
+        }
+
+        foreach (['description', 'note'] as $field) {
+            $value = $mutation[$field] ?? null;
+            if (! is_string($value) || $value === '') {
+                continue;
+            }
+
+            if (preg_match('/(ORD-[A-Za-z0-9]+)/', $value, $matches) === 1) {
+                return strtoupper($matches[1]);
+            }
+        }
+
+        return null;
+    }
+
+    protected function findPendingQrisPaymentByReference(string $orderReference): ?Payment
+    {
+        $trimmed = trim($orderReference);
+        if ($trimmed === '') {
+            return null;
+        }
+
+        return Payment::query()
+            ->where('method', Payment::METHOD_QRIS)
+            ->where('status', Payment::STATUS_PENDING)
+            ->whereHas('order', function ($q) use ($trimmed) {
+                $q->where('order_code', $trimmed);
+
+                if (ctype_digit($trimmed)) {
+                    $q->orWhere('id', (int) $trimmed);
+                }
+            })
+            ->orderBy('id')
+            ->first();
     }
 }
