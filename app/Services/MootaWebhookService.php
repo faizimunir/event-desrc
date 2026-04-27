@@ -43,6 +43,27 @@ class MootaWebhookService
             return array_values(array_filter($decoded, fn ($row) => is_array($row) && isset($row['mutation_id'])));
         }
 
+        $nestedCandidates = [
+            $decoded['data'] ?? null,
+            $decoded['mutations'] ?? null,
+            $decoded['payload'] ?? null,
+        ];
+
+        foreach ($nestedCandidates as $candidate) {
+            if (! is_array($candidate) || $candidate === []) {
+                continue;
+            }
+
+            if (isset($candidate['mutation_id']) && is_string($candidate['mutation_id'])) {
+                return [$candidate];
+            }
+
+            $nestedFirst = reset($candidate);
+            if (is_array($nestedFirst) && isset($nestedFirst['mutation_id'])) {
+                return array_values(array_filter($candidate, fn ($row) => is_array($row) && isset($row['mutation_id'])));
+            }
+        }
+
         return [];
     }
 

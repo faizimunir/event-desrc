@@ -24,16 +24,34 @@ class MootaWebhookController extends Controller
         }
 
         $payload = $request->getContent();
-        $signature = $request->header('Signature') ?? $request->header('signature');
+        $signature = $request->header('Signature')
+            ?? $request->header('signature')
+            ?? $request->header('X-Signature')
+            ?? $request->header('x-signature');
+
+        if (is_string($signature)) {
+            $signature = trim($signature);
+            if (str_starts_with(strtolower($signature), 'sha256=')) {
+                $signature = substr($signature, 7);
+            }
+        }
 
         if (! $service->verifySignature($signature, $payload, $secret)) {
-            Log::warning('moota.webhook.invalid_signature');
+            Log::warning('moota.webhook.invalid_signature', [
+                'has_signature' => is_string($signature) && $signature !== '',
+                'content_type' => $request->header('Content-Type'),
+            ]);
 
             return response('Unauthorized', 401);
         }
 
         $decoded = json_decode($payload, true);
         $mutations = $service->normalizePayload($decoded);
+        if ($mutations === []) {
+            Log::warning('moota.webhook.empty_or_unknown_payload', [
+                'payload_preview' => mb_substr($payload, 0, 500),
+            ]);
+        }
 
         foreach ($mutations as $mutation) {
             try {
