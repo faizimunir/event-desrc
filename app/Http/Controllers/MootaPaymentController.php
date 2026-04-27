@@ -114,6 +114,11 @@ class MootaPaymentController extends Controller
     /** Webhook: sama alur `MootaWebhookController` di Herd/deltae. */
     public function webhook(Request $request, MootaWebhookService $service): Response
     {
+        Log::info('MOOTA HEADERS', [
+            'headers' => $request->headers->all(),
+            'raw_body' => $request->getContent(),
+        ]);
+
         $secret = trim((string) config('services.moota.webhook_secret', ''));
         if ($secret === '') {
             Log::warning('moota.webhook.missing_secret', [
@@ -127,10 +132,22 @@ class MootaPaymentController extends Controller
         }
 
         $payload = $request->getContent();
-        $signature = $request->header('Signature') ?? $request->header('signature');
+        $signature = $request->header('Signature')
+            ?? $request->header('signature')
+            ?? $request->header('X-Signature')
+            ?? $request->header('x-signature');
+        $signature = is_string($signature) ? trim($signature) : null;
+        if (is_string($signature) && str_starts_with(strtolower($signature), 'sha256=')) {
+            $signature = substr($signature, 7);
+        }
 
         if (! $service->verifySignature($signature, $payload, $secret)) {
-            Log::warning('moota.webhook.invalid_signature');
+            Log::warning('moota.webhook.invalid_signature', [
+                'signature_present' => is_string($signature) && $signature !== '',
+                'received_signature_prefix' => is_string($signature) ? substr($signature, 0, 16) : null,
+                'expected_signature_prefix' => substr(hash_hmac('sha256', $payload, $secret), 0, 16),
+                'payload_sha256' => hash('sha256', $payload),
+            ]);
 
             return response('Unauthorized', 401);
         }
