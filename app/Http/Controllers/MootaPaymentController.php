@@ -129,10 +129,11 @@ class MootaPaymentController extends Controller
         $payload = $request->getContent();
         $signature = $request->header('Signature') ?? $request->header('signature');
 
-        // TODO: hapus bypass ini setelah tes — webhook terbuka tanpa verifikasi signature.
-        Log::info('TEMP BYPASS SIGNATURE CHECK', [
-            'signature' => $signature,
-        ]);
+        if (! $service->verifySignature($signature, $payload, $secret)) {
+            Log::warning('moota.webhook.invalid_signature');
+
+            return response('Unauthorized', 401);
+        }
 
         $decoded = json_decode($payload, true);
         $mutations = $service->normalizePayload($decoded);

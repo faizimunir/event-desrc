@@ -218,6 +218,9 @@
                                                 }
                                             @endphp
                                             @if ($staticQrisImageUrl)
+                                                <div class="mt-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100" role="status">
+                                                    {{ __('A static QR may pre-fill a different amount in your banking app. Enter the “Exact amount” below manually if they do not match—otherwise Moota will see the wrong nominal.') }}
+                                                </div>
                                                 <div class="mt-6 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50">
                                                         <img
                                                             src="{{ $staticQrisImageUrl }}"

@@ -7,6 +7,9 @@
 </head>
 <body style="font-family: sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
     <p>{{ __('Hello') }}, {{ $recipientName }}.</p>
+    @if ($qrisExactTotalIdr ?? null)
+        <p><strong>{{ __('QRIS: pay exactly :amount (must match the payment page).', ['amount' => $qrisExactTotalIdr]) }}</strong></p>
+    @endif
     <p>{{ __('Your payment link for :event is ready. Please complete your payment by clicking the link below:', ['event' => $eventTitle]) }}</p>
     <p style="margin: 24px 0;">
         <a href="{{ $paymentLinkUrl }}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #fff; text-decoration: none; border-radius: 8px;">{{ __('Open payment page') }}</a>

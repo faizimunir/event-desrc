@@ -51,6 +51,7 @@ class PaymentController extends Controller
                 $matchesWhatsapp = $normalized && $reg->rider->user->whatsapp === $normalized;
                 $ownedByVisitor = $order->isOwnedByCurrentVisitor();
                 if ($matchesWhatsapp || $ownedByVisitor) {
+                    $queuePaymentLinkNotification = false;
                     $registration = $reg;
                     if (! $whatsapp && $reg->rider->user->whatsapp) {
                         $whatsapp = $reg->rider->user->whatsapp;
@@ -63,7 +64,8 @@ class PaymentController extends Controller
                             $request->session()->flash('error', __('There is no remaining quota for this bracket or package.'));
                         } else {
                             $order->refresh();
-                            $this->sendPaymentLinkNotifications($order, $reg);
+                            // WA/email di bawah, setelah attempt QRIS/manual dibuat, supaya nominal unik sudah tercatat.
+                            $queuePaymentLinkNotification = true;
                         }
                     }
 
@@ -147,6 +149,11 @@ class PaymentController extends Controller
                             $ensureManual->update([
                                 'amount' => Payment::allocateUniqueQrisAmount((float) $amount),
                             ]);
+                        }
+
+                        if ($queuePaymentLinkNotification) {
+                            $order->refresh();
+                            $this->sendPaymentLinkNotifications($order, $reg);
                         }
                     }
                 }
@@ -478,6 +485,13 @@ class PaymentController extends Controller
         $eventTitle = $reg->event->title ?? config('app.name');
         $recipientName = $user->name ?: $reg->rider->name;
 
+        $order->loadMissing('payments');
+        $pending = $order->activePendingPayment();
+        $qrisExactTotalIdr = null;
+        if ($pending && $pending->method === Payment::METHOD_QRIS && (float) $pending->amount > 0) {
+            $qrisExactTotalIdr = 'Rp '.number_format((float) $pending->amount, 0, ',', '.');
+        }
+
         if ($user->whatsapp) {
             $waMessage = trim(View::make('whatsapp.payment-link', [
                 'recipientName' => $recipientName,
@@ -485,6 +499,7 @@ class PaymentController extends Controller
                 'registration' => $reg->loadMissing(['rider', 'bracket', 'package', 'event.organizer.user']),
                 'paymentLinkUrl' => $paymentLinkUrl,
                 'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
+                'qrisExactTotalIdr' => $qrisExactTotalIdr,
             ])->render());
             $logId = null;
             if (WhatsappNotificationLog::tableExists()) {
@@ -498,7 +513,12 @@ class PaymentController extends Controller
         }
 
         if ($user->email) {
-            Mail::to($user->email)->send(new PaymentLinkMail($paymentLinkUrl, $eventTitle, $recipientName));
+            Mail::to($user->email)->send(new PaymentLinkMail(
+                $paymentLinkUrl,
+                $eventTitle,
+                $recipientName,
+                $qrisExactTotalIdr,
+            ));
         }
     }
 }
