@@ -52,6 +52,10 @@ class MootaWebhookService
 
     public function processMutation(array $mutation): void
     {
+        Log::info('MOOTA RAW MUTATION', [
+            'mutation' => $mutation,
+        ]);
+
         $mutationId = $mutation['mutation_id'] ?? $mutation['token'] ?? null;
         if (! is_string($mutationId) || $mutationId === '') {
             return;
@@ -62,14 +66,27 @@ class MootaWebhookService
         }
 
         $type = $mutation['type'] ?? null;
+        Log::info('MOOTA TYPE CHECK', [
+            'type' => $type,
+        ]);
+
         if ($type !== 'CR') {
             return;
         }
 
         $amount = $this->normalizeAmount($mutation['amount'] ?? null);
+        Log::info('MOOTA AMOUNT CHECK', [
+            'amount' => $amount,
+        ]);
+
         if ($amount === null || (float) $amount <= 0) {
             return;
         }
+
+        Log::info('MOOTA MATCH QUERY', [
+            'amount' => $amount,
+            'method_constant' => Payment::METHOD_QRIS,
+        ]);
 
         $payment = Payment::query()
             ->where('method', Payment::METHOD_QRIS)
