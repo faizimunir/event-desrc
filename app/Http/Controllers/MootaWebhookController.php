@@ -46,6 +46,16 @@ class MootaWebhookController extends Controller
         }
 
         $decoded = json_decode($payload, true);
+        $directOrderId = is_array($decoded) ? data_get($decoded, 'payment_detail.order_id') : null;
+        $directTrxId = is_array($decoded) ? data_get($decoded, 'payment_detail.trx_id') : null;
+        $listOrderIds = is_array($decoded) ? data_get($decoded, '*.payment_detail.order_id') : null;
+        $listTrxIds = is_array($decoded) ? data_get($decoded, '*.payment_detail.trx_id') : null;
+        Log::info('moota.webhook.reference_probe', [
+            'direct_order_id' => $directOrderId,
+            'direct_trx_id' => $directTrxId,
+            'list_order_ids' => is_array($listOrderIds) ? array_values(array_filter($listOrderIds, fn ($v) => is_scalar($v) && (string) $v !== '')) : [],
+            'list_trx_ids' => is_array($listTrxIds) ? array_values(array_filter($listTrxIds, fn ($v) => is_scalar($v) && (string) $v !== '')) : [],
+        ]);
         $mutations = $service->normalizePayload($decoded);
         if ($mutations === []) {
             Log::warning('moota.webhook.empty_or_unknown_payload', [
