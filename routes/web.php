@@ -126,18 +126,8 @@ Route::get('payment', [PaymentController::class, 'create'])->name('payment.creat
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
 
-// QRIS (Moota): konfirmasi + webhook — path mengikuti deltae + alias lama
+// QRIS (Moota): konfirmasi dari UI + webhook tunggal di /api/webhooks/moota
 Route::post('payment/qris/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.qris.confirm');
-Route::post('payment/moota/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.moota.confirm');
-Route::get('webhooks/moota', fn () => response()->json([
-    'message' => 'ok',
-    'method' => 'POST',
-]));
-Route::post('webhooks/moota', [MootaPaymentController::class, 'webhook'])
-    ->withoutMiddleware([VerifyCsrfToken::class])
-    ->name('webhooks.moota');
-
-// Sama dengan deltae: {APP_URL}/api/webhooks/moota (beberapa setelan Moota / dokumentasi memakai prefix /api)
 Route::get('api/webhooks/moota', fn () => response()->json([
     'message' => 'ok',
     'method' => 'POST',

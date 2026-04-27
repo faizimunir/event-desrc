@@ -51,7 +51,7 @@ return [
 
     /*
      * Moota (Herd/deltae: secret + qris image; tampilan rekening tetap lewat key tambahan)
-     * Endpoint: {APP_URL}/api/webhooks/moota (serta /webhooks/moota jika disetel di dashboard)
+     * Endpoint: {APP_URL}/api/webhooks/moota
      */
     'moota' => [
         'webhook_secret' => env('MOOTA_WEBHOOK_SECRET'),
