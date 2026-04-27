@@ -134,7 +134,8 @@
                     @php
                         $payment = $registration->payment;
                         $amount = $registration->package ? $registration->package->payableAmount() : 0;
-                        $proofSubmitted = $payment && $payment->isPending() && $payment->transfer_proof_path;
+                        $proofSubmitted = $payment && $payment->transfer_proof_path
+                            && ($payment->isSubmitted() || $payment->isPending());
                         $showProofCountdown = $payment && $payment->isPending() && $payment->expires_at && !$proofSubmitted;
                         $isQris = $payment && $payment->method === \App\Models\Payment::METHOD_QRIS;
                         $staticQrisImageUrl = \App\Models\Payment::getStaticQrisImageUrl();

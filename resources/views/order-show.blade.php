@@ -8,6 +8,22 @@
 
     <main class="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div class="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+            @if (session('status'))
+                <div class="border-b border-emerald-100/80 bg-emerald-50/90 px-6 py-4 dark:border-emerald-900/40 dark:bg-emerald-950/35 sm:px-8">
+                    <div class="flex gap-3 text-sm text-emerald-900 dark:text-emerald-100">
+                        <flux:icon name="check-circle" class="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span>{{ session('status') }}</span>
+                    </div>
+                </div>
+            @endif
+            @if (session('error'))
+                <div class="border-b border-red-100/80 bg-red-50/90 px-6 py-4 dark:border-red-900/40 dark:bg-red-950/35 sm:px-8">
+                    <div class="flex gap-3 text-sm text-red-900 dark:text-red-100">
+                        <flux:icon name="exclamation-circle" class="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" />
+                        <span>{{ session('error') }}</span>
+                    </div>
+                </div>
+            @endif
             @php
                 $reg = $order->registration;
                 $event = $reg->event;
