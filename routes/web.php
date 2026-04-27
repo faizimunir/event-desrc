@@ -29,7 +29,6 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
 use App\Models\Event;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -126,15 +125,8 @@ Route::get('payment', [PaymentController::class, 'create'])->name('payment.creat
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
 
-// QRIS (Moota): konfirmasi dari UI + webhook tunggal di /api/webhooks/moota
+// QRIS (Moota): konfirmasi dari UI (webhook: routes/api.php → /api/webhooks/moota)
 Route::post('payment/qris/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.qris.confirm');
-Route::get('api/webhooks/moota', fn () => response()->json([
-    'message' => 'ok',
-    'method' => 'POST',
-]));
-Route::post('api/webhooks/moota', [MootaPaymentController::class, 'webhook'])
-    ->withoutMiddleware([VerifyCsrfToken::class])
-    ->name('api.webhooks.moota');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');
