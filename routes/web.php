@@ -11,7 +11,6 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
-use App\Http\Controllers\MootaPaymentController;
 use App\Http\Controllers\MyRiderController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
@@ -124,9 +123,6 @@ Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
-
-// QRIS (Moota): konfirmasi dari UI (webhook: routes/api.php → /api/webhooks/moota)
-Route::post('payment/qris/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.qris.confirm');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');

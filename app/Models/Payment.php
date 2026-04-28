@@ -149,11 +149,6 @@ class Payment extends Model
         return $this->isFailed();
     }
 
-    public function isQris(): bool
-    {
-        return $this->method === self::METHOD_QRIS;
-    }
-
     /** Batas bawah / atas sufiks unik (rupiah) untuk transfer manual — tampilan 01–99. */
     public const MANUAL_UNIQUE_SUFFIX_MIN = 1;
 
@@ -264,16 +259,6 @@ class Payment extends Model
         }
 
         return 'Rp '.number_format((float) $this->manual_transfer_amount, 0, ',', '.');
-    }
-
-    /** Rekening Moota dari config (instruksi transfer). */
-    public static function getMootaBankInfo(): array
-    {
-        return [
-            'bank_name' => config('services.moota.bank_name'),
-            'account_number' => config('services.moota.account_number'),
-            'account_holder' => config('services.moota.account_holder'),
-        ];
     }
 
     /** URL gambar QRIS statis (services.moota.qris_image_url), seperti deltae MOOTA_QRIS_IMAGE_URL. */

@@ -59,6 +59,8 @@ return [
         'bank_name' => env('MOOTA_BANK_NAME', env('PAYMENT_MANUAL_BANK_NAME', 'Bank')),
         'account_number' => env('MOOTA_ACCOUNT_NUMBER', env('PAYMENT_MANUAL_ACCOUNT_NUMBER', '')),
         'account_holder' => env('MOOTA_ACCOUNT_HOLDER', env('PAYMENT_MANUAL_ACCOUNT_HOLDER', '')),
+        'queue_connection' => env('MOOTA_QUEUE_CONNECTION', 'redis'),
+        'queue' => env('MOOTA_QUEUE', 'moota'),
     ],
 
 ];

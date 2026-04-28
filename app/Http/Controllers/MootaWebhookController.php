@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\ProcessMootaMutationJob;
 use App\Services\MootaWebhookService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -64,16 +65,7 @@ class MootaWebhookController extends Controller
         }
 
         foreach ($mutations as $mutation) {
-            try {
-                $service->processMutation($mutation);
-            } catch (\Throwable $e) {
-                Log::error('moota.webhook.process_error', [
-                    'message' => $e->getMessage(),
-                    'mutation_id' => $mutation['mutation_id'] ?? null,
-                ]);
-
-                return response('Internal error', 500);
-            }
+            ProcessMootaMutationJob::dispatch($mutation);
         }
 
         return response('OK', 200);
