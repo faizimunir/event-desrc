@@ -70,7 +70,6 @@ class PaymentController extends Controller
                     }
 
                     if ($registration && $order && ! $order->isDraft()) {
-                        $freshPayment = $request->boolean('fresh_payment');
                         $baseAmount = $reg->package ? (float) $reg->package->price : 0.0;
                         $adminFeeAmount = ($reg->package && ! $reg->package->adminFeeIsIncludedInPrice())
                             ? (float) $reg->package->admin_fee
@@ -81,22 +80,27 @@ class PaymentController extends Controller
                         $wantManual = $preferredPaymentMethod === 'manual';
                         $wantQris = $preferredPaymentMethod === 'qris';
                         $active = $order->activePendingPayment();
-                        $methodClash = $active && (
+                        $paymentMethodLocked = $active && (
+                            $active->isSubmitted()
+                            || ($active->isPending() && ! empty($active->transfer_proof_path))
+                        );
+                        $methodClash = ! $paymentMethodLocked && $active && (
                             ($wantManual && $active->method !== 'manual')
                             || ($wantQris && $active->method !== Payment::METHOD_QRIS)
                         );
 
-                        $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
+                        $keepExistingManual = ! $methodClash && $active && $active->method === 'manual'
                             && $active->isPending() && $active->transfer_amount !== null;
 
                         // Saat metode sudah dipilih di halaman sebelumnya, langsung siapkan payment attempt
                         // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
-                        $activeHasFixedAmount = $active && $active->isPending() && (
-                            ($active->method === 'manual' && $active->transfer_amount !== null)
-                            || ($active->method === Payment::METHOD_QRIS && $active->transfer_amount > 0)
-                        );
                         $shouldCreateAttempt = $order->isPendingUnpaid()
-                            && (! $active || $methodClash || ($freshPayment && ! $activeHasFixedAmount));
+                            && ! $paymentMethodLocked
+                            && (! $active || $methodClash);
+
+                        if ($paymentMethodLocked && $active && is_string($active->method) && $active->method !== '') {
+                            $preferredPaymentMethod = $active->method;
+                        }
 
                         if ($shouldCreateAttempt) {
                             if ($wantQris && $eventAllowsQris) {
@@ -120,7 +124,6 @@ class PaymentController extends Controller
                                     'method' => 'manual',
                                     'status' => Payment::STATUS_PENDING,
                                     'expires_at' => $expires,
-                                    'manual_transfer_amount' => $components['transfer_amount'],
                                 ]);
                             } elseif (! $wantQris && ! $wantManual && ! $keepExistingManual) {
                                 // Tanpa `payment_method` di URL: default ke Moota jika QRIS diizinkan, supaya tidak
@@ -146,7 +149,6 @@ class PaymentController extends Controller
                                         'method' => 'manual',
                                         'status' => Payment::STATUS_PENDING,
                                         'expires_at' => $expires,
-                                        'manual_transfer_amount' => $components['transfer_amount'],
                                     ]);
                                 }
                             }
@@ -164,7 +166,6 @@ class PaymentController extends Controller
                                 'admin_fee_amount' => $components['admin_fee_amount'],
                                 'unique_code' => $components['unique_code'],
                                 'transfer_amount' => $components['transfer_amount'],
-                                'manual_transfer_amount' => $components['transfer_amount'],
                             ]);
                         } elseif ($ensureManual && $ensureManual->method === Payment::METHOD_QRIS && $ensureManual->isPending()
                             && (float) ($ensureManual->transfer_amount ?? 0) <= 0) {
@@ -254,6 +255,44 @@ class PaymentController extends Controller
         ], static fn ($v) => $v !== null && $v !== '');
 
         return redirect()->route('payment.create', $params)->withInput();
+    }
+
+    /**
+     * Public: polling status pembayaran untuk auto-refresh halaman payment.
+     */
+    public function status(Request $request)
+    {
+        $validated = $request->validate([
+            'order_code' => ['required', 'string', 'exists:orders,order_code'],
+            'whatsapp' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $order = Order::with(['registration.rider.user', 'payments'])
+            ->where('order_code', $validated['order_code'])
+            ->firstOrFail();
+
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
+
+        $registration = $order->registration;
+        $normalized = ! empty($validated['whatsapp'])
+            ? WhacenterService::normalizeWhatsApp($validated['whatsapp'])
+            : null;
+        $matchesWhatsapp = $normalized && $registration?->rider?->user?->whatsapp === $normalized;
+        $ownedByVisitor = $order->isOwnedByCurrentVisitor();
+
+        if (! $matchesWhatsapp && ! $ownedByVisitor) {
+            abort(403);
+        }
+
+        $latestPayment = $order->payments()->latest('id')->first();
+
+        return response()->json([
+            'order_status' => $order->status,
+            'is_paid' => (bool) $order->isPaid(),
+            'payment_status' => $latestPayment?->status,
+            'is_success' => (bool) ($order->isPaid() || $latestPayment?->isSuccess()),
+        ]);
     }
 
     /**
@@ -352,14 +391,12 @@ class PaymentController extends Controller
                 'method' => 'manual',
                 'status' => Payment::STATUS_PENDING,
                 'expires_at' => $order->expired_at,
-                'manual_transfer_amount' => $components['transfer_amount'],
             ]);
         } elseif ($payment->transfer_amount === null && $payment->method === 'manual') {
             $payment->amount = $components['amount'];
             $payment->admin_fee_amount = $components['admin_fee_amount'];
             $payment->unique_code = $components['unique_code'];
             $payment->transfer_amount = $components['transfer_amount'];
-            $payment->manual_transfer_amount = $components['transfer_amount'];
         }
 
         if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()

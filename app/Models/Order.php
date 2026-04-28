@@ -665,7 +665,6 @@ class Order extends Model
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $newExpiry,
-                        'manual_transfer_amount' => $components['transfer_amount'],
                     ]);
 
                     return true;
@@ -695,7 +694,6 @@ class Order extends Model
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $newExpiry,
-                    'manual_transfer_amount' => $components['transfer_amount'],
                 ]);
             }
 

@@ -64,9 +64,9 @@
                                 </td>
                                 <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ $payment->formatted_transfer_amount ?? $payment->formatted_amount }}
-                                    @if ($payment->method === 'manual' && $payment->manual_transfer_amount && $payment->isPending())
+                                    @if ($payment->method === 'manual' && $payment->transfer_amount && $payment->isPending())
                                         <span class="mt-1 block text-xs font-normal text-amber-700 dark:text-amber-300">
-                                            {{ __('Transfer') }}: {{ $payment->formatted_manual_transfer_amount }}
+                                            {{ __('Transfer') }}: {{ $payment->formatted_transfer_amount }}
                                             @if ($payment->manualUniqueSuffixFormatted())
                                                 · {{ __('Code') }} {{ $payment->manualUniqueSuffixFormatted() }}
                                             @endif

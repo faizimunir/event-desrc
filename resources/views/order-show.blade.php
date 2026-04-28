@@ -30,7 +30,12 @@
                 $event->loadMissing('accounts');
                 $rider = $reg->rider;
                 $payment = $reg->payment;
-                $amount = $reg->package ? $reg->package->payableAmount() : 0;
+                $paymentMethodLocked = $payment && $payment->isSubmitted();
+                $baseAmount = $reg->package ? (float) $reg->package->price : 0.0;
+                $adminFeeAmount = ($reg->package && ! $reg->package->adminFeeIsIncludedInPrice())
+                    ? (float) $reg->package->admin_fee
+                    : 0.0;
+                $amount = $baseAmount + $adminFeeAmount;
                 $whatsapp = $rider->user?->whatsapp ?? '';
                 $allowManualPay = $event->allowsManualPayment();
                 $allowQrisPay = $event->allowsQrisPayment();
@@ -38,9 +43,6 @@
                     'order_code' => $order->order_code,
                     'whatsapp' => $whatsapp !== '' ? $whatsapp : null,
                 ]);
-                if (! empty($freshPayment ?? false)) {
-                    $paymentCreateBase['fresh_payment'] = '1';
-                }
                 $showPaymentProofCountdown = ! $order->isPaid() && ! $order->proof_uploaded && $order->isConfirmed() && $payment && $payment->isPending() && empty($payment->transfer_proof_path) && $payment->expires_at;
                 $headerOrderCheckoutCountdown = ! $order->isPaid() && ! $order->isConfirmed() && $order->expired_at;
                 $registrationTeams = filled($reg->team_ids)
@@ -56,8 +58,22 @@
                     ['label' => __('Payment Method Selected'), 'checked' => $payment && filled($payment->method)],
                     ['label' => __('Order Confirmed'), 'checked' => $order->isConfirmed()],
                     ['label' => __('Transfer Proof Uploaded'), 'checked' => $transferProofCompleted],
-                    ['label' => __('Registration Approved'), 'checked' => $reg->isApproved()],
-                    ['label' => __('Payment Verified'), 'checked' => $order->isPaid()],
+                    [
+                        'label' => __('Registration & Payment Verification'),
+                        'checked' => $reg->isApproved() && $order->isPaid(),
+                        'sub' => [
+                            [
+                                'checked' => $reg->isApproved(),
+                                'done_label' => __('Registration Status : Approved'),
+                                'waiting_label' => __('Registration Status : Waiting Approval'),
+                            ],
+                            [
+                                'checked' => $order->isPaid(),
+                                'done_label' => __('Payment Status : Verified'),
+                                'waiting_label' => __('Payment Status : Waiting Verification'),
+                            ],
+                        ],
+                    ],
                     ['label' => __('Ticket Issued'), 'checked' => $reg->ticket !== null],
                 ];
             @endphp
@@ -210,9 +226,26 @@
                                 <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">{{ $reg->package?->name ?? '—' }}</dd>
                             </div>
                             <div class="border-t border-zinc-200/80 p-3 dark:border-zinc-700/80 sm:grid sm:grid-cols-3 sm:gap-4">
-                                <dt class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Amount') }}</dt>
-                                <dd class="mt-1 text-xl font-semibold tabular-nums tracking-tight text-zinc-900 dark:text-zinc-50 sm:col-span-2 sm:mt-0">
-                                    {{ 'Rp ' . number_format((float) $amount, 0, ',', '.') }}
+                                <dt class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Total amount') }}</dt>
+                                <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                                    <div class="overflow-hidden rounded-xl ring-1 ring-zinc-200/80 dark:ring-zinc-700/80">
+                                        <table class="w-full text-sm">
+                                            <tbody class="divide-y divide-zinc-200/80 dark:divide-zinc-700/80">
+                                                <tr class="bg-white dark:bg-zinc-900/40">
+                                                    <th scope="row" class="px-3 py-2 text-left font-medium text-zinc-500 dark:text-zinc-400">{{ __('Price') }}</th>
+                                                    <td class="px-3 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{{ 'Rp ' . number_format((float) $baseAmount, 0, ',', '.') }}</td>
+                                                </tr>
+                                                <tr class="bg-white dark:bg-zinc-900/40">
+                                                    <th scope="row" class="px-3 py-2 text-left font-medium text-zinc-500 dark:text-zinc-400">{{ __('Admin fee') }}</th>
+                                                    <td class="px-3 py-2 text-right tabular-nums text-zinc-700 dark:text-zinc-300">{{ 'Rp ' . number_format((float) $adminFeeAmount, 0, ',', '.') }}</td>
+                                                </tr>
+                                                <tr class="bg-zinc-50 dark:bg-zinc-800/70 text-lg">
+                                                    <th scope="row" class="px-3 py-2 text-left font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Total') }}</th>
+                                                    <td class="px-3 py-2 text-right font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ 'Rp ' . number_format((float) $amount, 0, ',', '.') }}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </dd>
                             </div>
                             @if ($reg->ticket)
@@ -237,6 +270,20 @@
                                         <p class="text-sm font-medium leading-snug {{ $item['checked'] ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-500 dark:text-zinc-400' }}">
                                             {{ $loop->iteration }}. {{ $item['label'] }}
                                         </p>
+                                        @if (! empty($item['sub'] ?? null))
+                                            <ul class="mt-1 space-y-1 text-xs">
+                                                @foreach ($item['sub'] as $subItem)
+                                                    <li class="flex items-center gap-1.5 {{ $subItem['checked'] ? 'text-emerald-800 dark:text-emerald-300' : 'text-zinc-500 dark:text-zinc-400' }}">
+                                                        @if ($subItem['checked'])
+                                                            <flux:icon name="check-circle" class="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                                                        @else
+                                                            <span class="inline-block size-3 rounded-full border border-zinc-400 dark:border-zinc-500"></span>
+                                                        @endif
+                                                        <span>{{ $subItem['checked'] ? $subItem['done_label'] : $subItem['waiting_label'] }}</span>
+                                                    </li>
+                                                @endforeach
+                                            </ul>
+                                        @endif
                                     </div>
                                 </li>
                             @endforeach
@@ -260,7 +307,7 @@
                         @endif
                     @else
                         <div class="flex flex-col gap-6">
-                            @if (!$order->isExpired())
+                            @if (!$order->isExpired() && ! $paymentMethodLocked)
                                 @if ($allowManualPay || $allowQrisPay)
                                     @php
                                         $payUrlQris = route('payment.create', array_merge($paymentCreateBase, ['payment_method' => 'qris']));
@@ -313,6 +360,17 @@
                                         <span>{{ __('No payment method is set up for this event. Please contact the organizer.') }}</span>
                                     </div>
                                 @endif
+                            @endif
+                            @if ($paymentMethodLocked)
+                                <div class="flex gap-3 rounded-2xl bg-sky-50 px-4 py-4 text-sm text-sky-950 ring-1 ring-sky-200/70 dark:bg-sky-950/35 dark:text-sky-100 dark:ring-sky-800/50">
+                                    <flux:icon name="document-text" class="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                                    <div>
+                                        <p class="font-medium">{{ __('Status') }}: {{ __('Payment Submitted') }}</p>
+                                        <p class="mt-1 text-sky-900/85 dark:text-sky-200/80">
+                                            {{ __('Payment is being reviewed by admin. Please wait 1 x 24 hours.') }}
+                                        </p>
+                                    </div>
+                                </div>
                             @endif
                             <div>
                                 <flux:button href="{{ route('orders.index') }}" variant="ghost" size="sm">

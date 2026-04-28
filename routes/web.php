@@ -121,6 +121,7 @@ Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets
 
 // Payment (public): form upload bukti transfer manual
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
+Route::get('payment/status', [PaymentController::class, 'status'])->name('payment.status');
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
 

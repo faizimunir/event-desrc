@@ -108,7 +108,7 @@ class MootaWebhookService
 
         $ticketRegistrationId = null;
 
-        DB::transaction(function () use ($payment, $mutationId, $paidAt, &$ticketRegistrationId) {
+        DB::transaction(function () use ($payment, $mutation, $mutationId, $paidAt, &$ticketRegistrationId) {
             $order = Order::query()->whereKey($payment->order_id)->lockForUpdate()->first();
             if (! $order) {
                 return;
@@ -131,6 +131,7 @@ class MootaWebhookService
                 'status' => Payment::STATUS_SUCCESS,
                 'paid_at' => $paidAt,
                 'moota_mutation_id' => $mutationId,
+                'moota_raw' => $mutation,
             ]);
 
             $order->refresh();

@@ -56,7 +56,6 @@ class Payment extends Model
         'transfer_amount',
         'method',
         'manual_account_id',
-        'manual_transfer_amount',
         'transfer_proof_path',
         'status',
         'expires_at',
@@ -75,7 +74,6 @@ class Payment extends Model
             'admin_fee_amount' => 'decimal:2',
             'unique_code' => 'integer',
             'transfer_amount' => 'decimal:2',
-            'manual_transfer_amount' => 'decimal:2',
             'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'paid_at' => 'datetime',
@@ -225,20 +223,27 @@ class Payment extends Model
         abort(503, __('Could not allocate a unique payment amount; try again.'));
     }
 
-    /** Apakah nominal sudah dipakai percobaan bayar pending (QRIS: kolom `amount`, manual: `manual_transfer_amount`). */
-    public static function pendingTransferAmountExists(float $amount): bool
+    /** Apakah nominal sudah dipakai percobaan bayar pending. */
+    public static function pendingTransferAmountExists(float $amount, ?int $excludeOrderId = null): bool
     {
-        return static::query()
+        $query = static::query()
             ->whereIn('status', [self::STATUS_PENDING, self::STATUS_SUBMITTED])
             ->where(function ($q) use ($amount) {
                 $q->where('transfer_amount', $amount)
-                    ->orWhere('manual_transfer_amount', $amount)
                     ->orWhere(function ($q2) use ($amount) {
                         $q2->where('method', self::METHOD_QRIS)
                             ->where('amount', $amount);
                     });
-            })
-            ->exists();
+            });
+
+        if ($excludeOrderId) {
+            $query->where(function ($q) use ($excludeOrderId) {
+                $q->whereNull('order_id')
+                    ->orWhere('order_id', '!=', $excludeOrderId);
+            });
+        }
+
+        return $query->exists();
     }
 
     /** Sufiks 2 digit (01–99) untuk tampilan; null jika tidak relevan atau data lama di luar rentang. */
@@ -250,7 +255,7 @@ class Payment extends Model
 
         $code = $this->unique_code;
         if ($code === null) {
-            $total = $this->transfer_amount ?? $this->manual_transfer_amount;
+            $total = $this->transfer_amount;
             if ($total === null) {
                 return null;
             }
@@ -265,16 +270,6 @@ class Payment extends Model
         return str_pad((string) $code, 2, '0', STR_PAD_LEFT);
     }
 
-    public function getFormattedManualTransferAmountAttribute(): ?string
-    {
-        $total = $this->transfer_amount ?? $this->manual_transfer_amount;
-        if ($total === null) {
-            return null;
-        }
-
-        return 'Rp '.number_format((float) $total, 0, ',', '.');
-    }
-
     public static function computeTransferAmount(float $amount, float $adminFeeAmount, int $uniqueCode): float
     {
         return round((float) $amount + (float) $adminFeeAmount + (int) $uniqueCode, 2);
@@ -282,6 +277,7 @@ class Payment extends Model
 
     public static function stableUniqueCodeForOrder(Order $order, float $amount, float $adminFeeAmount): int
     {
+        $orderId = $order->getKey();
         $code = (string) ($order->order_code ?? $order->getKey());
         $start = (int) (abs(crc32($code)) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
         $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
@@ -289,7 +285,7 @@ class Payment extends Model
         for ($i = 0; $i < $span; $i++) {
             $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
             $candidate = static::computeTransferAmount($amount, $adminFeeAmount, $suffix);
-            if (! static::pendingTransferAmountExists($candidate)) {
+            if (! static::pendingTransferAmountExists($candidate, $orderId)) {
                 return $suffix;
             }
         }
@@ -346,7 +342,7 @@ class Payment extends Model
 
     public function getFormattedTransferAmountAttribute(): ?string
     {
-        $total = $this->transfer_amount ?? $this->manual_transfer_amount;
+        $total = $this->transfer_amount;
         if ($total === null) {
             return null;
         }

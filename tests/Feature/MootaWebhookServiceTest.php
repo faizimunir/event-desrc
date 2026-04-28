@@ -70,6 +70,7 @@ test('moota processMutation confirms pending qris payment and marks order paid',
         'order_id' => $order->id,
         'registration_id' => $registration->id,
         'amount' => $amount,
+        'transfer_amount' => $amount,
         'method' => Payment::METHOD_QRIS,
         'status' => Payment::STATUS_PENDING,
     ]);
@@ -88,6 +89,8 @@ test('moota processMutation confirms pending qris payment and marks order paid',
 
     expect($payment->status)->toBe(Payment::STATUS_SUCCESS)
         ->and($payment->moota_mutation_id)->toBe($mutationId)
+        ->and($payment->moota_raw)->toBeArray()
+        ->and($payment->moota_raw['mutation_id'] ?? null)->toBe($mutationId)
         ->and($order->status)->toBe(Order::STATUS_PAID)
         ->and($order->isPaid())->toBeTrue();
 });
@@ -142,6 +145,7 @@ test('moota processMutation ignores duplicate mutation_id', function () {
         'order_id' => $order->id,
         'registration_id' => $registration->id,
         'amount' => $amount,
+        'transfer_amount' => $amount,
         'method' => Payment::METHOD_QRIS,
         'status' => Payment::STATUS_PENDING,
     ]);

@@ -513,9 +513,9 @@
                             <flux:badge :color="$payBadgeColor" size="sm">{{ $payment->status_label }}</flux:badge>
                             <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $payment->formatted_transfer_amount ?? $payment->formatted_amount }}</span>
                         </div>
-                        @if ($payment->method === 'manual' && $payment->manual_transfer_amount && ($payment->isPending() || $payment->isSubmitted()))
+                        @if ($payment->method === 'manual' && $payment->transfer_amount && ($payment->isPending() || $payment->isSubmitted()))
                             <p class="mt-2 text-xs text-amber-800 dark:text-amber-200">
-                                {{ __('Expected transfer amount') }}: <span class="font-mono font-semibold">{{ $payment->formatted_manual_transfer_amount }}</span>
+                                {{ __('Expected transfer amount') }}: <span class="font-mono font-semibold">{{ $payment->formatted_transfer_amount }}</span>
                                 @if ($payment->manualUniqueSuffixFormatted())
                                     ({{ __('unique code') }} {{ $payment->manualUniqueSuffixFormatted() }})
                                 @endif

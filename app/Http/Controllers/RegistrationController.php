@@ -403,7 +403,7 @@ class RegistrationController extends Controller
                     Team::whereIn('id', $reg->team_ids ?? [])->pluck('name')->join(', '),
                     $reg->status_label ?? $reg->status ?? '',
                     $reg->payment ? $reg->payment->status_label : __('No payment'),
-                    $reg->payment ? 'Rp '.number_format((float) ($reg->payment->transfer_amount ?? $reg->payment->manual_transfer_amount ?? $reg->payment->amount), 0, ',', '.') : '',
+                    $reg->payment ? 'Rp '.number_format((float) ($reg->payment->transfer_amount ?? $reg->payment->amount), 0, ',', '.') : '',
                     $reg->created_at->format('Y-m-d H:i'),
                 ]);
             }
@@ -740,7 +740,6 @@ class RegistrationController extends Controller
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
-                        'manual_transfer_amount' => $components['transfer_amount'],
                     ]);
                 } else {
                     $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
@@ -836,7 +835,6 @@ class RegistrationController extends Controller
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $expiry,
-                    'manual_transfer_amount' => $components['transfer_amount'],
                 ]);
 
                 return null;
