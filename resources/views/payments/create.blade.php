@@ -218,9 +218,8 @@
                                                 }
                                             @endphp
                                             @if ($staticQrisImageUrl)
-                                                <div class="mt-4 rounded-xl border border-red-200/90 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100" role="status">
-                                                    <p class="font-semibold">{{ __('Important: do not use the app default amount shown after scanning.') }}</p>
-                                                    <p class="mt-1">{{ __('Some banking apps pre-fill a fixed amount (often Rp 10.000). You must edit it and pay exactly as shown below, or automatic verification will fail.') }}</p>
+                                                <div class="mt-4 rounded-xl border border-amber-200/90 bg-amber-50/90 px-3 py-2.5 text-sm leading-relaxed text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100" role="status">
+                                                    {{ __('A static QR may pre-fill a different amount in your banking app. Enter the “Exact amount” below manually if they do not match—otherwise Moota will see the wrong nominal.') }}
                                                 </div>
                                                 <div class="mt-6 rounded-2xl bg-zinc-50 dark:bg-zinc-800/50">
                                                         <img
@@ -239,18 +238,6 @@
                                                     <p class="mt-2 font-mono text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
                                                         {{ 'Rp ' . number_format((float) $payment->amount, 0, ',', '.') }}
                                                     </p>
-                                                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                                                        <span class="rounded-lg bg-violet-100 px-2 py-1 font-mono text-xs font-semibold text-violet-900 dark:bg-violet-900/50 dark:text-violet-100">
-                                                            {{ __('Raw amount') }}: <span id="qris-raw-amount">{{ (int) round((float) $payment->amount) }}</span>
-                                                        </span>
-                                                        <button
-                                                            type="button"
-                                                            class="rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-400"
-                                                            onclick="navigator.clipboard?.writeText(document.getElementById('qris-raw-amount')?.textContent || '')"
-                                                        >
-                                                            {{ __('Copy exact amount') }}
-                                                        </button>
-                                                    </div>
                                                     @if ($qrisUniqueCode)
                                                         <p class="mt-2 text-xs font-medium text-violet-700 dark:text-violet-300">
                                                             {{ __('Unique code') }}: {{ $qrisUniqueCode }}

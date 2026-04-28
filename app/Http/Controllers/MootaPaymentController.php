@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\MootaWebhookService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
 
 class MootaPaymentController extends Controller
 {
@@ -106,5 +109,65 @@ class MootaPaymentController extends Controller
             'whatsapp' => $validated['whatsapp'],
             'payment_method' => 'qris',
         ])->with('status', __('Complete your payment using the QR code and exact amount below.'));
+    }
+
+    /** Webhook: sama alur `MootaWebhookController` di Herd/deltae. */
+    public function webhook(Request $request, MootaWebhookService $service): Response
+    {
+        Log::info('MOOTA HEADERS', [
+            'headers' => $request->headers->all(),
+            'raw_body' => $request->getContent(),
+        ]);
+
+        $secret = trim((string) config('services.moota.webhook_secret', ''));
+        if ($secret === '') {
+            Log::warning('moota.webhook.missing_secret', [
+                'hint' => 'Set MOOTA_WEBHOOK_SECRET in .env (same as secret_token when creating the webhook in Moota), then run php artisan config:clear or php artisan config:cache.',
+            ]);
+
+            return response()->json([
+                'error' => 'moota_webhook_secret_missing',
+                'message' => 'MOOTA_WEBHOOK_SECRET is not set or empty. Add it to .env and refresh config cache.',
+            ], 503);
+        }
+
+        $payload = $request->getContent();
+        $signature = $request->header('Signature')
+            ?? $request->header('signature')
+            ?? $request->header('X-Signature')
+            ?? $request->header('x-signature');
+        $signature = is_string($signature) ? trim($signature) : null;
+        if (is_string($signature) && str_starts_with(strtolower($signature), 'sha256=')) {
+            $signature = substr($signature, 7);
+        }
+
+        if (! $service->verifySignature($signature, $payload, $secret)) {
+            Log::warning('moota.webhook.invalid_signature', [
+                'signature_present' => is_string($signature) && $signature !== '',
+                'received_signature_prefix' => is_string($signature) ? substr($signature, 0, 16) : null,
+                'expected_signature_prefix' => substr(hash_hmac('sha256', $payload, $secret), 0, 16),
+                'payload_sha256' => hash('sha256', $payload),
+            ]);
+
+            return response('Unauthorized', 401);
+        }
+
+        $decoded = json_decode($payload, true);
+        $mutations = $service->normalizePayload($decoded);
+
+        foreach ($mutations as $mutation) {
+            try {
+                $service->processMutation($mutation);
+            } catch (\Throwable $e) {
+                Log::error('moota.webhook.process_error', [
+                    'message' => $e->getMessage(),
+                    'mutation_id' => $mutation['mutation_id'] ?? null,
+                ]);
+
+                return response('Internal error', 500);
+            }
+        }
+
+        return response('OK', 200);
     }
 }
