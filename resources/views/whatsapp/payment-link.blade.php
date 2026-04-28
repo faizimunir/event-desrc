@@ -13,15 +13,10 @@ Link pembayaran untuk event *{{ $eventTitle }}* sudah siap 🙌
 @endif
 @if($registration->package)
 📦 Paket: {{ $registration->package->name }}
-@if(!empty($qrisExactTotalIdr))
-💰 *Total transfer (QRIS, wajib persis):* {{ $qrisExactTotalIdr }}
-Bukan cuma harga katalog. Kalau m-banking/ewallet isi angka beda (mis. dari scan QR), ubah dulu jadi jumlah di atas.
-@else
 💰 Total: {{ $registration->package->formatted_payable_amount }}
 @endif
-@endif
 
-Bisa lanjut lewat link ini ya, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
+Bisa lanjut lewat link ini, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
 
 {{ $paymentLinkUrl }}
 

@@ -133,6 +133,7 @@
                 @else
                     @php
                         $payment = $registration->payment;
+                        $transferAmount = (float) ($payment?->transfer_amount ?? $payment?->manual_transfer_amount ?? $payment?->amount ?? 0);
                         $amount = $registration->package ? $registration->package->payableAmount() : 0;
                         $proofSubmitted = $payment && $payment->transfer_proof_path
                             && ($payment->isSubmitted() || $payment->isPending());
@@ -207,15 +208,9 @@
                                             </div>
                                         </div>
 
-                                        @if ($isQris && $payment->amount)
+                                        @if ($isQris && $transferAmount > 0)
                                             @php
-                                                $qrisUniqueCode = null;
-                                                $qrisBase = (int) round((float) ($amount ?? 0));
-                                                $qrisTotal = (int) round((float) $payment->amount);
-                                                $qrisDelta = $qrisTotal - $qrisBase;
-                                                if ($qrisDelta >= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MIN && $qrisDelta <= \App\Models\Payment::MANUAL_UNIQUE_SUFFIX_MAX) {
-                                                    $qrisUniqueCode = str_pad((string) $qrisDelta, 2, '0', STR_PAD_LEFT);
-                                                }
+                                                $qrisUniqueCode = $payment->manualUniqueSuffixFormatted();
                                             @endphp
                                             @if ($staticQrisImageUrl)
                                                 <div class="mt-4 rounded-xl border border-red-200/90 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100" role="status">
@@ -237,11 +232,11 @@
                                                         {{ __('Exact amount (IDR)') }}
                                                     </p>
                                                     <p class="mt-2 font-mono text-2xl font-bold tabular-nums text-violet-700 dark:text-violet-300">
-                                                        {{ 'Rp ' . number_format((float) $payment->amount, 0, ',', '.') }}
+                                                        {{ 'Rp ' . number_format($transferAmount, 0, ',', '.') }}
                                                     </p>
                                                     <div class="mt-3 flex flex-wrap items-center gap-2">
                                                         <span class="rounded-lg bg-violet-100 px-2 py-1 font-mono text-xs font-semibold text-violet-900 dark:bg-violet-900/50 dark:text-violet-100">
-                                                            {{ __('Raw amount') }}: <span id="qris-raw-amount">{{ (int) round((float) $payment->amount) }}</span>
+                                                            {{ __('Raw amount') }}: <span id="qris-raw-amount">{{ (int) round($transferAmount) }}</span>
                                                         </span>
                                                         <button
                                                             type="button"

@@ -91,7 +91,7 @@ class MootaWebhookService
         $payment = Payment::query()
             ->where('method', Payment::METHOD_QRIS)
             ->where('status', Payment::STATUS_PENDING)
-            ->where('amount', $amount)
+            ->where('transfer_amount', $amount)
             ->orderBy('id')
             ->first();
 

@@ -403,7 +403,7 @@ class RegistrationController extends Controller
                     Team::whereIn('id', $reg->team_ids ?? [])->pluck('name')->join(', '),
                     $reg->status_label ?? $reg->status ?? '',
                     $reg->payment ? $reg->payment->status_label : __('No payment'),
-                    $reg->payment ? 'Rp '.number_format($reg->payment->amount, 0, ',', '.') : '',
+                    $reg->payment ? 'Rp '.number_format((float) ($reg->payment->transfer_amount ?? $reg->payment->manual_transfer_amount ?? $reg->payment->amount), 0, ',', '.') : '',
                     $reg->created_at->format('Y-m-d H:i'),
                 ]);
             }
@@ -717,7 +717,10 @@ class RegistrationController extends Controller
                     $registration->update(['status' => Registration::STATUS_PENDING]);
                 }
 
-                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+                $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+                    ? (float) $registration->package->admin_fee
+                    : 0.0;
                 $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
                 $expiry = now()->addMinutes($minutes);
 
@@ -728,17 +731,24 @@ class RegistrationController extends Controller
                 ])->save();
 
                 if ($paymentMethod === 'manual') {
+                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                     $order->createNewPaymentAttempt([
-                        'amount' => $amount,
+                        'amount' => $components['amount'],
+                        'admin_fee_amount' => $components['admin_fee_amount'],
+                        'unique_code' => $components['unique_code'],
+                        'transfer_amount' => $components['transfer_amount'],
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
-                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                        'manual_transfer_amount' => $components['transfer_amount'],
                     ]);
                 } else {
-                    $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
+                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                     $order->createNewPaymentAttempt([
-                        'amount' => $qrisTotal,
+                        'amount' => $components['amount'],
+                        'admin_fee_amount' => $components['admin_fee_amount'],
+                        'unique_code' => $components['unique_code'],
+                        'transfer_amount' => $components['transfer_amount'],
                         'method' => Payment::METHOD_QRIS,
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
@@ -804,9 +814,13 @@ class RegistrationController extends Controller
                     $registration->update(['status' => Registration::STATUS_PENDING]);
                 }
 
-                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+                $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+                    ? (float) $registration->package->admin_fee
+                    : 0.0;
                 $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
                 $expiry = now()->addMinutes($minutes);
+                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
 
                 $order->forceFill([
                     'status' => Order::STATUS_UNPAID,
@@ -815,11 +829,14 @@ class RegistrationController extends Controller
                 ])->save();
 
                 $order->createNewPaymentAttempt([
-                    'amount' => $amount,
+                    'amount' => $components['amount'],
+                    'admin_fee_amount' => $components['admin_fee_amount'],
+                    'unique_code' => $components['unique_code'],
+                    'transfer_amount' => $components['transfer_amount'],
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $expiry,
-                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                    'manual_transfer_amount' => $components['transfer_amount'],
                 ]);
 
                 return null;

@@ -511,7 +511,7 @@
                     @if ($payment)
                         <div class="flex flex-wrap items-center gap-2">
                             <flux:badge :color="$payBadgeColor" size="sm">{{ $payment->status_label }}</flux:badge>
-                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $payment->formatted_amount }}</span>
+                            <span class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $payment->formatted_transfer_amount ?? $payment->formatted_amount }}</span>
                         </div>
                         @if ($payment->method === 'manual' && $payment->manual_transfer_amount && ($payment->isPending() || $payment->isSubmitted()))
                             <p class="mt-2 text-xs text-amber-800 dark:text-amber-200">

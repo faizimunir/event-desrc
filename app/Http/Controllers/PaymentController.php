@@ -71,7 +71,10 @@ class PaymentController extends Controller
 
                     if ($registration && $order && ! $order->isDraft()) {
                         $freshPayment = $request->boolean('fresh_payment');
-                        $amount = $reg->package ? $reg->package->payableAmount() : 0;
+                        $baseAmount = $reg->package ? (float) $reg->package->price : 0.0;
+                        $adminFeeAmount = ($reg->package && ! $reg->package->adminFeeIsIncludedInPrice())
+                            ? (float) $reg->package->admin_fee
+                            : 0.0;
                         $expires = $order->expired_at;
                         $eventAllowsQris = $reg->event->allowsQrisPayment();
                         $eventAllowsManual = $reg->event->allowsManualPayment();
@@ -84,52 +87,66 @@ class PaymentController extends Controller
                         );
 
                         $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
-                            && $active->isPending() && $active->manual_transfer_amount !== null;
+                            && $active->isPending() && $active->transfer_amount !== null;
 
                         // Saat metode sudah dipilih di halaman sebelumnya, langsung siapkan payment attempt
                         // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
                         $activeHasFixedAmount = $active && $active->isPending() && (
-                            ($active->method === 'manual' && $active->manual_transfer_amount !== null)
-                            || ($active->method === Payment::METHOD_QRIS && $active->amount > 0)
+                            ($active->method === 'manual' && $active->transfer_amount !== null)
+                            || ($active->method === Payment::METHOD_QRIS && $active->transfer_amount > 0)
                         );
                         $shouldCreateAttempt = $order->isPendingUnpaid()
                             && (! $active || $methodClash || ($freshPayment && ! $activeHasFixedAmount));
 
                         if ($shouldCreateAttempt) {
                             if ($wantQris && $eventAllowsQris) {
-                                $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
+                                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                                 $order->createNewPaymentAttempt([
-                                    'amount' => $qrisTotal,
+                                    'amount' => $components['amount'],
+                                    'admin_fee_amount' => $components['admin_fee_amount'],
+                                    'unique_code' => $components['unique_code'],
+                                    'transfer_amount' => $components['transfer_amount'],
                                     'method' => Payment::METHOD_QRIS,
                                     'status' => Payment::STATUS_PENDING,
                                     'expires_at' => $expires,
                                 ]);
                             } elseif ($wantManual && $eventAllowsManual && ! $keepExistingManual) {
+                                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                                 $order->createNewPaymentAttempt([
-                                    'amount' => $amount,
+                                    'amount' => $components['amount'],
+                                    'admin_fee_amount' => $components['admin_fee_amount'],
+                                    'unique_code' => $components['unique_code'],
+                                    'transfer_amount' => $components['transfer_amount'],
                                     'method' => 'manual',
                                     'status' => Payment::STATUS_PENDING,
                                     'expires_at' => $expires,
-                                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                    'manual_transfer_amount' => $components['transfer_amount'],
                                 ]);
                             } elseif (! $wantQris && ! $wantManual && ! $keepExistingManual) {
                                 // Tanpa `payment_method` di URL: default ke Moota jika QRIS diizinkan, supaya tidak
                                 // (sebelumnya) jatuh ke manual lalu section QRIS "terkunci" (deltae sering bawa ?qris).
                                 if ($eventAllowsQris) {
-                                    $qrisTotal = Payment::allocateUniqueQrisAmount((float) $amount);
+                                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                                     $order->createNewPaymentAttempt([
-                                        'amount' => $qrisTotal,
+                                        'amount' => $components['amount'],
+                                        'admin_fee_amount' => $components['admin_fee_amount'],
+                                        'unique_code' => $components['unique_code'],
+                                        'transfer_amount' => $components['transfer_amount'],
                                         'method' => Payment::METHOD_QRIS,
                                         'status' => Payment::STATUS_PENDING,
                                         'expires_at' => $expires,
                                     ]);
                                 } elseif ($eventAllowsManual) {
+                                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                                     $order->createNewPaymentAttempt([
-                                        'amount' => $amount,
+                                        'amount' => $components['amount'],
+                                        'admin_fee_amount' => $components['admin_fee_amount'],
+                                        'unique_code' => $components['unique_code'],
+                                        'transfer_amount' => $components['transfer_amount'],
                                         'method' => 'manual',
                                         'status' => Payment::STATUS_PENDING,
                                         'expires_at' => $expires,
-                                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                        'manual_transfer_amount' => $components['transfer_amount'],
                                     ]);
                                 }
                             }
@@ -140,14 +157,23 @@ class PaymentController extends Controller
                         $order->refresh();
                         $ensureManual = $order->activePendingPayment();
                         if ($ensureManual && $ensureManual->method === 'manual' && $ensureManual->isPending()
-                            && $ensureManual->manual_transfer_amount === null) {
+                            && $ensureManual->transfer_amount === null) {
+                            $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                             $ensureManual->update([
-                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                'amount' => $components['amount'],
+                                'admin_fee_amount' => $components['admin_fee_amount'],
+                                'unique_code' => $components['unique_code'],
+                                'transfer_amount' => $components['transfer_amount'],
+                                'manual_transfer_amount' => $components['transfer_amount'],
                             ]);
                         } elseif ($ensureManual && $ensureManual->method === Payment::METHOD_QRIS && $ensureManual->isPending()
-                            && (float) $ensureManual->amount <= 0) {
+                            && (float) ($ensureManual->transfer_amount ?? 0) <= 0) {
+                            $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                             $ensureManual->update([
-                                'amount' => Payment::allocateUniqueQrisAmount((float) $amount),
+                                'amount' => $components['amount'],
+                                'admin_fee_amount' => $components['admin_fee_amount'],
+                                'unique_code' => $components['unique_code'],
+                                'transfer_amount' => $components['transfer_amount'],
                             ]);
                         }
 
@@ -304,8 +330,11 @@ class PaymentController extends Controller
             ])->with('error', __('Invalid bank account selection.'));
         }
 
-        $amount = $registration->package ? $registration->package->payableAmount() : 0;
-        $manualTransferAmount = Payment::stableManualTransferAmountForOrder($order, (float) $amount);
+        $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+        $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+            ? (float) $registration->package->admin_fee
+            : 0.0;
+        $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
 
         if ($order->isPaid()) {
             return redirect()->route('payment.create', ['order_code' => $order->order_code])
@@ -316,14 +345,21 @@ class PaymentController extends Controller
         $payment = $order->activePendingPayment();
         if (! $payment) {
             $payment = $order->createNewPaymentAttempt([
-                'amount' => $amount,
+                'amount' => $components['amount'],
+                'admin_fee_amount' => $components['admin_fee_amount'],
+                'unique_code' => $components['unique_code'],
+                'transfer_amount' => $components['transfer_amount'],
                 'method' => 'manual',
                 'status' => Payment::STATUS_PENDING,
                 'expires_at' => $order->expired_at,
-                'manual_transfer_amount' => $manualTransferAmount,
+                'manual_transfer_amount' => $components['transfer_amount'],
             ]);
-        } elseif ($payment->manual_transfer_amount === null && $payment->method === 'manual') {
-            $payment->manual_transfer_amount = $manualTransferAmount;
+        } elseif ($payment->transfer_amount === null && $payment->method === 'manual') {
+            $payment->amount = $components['amount'];
+            $payment->admin_fee_amount = $components['admin_fee_amount'];
+            $payment->unique_code = $components['unique_code'];
+            $payment->transfer_amount = $components['transfer_amount'];
+            $payment->manual_transfer_amount = $components['transfer_amount'];
         }
 
         if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()
@@ -484,12 +520,11 @@ class PaymentController extends Controller
         ], static fn ($v) => $v !== null && $v !== ''));
         $eventTitle = $reg->event->title ?? config('app.name');
         $recipientName = $user->name ?: $reg->rider->name;
-
         $order->loadMissing('payments');
         $pending = $order->activePendingPayment();
         $qrisExactTotalIdr = null;
-        if ($pending && $pending->method === Payment::METHOD_QRIS && (float) $pending->amount > 0) {
-            $qrisExactTotalIdr = 'Rp '.number_format((float) $pending->amount, 0, ',', '.');
+        if ($pending && $pending->method === Payment::METHOD_QRIS && (float) ($pending->transfer_amount ?? 0) > 0) {
+            $qrisExactTotalIdr = 'Rp '.number_format((float) $pending->transfer_amount, 0, ',', '.');
         }
 
         if ($user->whatsapp) {
@@ -499,7 +534,6 @@ class PaymentController extends Controller
                 'registration' => $reg->loadMissing(['rider', 'bracket', 'package', 'event.organizer.user']),
                 'paymentLinkUrl' => $paymentLinkUrl,
                 'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
-                'qrisExactTotalIdr' => $qrisExactTotalIdr,
             ])->render());
             $logId = null;
             if (WhatsappNotificationLog::tableExists()) {
