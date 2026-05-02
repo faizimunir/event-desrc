@@ -29,6 +29,11 @@
                                 {{ __('Events') }}
                             </a>
                         </li>
+                        <li>
+                            <a href="https://app.desrc.id/" target="_blank" rel="noopener noreferrer" class="text-sm text-zinc-600 dark:text-zinc-400 transition hover:text-zinc-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 rounded">
+                                {{ __('Aplikasi') }}
+                            </a>
+                        </li>
                         @auth
                             <li>
                                 <a href="{{ route('dashboard') }}" class="text-sm text-zinc-600 dark:text-zinc-400 transition hover:text-zinc-900 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-zinc-500 focus-visible:ring-offset-2 rounded">
