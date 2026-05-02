@@ -7,6 +7,7 @@
     <flux:navbar class="-mb-px max-lg:hidden">
         <flux:navbar.item icon="calendar" href="{{ route('events.public.index') }}" wire:navigate>Events</flux:navbar.item>
         <flux:navbar.item icon="radio" href="{{ route('live-result.index') }}" wire:navigate class="!bg-red-500 !text-white hover:!bg-red-500 focus:!ring-red-600 dark:!bg-red-600 dark:hover:!bg-red-500">{{ __('Live Result') }}</flux:navbar.item>
+        <flux:navbar.item icon="squares-2x2" href="https://app.desrc.id/" target="_blank" rel="noopener noreferrer">{{ __('Aplikasi') }}</flux:navbar.item>
     </flux:navbar>
 
     <flux:spacer />
@@ -92,5 +93,6 @@
     <flux:sidebar.nav class="space-y-2">
         <flux:sidebar.item icon="calendar" href="{{ route('events.public.index') }}" wire:navigate :current="request()->routeIs('events.public.index')">Events</flux:sidebar.item>
         <flux:sidebar.item icon="radio" href="{{ route('live-result.index') }}" wire:navigate :current="request()->routeIs('live-result.*')" class="bg-red-600 text-white data-[current]:!bg-red-600 data-[current]:!text-white hover:!bg-red-500 focus:!bg-red-600 hover:!text-white">{{ __('Live Result') }}</flux:sidebar.item>
+        <flux:sidebar.item icon="squares-2x2" href="https://app.desrc.id/" target="_blank" rel="noopener noreferrer">{{ __('Aplikasi') }}</flux:sidebar.item>
     </flux:sidebar.nav>
 </flux:sidebar>
