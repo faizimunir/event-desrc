@@ -4,6 +4,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\LiveResultCategoryController;
 use App\Http\Controllers\BracketController;
 use App\Http\Controllers\BracketLevelController;
+use App\Http\Controllers\DragRaceTimerController;
 use App\Http\Controllers\EventCodeAccessController;
 use App\Http\Controllers\EventController;
 use App\Http\Controllers\Events\EventCheckinController;
@@ -48,6 +49,15 @@ Route::get('events-public', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('switch-role', SwitchRoleController::class)->name('switch-role');
     Route::view('dashboard', 'dashboard')->name('dashboard');
+    Route::middleware('drag.race.timer')->group(function () {
+        Route::get('drag-race-timer', [DragRaceTimerController::class, 'index'])->name('drag-race-timer.index');
+        Route::get('drag-race-timer/state', [DragRaceTimerController::class, 'state'])->name('drag-race-timer.state');
+        Route::post('drag-race-timer/start', [DragRaceTimerController::class, 'start'])->name('drag-race-timer.start');
+        Route::post('drag-race-timer/stop-a', [DragRaceTimerController::class, 'stopA'])->name('drag-race-timer.stop-a');
+        Route::post('drag-race-timer/stop-b', [DragRaceTimerController::class, 'stopB'])->name('drag-race-timer.stop-b');
+        Route::post('drag-race-timer/reset', [DragRaceTimerController::class, 'reset'])->name('drag-race-timer.reset');
+        Route::post('drag-race-timer/clear-history', [DragRaceTimerController::class, 'clearHistory'])->name('drag-race-timer.clear-history');
+    });
     Route::get('my-rider', [MyRiderController::class, 'index'])->name('my-rider.index');
     Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
     Route::resource('users', UserController::class)->except(['show']);

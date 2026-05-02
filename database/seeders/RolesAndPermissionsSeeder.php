@@ -35,6 +35,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'manage_live_results',
             'access_print_center',
             'myrider.manage',
+            'access_drag_race_timer',
         ];
 
         $guard = config('auth.defaults.guard');

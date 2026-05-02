@@ -11,9 +11,16 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withBroadcasting(
+        __DIR__.'/../routes/channels.php',
+        ['middleware' => ['web', 'auth']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             \App\Http\Middleware\EnsureActiveRole::class,
+        ]);
+        $middleware->alias([
+            'drag.race.timer' => \App\Http\Middleware\EnsureDragRaceTimerAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

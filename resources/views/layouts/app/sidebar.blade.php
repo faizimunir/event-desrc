@@ -76,6 +76,11 @@
                     {{ __('Print Center') }}
                 </flux:sidebar.item>
                 @endcanAs
+                @canAs('access_drag_race_timer')
+                <flux:sidebar.item icon="clock" :href="route('drag-race-timer.index')" :current="request()->routeIs('drag-race-timer.*')">
+                    {{ __('Drag Race Timer') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('payment.read')
                 <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"
                     wire:navigate>
