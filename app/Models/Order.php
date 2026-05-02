@@ -634,14 +634,17 @@ class Order extends Model
         }
 
         $newExpiry = now()->addMinutes(Payment::PAYMENT_PROOF_DEADLINE_MINUTES);
-        $amount = $registration->package ? $registration->package->payableAmount() : 0;
+        $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+        $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+            ? (float) $registration->package->admin_fee
+            : 0.0;
 
         if ($restoringExpiredOrder) {
             $ok = QuotaReservationService::withLocks(
                 $registration->bracket_id,
                 $registration->package_id,
                 $this->getKey(),
-                function () use ($registration, $newExpiry, $amount) {
+                function () use ($registration, $newExpiry, $baseAmount, $adminFeeAmount) {
                     $bracket = Bracket::query()->findOrFail($registration->bracket_id);
                     $package = Package::query()->findOrFail($registration->package_id);
                     if (! $bracket->hasQuota() || $package->isQuotaFull()) {
@@ -653,12 +656,15 @@ class Order extends Model
                         'expired_at' => $newExpiry,
                     ])->save();
 
+                    $components = Payment::buildTransferComponentsForOrder($this, $baseAmount, $adminFeeAmount);
                     $this->createNewPaymentAttempt([
-                        'amount' => $amount,
+                        'amount' => $components['amount'],
+                        'admin_fee_amount' => $components['admin_fee_amount'],
+                        'unique_code' => $components['unique_code'],
+                        'transfer_amount' => $components['transfer_amount'],
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $newExpiry,
-                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($this, (float) $amount),
                     ]);
 
                     return true;
@@ -668,7 +674,7 @@ class Order extends Model
             return $ok ? null : __('There is no remaining quota for this bracket or package.');
         }
 
-        $extended = DB::transaction(function () use ($newExpiry, $amount) {
+        $extended = DB::transaction(function () use ($newExpiry, $baseAmount, $adminFeeAmount) {
             $order = self::query()->whereKey($this->getKey())->lockForUpdate()->firstOrFail();
             if (! $order->isPendingUnpaid() || ! $order->expired_at || ! $order->expired_at->isPast()) {
                 return false;
@@ -679,12 +685,15 @@ class Order extends Model
             if ($payment && $payment->isPending()) {
                 $payment->forceFill(['expires_at' => $newExpiry])->save();
             } else {
+                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                 $order->createNewPaymentAttempt([
-                    'amount' => $amount,
+                    'amount' => $components['amount'],
+                    'admin_fee_amount' => $components['admin_fee_amount'],
+                    'unique_code' => $components['unique_code'],
+                    'transfer_amount' => $components['transfer_amount'],
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $newExpiry,
-                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                 ]);
             }
 

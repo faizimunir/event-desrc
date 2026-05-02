@@ -28,6 +28,11 @@ class Payment extends Model
     /** Pembayaran sukses lalu registrasi ditolak — arsip refund (proses di luar app). */
     public const STATUS_REFUNDED = 'refunded';
 
+    public const METHOD_MANUAL = 'manual';
+
+    /** QRIS statis (Moota); `amount` = total transfer (paket + sufiks unik), seperti deltae. */
+    public const METHOD_QRIS = 'qris';
+
     public const STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_SUBMITTED,
@@ -46,9 +51,11 @@ class Payment extends Model
         'order_id',
         'registration_id',
         'amount',
+        'admin_fee_amount',
+        'unique_code',
+        'transfer_amount',
         'method',
         'manual_account_id',
-        'manual_transfer_amount',
         'transfer_proof_path',
         'status',
         'expires_at',
@@ -56,30 +63,21 @@ class Payment extends Model
         'reviewed_at',
         'reviewed_by',
         'paid_at',
-        'moota_transfer_amount',
         'moota_mutation_id',
         'moota_raw',
-        'winpay_qr_url',
-        'winpay_qr_content',
-        'winpay_contract_id',
-        'winpay_partner_reference_no',
-        'winpay_expired_at',
-        'winpay_external_id',
-        'winpay_raw',
     ];
 
     protected function casts(): array
     {
         return [
             'amount' => 'decimal:2',
-            'manual_transfer_amount' => 'decimal:2',
-            'moota_transfer_amount' => 'decimal:2',
+            'admin_fee_amount' => 'decimal:2',
+            'unique_code' => 'integer',
+            'transfer_amount' => 'decimal:2',
             'expires_at' => 'datetime',
             'reviewed_at' => 'datetime',
             'paid_at' => 'datetime',
             'moota_raw' => 'array',
-            'winpay_expired_at' => 'datetime',
-            'winpay_raw' => 'array',
         ];
     }
 
@@ -155,11 +153,6 @@ class Payment extends Model
         return $this->isFailed();
     }
 
-    public function isMoota(): bool
-    {
-        return $this->method === 'moota';
-    }
-
     /** Batas bawah / atas sufiks unik (rupiah) untuk transfer manual — tampilan 01–99. */
     public const MANUAL_UNIQUE_SUFFIX_MIN = 1;
 
@@ -171,11 +164,11 @@ class Payment extends Model
      */
     public static function allocateUniqueManualTransferAmount(float $baseAmount): float
     {
-        $base = (int) round($baseAmount);
+        $base = (float) round($baseAmount, 2);
 
         for ($i = 0; $i < 200; $i++) {
             $suffix = random_int(self::MANUAL_UNIQUE_SUFFIX_MIN, self::MANUAL_UNIQUE_SUFFIX_MAX);
-            $candidate = (float) ($base + $suffix);
+            $candidate = static::computeTransferAmount($base, 0, $suffix);
 
             if (! static::pendingTransferAmountExists($candidate)) {
                 return $candidate;
@@ -191,14 +184,14 @@ class Payment extends Model
      */
     public static function stableManualTransferAmountForOrder(Order $order, float $baseAmount): float
     {
-        $base = (int) round($baseAmount);
+        $base = (float) round($baseAmount, 2);
         $code = (string) ($order->order_code ?? $order->getKey());
         $start = (int) (abs(crc32($code)) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
 
         $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
         for ($i = 0; $i < $span; $i++) {
             $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
-            $candidate = (float) ($base + $suffix);
+            $candidate = static::computeTransferAmount($base, 0, $suffix);
             if (! static::pendingTransferAmountExists($candidate)) {
                 return $candidate;
             }
@@ -208,71 +201,123 @@ class Payment extends Model
     }
 
     /**
-     * Nominal unik untuk Moota / mutasi (harga paket + sufiks 1–999).
+     * Total bayar unik untuk QRIS: dasar + sufiks 1–99 (sama inti alokasi di Herd/deltae `PaymentController::allocateUniquePaymentAmount`).
      */
-    public static function allocateUniqueMootaTransferAmount(float $baseAmount): float
+    public static function allocateUniqueQrisAmount(float $baseAmount): string
     {
-        $base = (int) round($baseAmount);
+        $base = max(1, (int) floor((float) $baseAmount));
+        $min = self::MANUAL_UNIQUE_SUFFIX_MIN;
+        $max = self::MANUAL_UNIQUE_SUFFIX_MAX;
+        $attempts = max(120, ($max - $min + 1) * 2);
 
-        for ($i = 0; $i < 50; $i++) {
-            $suffix = random_int(1, 999);
-            $candidate = (float) ($base + $suffix);
+        for ($attempt = 0; $attempt < $attempts; $attempt++) {
+            $suffix = random_int($min, $max);
+            $candidate = $base + $suffix;
+            $formatted = number_format($candidate, 2, '.', '');
 
-            if (! static::pendingTransferAmountExists($candidate)) {
-                return $candidate;
+            if (! static::pendingTransferAmountExists((float) $formatted)) {
+                return $formatted;
             }
         }
 
-        return (float) ($base + random_int(1000, 9999));
+        abort(503, __('Could not allocate a unique payment amount; try again.'));
     }
 
-    /** Apakah nominal sudah dipakai percobaan bayar pending (manual atau Moota). */
-    public static function pendingTransferAmountExists(float $amount): bool
+    /** Apakah nominal sudah dipakai percobaan bayar pending. */
+    public static function pendingTransferAmountExists(float $amount, ?int $excludeOrderId = null): bool
     {
-        return static::query()
+        $query = static::query()
             ->whereIn('status', [self::STATUS_PENDING, self::STATUS_SUBMITTED])
             ->where(function ($q) use ($amount) {
-                $q->where('moota_transfer_amount', $amount)
-                    ->orWhere('manual_transfer_amount', $amount);
-            })
-            ->exists();
+                $q->where('transfer_amount', $amount)
+                    ->orWhere(function ($q2) use ($amount) {
+                        $q2->where('method', self::METHOD_QRIS)
+                            ->where('amount', $amount);
+                    });
+            });
+
+        if ($excludeOrderId) {
+            $query->where(function ($q) use ($excludeOrderId) {
+                $q->whereNull('order_id')
+                    ->orWhere('order_id', '!=', $excludeOrderId);
+            });
+        }
+
+        return $query->exists();
     }
 
     /** Sufiks 2 digit (01–99) untuk tampilan; null jika tidak relevan atau data lama di luar rentang. */
     public function manualUniqueSuffixFormatted(): ?string
     {
-        if ($this->method !== 'manual' || $this->manual_transfer_amount === null) {
+        if ($this->method !== 'manual') {
             return null;
         }
 
-        $base = (int) round((float) $this->amount);
-        $total = (int) round((float) $this->manual_transfer_amount);
-        $n = $total - $base;
+        $code = $this->unique_code;
+        if ($code === null) {
+            $total = $this->transfer_amount;
+            if ($total === null) {
+                return null;
+            }
+            $base = (float) $this->amount + (float) ($this->admin_fee_amount ?? 0);
+            $code = (int) round((float) $total - $base);
+        }
 
-        if ($n < self::MANUAL_UNIQUE_SUFFIX_MIN || $n > self::MANUAL_UNIQUE_SUFFIX_MAX) {
+        if ($code < self::MANUAL_UNIQUE_SUFFIX_MIN || $code > self::MANUAL_UNIQUE_SUFFIX_MAX) {
             return null;
         }
 
-        return str_pad((string) $n, 2, '0', STR_PAD_LEFT);
+        return str_pad((string) $code, 2, '0', STR_PAD_LEFT);
     }
 
-    public function getFormattedManualTransferAmountAttribute(): ?string
+    public static function computeTransferAmount(float $amount, float $adminFeeAmount, int $uniqueCode): float
     {
-        if ($this->manual_transfer_amount === null) {
-            return null;
-        }
-
-        return 'Rp '.number_format((float) $this->manual_transfer_amount, 0, ',', '.');
+        return round((float) $amount + (float) $adminFeeAmount + (int) $uniqueCode, 2);
     }
 
-    /** Rekening Moota dari config (instruksi transfer). */
-    public static function getMootaBankInfo(): array
+    public static function stableUniqueCodeForOrder(Order $order, float $amount, float $adminFeeAmount): int
     {
+        $orderId = $order->getKey();
+        $code = (string) ($order->order_code ?? $order->getKey());
+        $start = (int) (abs(crc32($code)) % self::MANUAL_UNIQUE_SUFFIX_MAX) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+        $span = self::MANUAL_UNIQUE_SUFFIX_MAX - self::MANUAL_UNIQUE_SUFFIX_MIN + 1;
+
+        for ($i = 0; $i < $span; $i++) {
+            $suffix = (($start - self::MANUAL_UNIQUE_SUFFIX_MIN + $i) % $span) + self::MANUAL_UNIQUE_SUFFIX_MIN;
+            $candidate = static::computeTransferAmount($amount, $adminFeeAmount, $suffix);
+            if (! static::pendingTransferAmountExists($candidate, $orderId)) {
+                return $suffix;
+            }
+        }
+
+        abort(503, __('Could not allocate a unique payment amount; try again.'));
+    }
+
+    public static function buildTransferComponentsForOrder(Order $order, float $amount, float $adminFeeAmount): array
+    {
+        $uniqueCode = static::stableUniqueCodeForOrder($order, $amount, $adminFeeAmount);
+
         return [
-            'bank_name' => config('moota.bank_name'),
-            'account_number' => config('moota.account_number'),
-            'account_holder' => config('moota.account_holder'),
+            'amount' => round($amount, 2),
+            'admin_fee_amount' => round($adminFeeAmount, 2),
+            'unique_code' => $uniqueCode,
+            'transfer_amount' => static::computeTransferAmount($amount, $adminFeeAmount, $uniqueCode),
         ];
+    }
+
+    /** URL gambar QRIS statis (services.moota.qris_image_url), seperti deltae MOOTA_QRIS_IMAGE_URL. */
+    public static function getStaticQrisImageUrl(): ?string
+    {
+        $url = trim((string) config('services.moota.qris_image_url', ''));
+        if ($url === '') {
+            return null;
+        }
+
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+
+        return asset(ltrim($url, '/'));
     }
 
     public function getStatusLabelAttribute(): string
@@ -293,6 +338,16 @@ class Payment extends Model
     public function getFormattedAmountAttribute(): string
     {
         return 'Rp '.number_format($this->amount, 0, ',', '.');
+    }
+
+    public function getFormattedTransferAmountAttribute(): ?string
+    {
+        $total = $this->transfer_amount;
+        if ($total === null) {
+            return null;
+        }
+
+        return 'Rp '.number_format((float) $total, 0, ',', '.');
     }
 
     public function getTransferProofUrlAttribute(): ?string

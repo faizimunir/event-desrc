@@ -49,4 +49,18 @@ return [
         'api_key' => env('GOOGLE_SHEETS_API_KEY'),
     ],
 
+    /*
+     * Moota (Herd/deltae: secret + qris image; tampilan rekening tetap lewat key tambahan)
+     * Endpoint: {APP_URL}/api/webhooks/moota
+     */
+    'moota' => [
+        'webhook_secret' => env('MOOTA_WEBHOOK_SECRET'),
+        'qris_image_url' => env('MOOTA_QRIS_IMAGE_URL', env('MOOTA_STATIC_QRIS_IMAGE_URL', '')),
+        'bank_name' => env('MOOTA_BANK_NAME', env('PAYMENT_MANUAL_BANK_NAME', 'Bank')),
+        'account_number' => env('MOOTA_ACCOUNT_NUMBER', env('PAYMENT_MANUAL_ACCOUNT_NUMBER', '')),
+        'account_holder' => env('MOOTA_ACCOUNT_HOLDER', env('PAYMENT_MANUAL_ACCOUNT_HOLDER', '')),
+        'queue_connection' => env('MOOTA_QUEUE_CONNECTION', 'redis'),
+        'queue' => env('MOOTA_QUEUE', 'moota'),
+    ],
+
 ];

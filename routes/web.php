@@ -12,7 +12,6 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
-use App\Http\Controllers\MootaPaymentController;
 use App\Http\Controllers\MyRiderController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
@@ -30,7 +29,6 @@ use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TrackController;
 use App\Http\Controllers\UserController;
 use App\Models\Event;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -101,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/registrations/{registration}/generate-payment', [RegistrationController::class, 'generatePayment'])->name('events.registrations.generate-payment');
     Route::post('events/{event}/registrations/{registration}/resend-ticket-whatsapp', [RegistrationController::class, 'resendTicketWhatsapp'])->name('events.registrations.resend-ticket-whatsapp');
     Route::post('events/{event}/registrations/{registration}/rider-user-whatsapp', [RegistrationController::class, 'updateRiderUserWhatsapp'])->name('events.registrations.update-rider-user-whatsapp');
+    Route::post('events/{event}/registrations/{registration}/rider-data', [RegistrationController::class, 'updateRegistrationRider'])->name('events.registrations.update-rider-data');
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('locations', LocationController::class)->except(['show']);
     Route::resource('organizers', OrganizerController::class)->except(['show', 'store', 'update']);
@@ -132,18 +131,9 @@ Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets
 
 // Payment (public): form upload bukti transfer manual
 Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
+Route::get('payment/status', [PaymentController::class, 'status'])->name('payment.status');
 Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
 Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
-
-// Moota: konfirmasi nominal unik + webhook mutasi bank
-Route::post('payment/moota/confirm', [MootaPaymentController::class, 'confirm'])->name('payment.moota.confirm');
-Route::get('webhooks/moota', fn () => response()->json([
-    'message' => 'ok',
-    'method' => 'POST',
-]));
-Route::post('webhooks/moota', [MootaPaymentController::class, 'webhook'])
-    ->withoutMiddleware([VerifyCsrfToken::class])
-    ->name('webhooks.moota');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');

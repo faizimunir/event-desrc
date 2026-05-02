@@ -15,13 +15,14 @@ class PaymentLinkMail extends Mailable
     public function __construct(
         public string $paymentLinkUrl,
         public string $eventTitle,
-        public string $recipientName
+        public string $recipientName,
+        public ?string $qrisExactTotalIdr = null,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: __('Payment link') . ' — ' . $this->eventTitle,
+            subject: __('Payment link').' — '.$this->eventTitle,
         );
     }
 

@@ -20,11 +20,9 @@ use App\Services\RegistrationEligibilityService;
 use App\Services\RiderSimilarityService;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
-use App\Services\WinpayQrisService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -405,7 +403,7 @@ class RegistrationController extends Controller
                     Team::whereIn('id', $reg->team_ids ?? [])->pluck('name')->join(', '),
                     $reg->status_label ?? $reg->status ?? '',
                     $reg->payment ? $reg->payment->status_label : __('No payment'),
-                    $reg->payment ? 'Rp '.number_format($reg->payment->amount, 0, ',', '.') : '',
+                    $reg->payment ? 'Rp '.number_format((float) ($reg->payment->transfer_amount ?? $reg->payment->amount), 0, ',', '.') : '',
                     $reg->created_at->format('Y-m-d H:i'),
                 ]);
             }
@@ -509,6 +507,67 @@ class RegistrationController extends Controller
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('status', __('WhatsApp number updated.'));
+    }
+
+    /**
+     * Admin: update rider profile and this registration’s teams (team_ids + rider pivot sync). Rider must stay eligible for the current bracket.
+     */
+    public function updateRegistrationRider(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'nickname' => ['nullable', 'string', 'max:255'],
+            'pob' => ['nullable', 'string', 'max:255'],
+            'dob' => ['required', 'date', 'before_or_equal:today'],
+            'gender' => ['required', 'string', 'in:boys,girls,other'],
+            'number_plate' => ['nullable', 'string', 'max:50'],
+            'team_ids' => ['nullable', 'array'],
+            'team_ids.*' => ['integer', 'exists:teams,id'],
+        ]);
+
+        $registration->loadMissing('bracket.event');
+        $rider = $registration->rider;
+        $bracket = $registration->bracket;
+
+        $clone = $rider->replicate();
+        $clone->fill([
+            'name' => $validated['name'],
+            'nickname' => $validated['nickname'] ?? null,
+            'pob' => $validated['pob'] ?? null,
+            'dob' => $validated['dob'],
+            'gender' => $validated['gender'],
+            'number_plate' => $validated['number_plate'] ?? null,
+        ]);
+        $eligibilityCheck = $this->eligibility->checkEligibility($clone, $bracket);
+        if (! $eligibilityCheck['eligible']) {
+            throw ValidationException::withMessages([
+                'rider_data' => $eligibilityCheck['message'],
+            ]);
+        }
+
+        $teamIds = array_values(array_unique(array_map('intval', $validated['team_ids'] ?? [])));
+
+        $rider->update([
+            'name' => $validated['name'],
+            'nickname' => $validated['nickname'] ?? null,
+            'pob' => $validated['pob'] ?? null,
+            'dob' => $validated['dob'],
+            'gender' => $validated['gender'],
+            'number_plate' => $validated['number_plate'] ?? null,
+        ]);
+
+        $registration->update([
+            'team_ids' => $teamIds,
+        ]);
+        $rider->teams()->sync($teamIds);
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Rider and team details updated.'));
     }
 
     /**
@@ -658,7 +717,10 @@ class RegistrationController extends Controller
                     $registration->update(['status' => Registration::STATUS_PENDING]);
                 }
 
-                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+                $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+                    ? (float) $registration->package->admin_fee
+                    : 0.0;
                 $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
                 $expiry = now()->addMinutes($minutes);
 
@@ -669,34 +731,27 @@ class RegistrationController extends Controller
                 ])->save();
 
                 if ($paymentMethod === 'manual') {
+                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                     $order->createNewPaymentAttempt([
-                        'amount' => $amount,
+                        'amount' => $components['amount'],
+                        'admin_fee_amount' => $components['admin_fee_amount'],
+                        'unique_code' => $components['unique_code'],
+                        'transfer_amount' => $components['transfer_amount'],
                         'method' => 'manual',
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
-                        'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                     ]);
                 } else {
-                    $mootaAmount = Payment::allocateUniqueMootaTransferAmount((float) $amount);
+                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                     $order->createNewPaymentAttempt([
-                        'amount' => $amount,
-                        'method' => 'moota',
+                        'amount' => $components['amount'],
+                        'admin_fee_amount' => $components['admin_fee_amount'],
+                        'unique_code' => $components['unique_code'],
+                        'transfer_amount' => $components['transfer_amount'],
+                        'method' => Payment::METHOD_QRIS,
                         'status' => Payment::STATUS_PENDING,
                         'expires_at' => $expiry,
-                        'moota_transfer_amount' => $mootaAmount,
                     ]);
-                    $payment = $order->fresh()->activePendingPayment();
-                    if ($payment && app(WinpayQrisService::class)->isConfigured()) {
-                        try {
-                            app(WinpayQrisService::class)->generateDynamicQris($order->fresh(), $payment);
-                        } catch (\Throwable $e) {
-                            Log::warning('Winpay QRIS generate failed after admin generate payment', [
-                                'order_code' => $order->order_code,
-                                'payment_id' => $payment->id,
-                                'message' => $e->getMessage(),
-                            ]);
-                        }
-                    }
                 }
 
                 return null;
@@ -758,9 +813,13 @@ class RegistrationController extends Controller
                     $registration->update(['status' => Registration::STATUS_PENDING]);
                 }
 
-                $amount = $registration->package ? $registration->package->payableAmount() : 0;
+                $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+                $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+                    ? (float) $registration->package->admin_fee
+                    : 0.0;
                 $minutes = Payment::PAYMENT_PROOF_DEADLINE_MINUTES;
                 $expiry = now()->addMinutes($minutes);
+                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
 
                 $order->forceFill([
                     'status' => Order::STATUS_UNPAID,
@@ -769,11 +828,13 @@ class RegistrationController extends Controller
                 ])->save();
 
                 $order->createNewPaymentAttempt([
-                    'amount' => $amount,
+                    'amount' => $components['amount'],
+                    'admin_fee_amount' => $components['admin_fee_amount'],
+                    'unique_code' => $components['unique_code'],
+                    'transfer_amount' => $components['transfer_amount'],
                     'method' => 'manual',
                     'status' => Payment::STATUS_PENDING,
                     'expires_at' => $expiry,
-                    'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
                 ]);
 
                 return null;

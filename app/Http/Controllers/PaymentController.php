@@ -10,9 +10,7 @@ use App\Models\WhatsappNotificationLog;
 use App\Services\ManualTransferNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
-use App\Services\WinpayQrisService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
@@ -33,10 +31,8 @@ class PaymentController extends Controller
         $bank = Payment::getManualBankInfo();
         $orderCode = $request->old('order_code', $request->query('order_code'));
         $whatsapp = $request->old('whatsapp', $request->query('whatsapp'));
-        $preferredPaymentMethod = $request->query('payment_method');
-        if (! in_array($preferredPaymentMethod, ['manual', 'qris'], true)) {
-            $preferredPaymentMethod = null;
-        }
+        $rawPaymentMethod = $request->old('payment_method', $request->query('payment_method'));
+        $preferredPaymentMethod = in_array($rawPaymentMethod, ['manual', 'qris'], true) ? $rawPaymentMethod : null;
 
         if ($orderCode) {
             $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.bracket', 'registration.package', 'payments'])
@@ -55,6 +51,7 @@ class PaymentController extends Controller
                 $matchesWhatsapp = $normalized && $reg->rider->user->whatsapp === $normalized;
                 $ownedByVisitor = $order->isOwnedByCurrentVisitor();
                 if ($matchesWhatsapp || $ownedByVisitor) {
+                    $queuePaymentLinkNotification = false;
                     $registration = $reg;
                     if (! $whatsapp && $reg->rider->user->whatsapp) {
                         $whatsapp = $reg->rider->user->whatsapp;
@@ -67,34 +64,94 @@ class PaymentController extends Controller
                             $request->session()->flash('error', __('There is no remaining quota for this bracket or package.'));
                         } else {
                             $order->refresh();
-                            $this->sendPaymentLinkNotifications($order, $reg);
+                            // WA/email di bawah, setelah attempt QRIS/manual dibuat, supaya nominal unik sudah tercatat.
+                            $queuePaymentLinkNotification = true;
                         }
                     }
 
                     if ($registration && $order && ! $order->isDraft()) {
-                        $freshPayment = $request->boolean('fresh_payment');
-                        $amount = $reg->package ? $reg->package->payableAmount() : 0;
+                        $baseAmount = $reg->package ? (float) $reg->package->price : 0.0;
+                        $adminFeeAmount = ($reg->package && ! $reg->package->adminFeeIsIncludedInPrice())
+                            ? (float) $reg->package->admin_fee
+                            : 0.0;
                         $expires = $order->expired_at;
+                        $eventAllowsQris = $reg->event->allowsQrisPayment();
+                        $eventAllowsManual = $reg->event->allowsManualPayment();
                         $wantManual = $preferredPaymentMethod === 'manual';
                         $wantQris = $preferredPaymentMethod === 'qris';
                         $active = $order->activePendingPayment();
-                        $methodClash = $active && (
+                        $paymentMethodLocked = $active && (
+                            $active->isSubmitted()
+                            || ($active->isPending() && ! empty($active->transfer_proof_path))
+                        );
+                        $methodClash = ! $paymentMethodLocked && $active && (
                             ($wantManual && $active->method !== 'manual')
-                            || ($wantQris && $active->method !== 'moota')
+                            || ($wantQris && $active->method !== Payment::METHOD_QRIS)
                         );
 
-                        $keepExistingManual = ! $freshPayment && ! $methodClash && $active && $active->method === 'manual'
-                            && $active->isPending() && $active->manual_transfer_amount !== null;
+                        $keepExistingManual = ! $methodClash && $active && $active->method === 'manual'
+                            && $active->isPending() && $active->transfer_amount !== null;
 
-                        // QRIS/Moota: baris payment dibuat di MootaPaymentController@confirm (nominal unik).
-                        if ($order->isPendingUnpaid() && ! $wantQris && ! $keepExistingManual && ($freshPayment || $methodClash || ! $active)) {
-                            $order->createNewPaymentAttempt([
-                                'amount' => $amount,
-                                'method' => 'manual',
-                                'status' => Payment::STATUS_PENDING,
-                                'expires_at' => $expires,
-                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
-                            ]);
+                        // Saat metode sudah dipilih di halaman sebelumnya, langsung siapkan payment attempt
+                        // agar halaman bayar bisa langsung menampilkan instruksi final (tanpa klik lanjutan).
+                        $shouldCreateAttempt = $order->isPendingUnpaid()
+                            && ! $paymentMethodLocked
+                            && (! $active || $methodClash);
+
+                        if ($paymentMethodLocked && $active && is_string($active->method) && $active->method !== '') {
+                            $preferredPaymentMethod = $active->method;
+                        }
+
+                        if ($shouldCreateAttempt) {
+                            if ($wantQris && $eventAllowsQris) {
+                                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
+                                $order->createNewPaymentAttempt([
+                                    'amount' => $components['amount'],
+                                    'admin_fee_amount' => $components['admin_fee_amount'],
+                                    'unique_code' => $components['unique_code'],
+                                    'transfer_amount' => $components['transfer_amount'],
+                                    'method' => Payment::METHOD_QRIS,
+                                    'status' => Payment::STATUS_PENDING,
+                                    'expires_at' => $expires,
+                                ]);
+                            } elseif ($wantManual && $eventAllowsManual && ! $keepExistingManual) {
+                                $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
+                                $order->createNewPaymentAttempt([
+                                    'amount' => $components['amount'],
+                                    'admin_fee_amount' => $components['admin_fee_amount'],
+                                    'unique_code' => $components['unique_code'],
+                                    'transfer_amount' => $components['transfer_amount'],
+                                    'method' => 'manual',
+                                    'status' => Payment::STATUS_PENDING,
+                                    'expires_at' => $expires,
+                                ]);
+                            } elseif (! $wantQris && ! $wantManual && ! $keepExistingManual) {
+                                // Tanpa `payment_method` di URL: default ke Moota jika QRIS diizinkan, supaya tidak
+                                // (sebelumnya) jatuh ke manual lalu section QRIS "terkunci" (deltae sering bawa ?qris).
+                                if ($eventAllowsQris) {
+                                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
+                                    $order->createNewPaymentAttempt([
+                                        'amount' => $components['amount'],
+                                        'admin_fee_amount' => $components['admin_fee_amount'],
+                                        'unique_code' => $components['unique_code'],
+                                        'transfer_amount' => $components['transfer_amount'],
+                                        'method' => Payment::METHOD_QRIS,
+                                        'status' => Payment::STATUS_PENDING,
+                                        'expires_at' => $expires,
+                                    ]);
+                                } elseif ($eventAllowsManual) {
+                                    $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
+                                    $order->createNewPaymentAttempt([
+                                        'amount' => $components['amount'],
+                                        'admin_fee_amount' => $components['admin_fee_amount'],
+                                        'unique_code' => $components['unique_code'],
+                                        'transfer_amount' => $components['transfer_amount'],
+                                        'method' => 'manual',
+                                        'status' => Payment::STATUS_PENDING,
+                                        'expires_at' => $expires,
+                                    ]);
+                                }
+                            }
                         } elseif ($order->isPendingUnpaid() && $active && $active->isPending() && $active->expires_at === null) {
                             $active->update(['expires_at' => $expires]);
                         }
@@ -102,10 +159,28 @@ class PaymentController extends Controller
                         $order->refresh();
                         $ensureManual = $order->activePendingPayment();
                         if ($ensureManual && $ensureManual->method === 'manual' && $ensureManual->isPending()
-                            && $ensureManual->manual_transfer_amount === null) {
+                            && $ensureManual->transfer_amount === null) {
+                            $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
                             $ensureManual->update([
-                                'manual_transfer_amount' => Payment::stableManualTransferAmountForOrder($order, (float) $amount),
+                                'amount' => $components['amount'],
+                                'admin_fee_amount' => $components['admin_fee_amount'],
+                                'unique_code' => $components['unique_code'],
+                                'transfer_amount' => $components['transfer_amount'],
                             ]);
+                        } elseif ($ensureManual && $ensureManual->method === Payment::METHOD_QRIS && $ensureManual->isPending()
+                            && (float) ($ensureManual->transfer_amount ?? 0) <= 0) {
+                            $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
+                            $ensureManual->update([
+                                'amount' => $components['amount'],
+                                'admin_fee_amount' => $components['admin_fee_amount'],
+                                'unique_code' => $components['unique_code'],
+                                'transfer_amount' => $components['transfer_amount'],
+                            ]);
+                        }
+
+                        if ($queuePaymentLinkNotification) {
+                            $order->refresh();
+                            $this->sendPaymentLinkNotifications($order, $reg);
                         }
                     }
                 }
@@ -123,8 +198,6 @@ class PaymentController extends Controller
             if ($preferredPaymentMethod === 'qris' && ! $allowsQris) {
                 $preferredPaymentMethod = null;
             }
-
-            $this->ensureWinpayQrisWhenViewingPaymentPage($registration);
 
             $registration->unsetRelation('payment');
         }
@@ -150,28 +223,76 @@ class PaymentController extends Controller
         $validated = $request->validate([
             'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
+            'payment_method' => ['nullable', 'in:manual,qris'],
         ]);
 
         $order = Order::with('registration.rider.user')->where('order_code', $validated['order_code'])->firstOrFail();
         $order->enforceExpiredDraftIfNeeded();
         $order->enforceExpiredPaymentWindowIfNeeded();
         if ($order->isExpired() || $order->isCancelled()) {
-            return redirect()->route('payment.create')
-                ->withErrors(['order_code' => __('This order has expired or was cancelled.')])
+            return redirect()->route('payment.create', array_filter([
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+                'payment_method' => $validated['payment_method'] ?? null,
+            ]))->withErrors(['order_code' => __('This order has expired or was cancelled.')])
                 ->withInput();
         }
         $registration = $order->registration;
         $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
         if ($registration->rider->user->whatsapp !== $normalized) {
-            return redirect()->route('payment.create')
-                ->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
+            return redirect()->route('payment.create', array_filter([
+                'order_code' => $order->order_code,
+                'whatsapp' => $request->input('whatsapp'),
+                'payment_method' => $validated['payment_method'] ?? null,
+            ]))->withErrors(['whatsapp' => __('WhatsApp number does not match this order.')])
                 ->withInput();
         }
 
-        return redirect()->route('payment.create', [
+        $params = array_filter([
             'order_code' => $order->order_code,
             'whatsapp' => $request->input('whatsapp'),
-        ])->withInput();
+            'payment_method' => $validated['payment_method'] ?? null,
+        ], static fn ($v) => $v !== null && $v !== '');
+
+        return redirect()->route('payment.create', $params)->withInput();
+    }
+
+    /**
+     * Public: polling status pembayaran untuk auto-refresh halaman payment.
+     */
+    public function status(Request $request)
+    {
+        $validated = $request->validate([
+            'order_code' => ['required', 'string', 'exists:orders,order_code'],
+            'whatsapp' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        $order = Order::with(['registration.rider.user', 'payments'])
+            ->where('order_code', $validated['order_code'])
+            ->firstOrFail();
+
+        $order->enforceExpiredDraftIfNeeded();
+        $order->enforceExpiredPaymentWindowIfNeeded();
+
+        $registration = $order->registration;
+        $normalized = ! empty($validated['whatsapp'])
+            ? WhacenterService::normalizeWhatsApp($validated['whatsapp'])
+            : null;
+        $matchesWhatsapp = $normalized && $registration?->rider?->user?->whatsapp === $normalized;
+        $ownedByVisitor = $order->isOwnedByCurrentVisitor();
+
+        if (! $matchesWhatsapp && ! $ownedByVisitor) {
+            abort(403);
+        }
+
+        $latestPayment = $order->payments()->latest('id')->first();
+
+        return response()->json([
+            'order_status' => $order->status,
+            'is_paid' => (bool) $order->isPaid(),
+            'payment_status' => $latestPayment?->status,
+            'is_success' => (bool) ($order->isPaid() || $latestPayment?->isSuccess()),
+        ]);
     }
 
     /**
@@ -248,8 +369,11 @@ class PaymentController extends Controller
             ])->with('error', __('Invalid bank account selection.'));
         }
 
-        $amount = $registration->package ? $registration->package->payableAmount() : 0;
-        $manualTransferAmount = Payment::stableManualTransferAmountForOrder($order, (float) $amount);
+        $baseAmount = $registration->package ? (float) $registration->package->price : 0.0;
+        $adminFeeAmount = ($registration->package && ! $registration->package->adminFeeIsIncludedInPrice())
+            ? (float) $registration->package->admin_fee
+            : 0.0;
+        $components = Payment::buildTransferComponentsForOrder($order, $baseAmount, $adminFeeAmount);
 
         if ($order->isPaid()) {
             return redirect()->route('payment.create', ['order_code' => $order->order_code])
@@ -260,14 +384,19 @@ class PaymentController extends Controller
         $payment = $order->activePendingPayment();
         if (! $payment) {
             $payment = $order->createNewPaymentAttempt([
-                'amount' => $amount,
+                'amount' => $components['amount'],
+                'admin_fee_amount' => $components['admin_fee_amount'],
+                'unique_code' => $components['unique_code'],
+                'transfer_amount' => $components['transfer_amount'],
                 'method' => 'manual',
                 'status' => Payment::STATUS_PENDING,
                 'expires_at' => $order->expired_at,
-                'manual_transfer_amount' => $manualTransferAmount,
             ]);
-        } elseif ($payment->manual_transfer_amount === null && $payment->method === 'manual') {
-            $payment->manual_transfer_amount = $manualTransferAmount;
+        } elseif ($payment->transfer_amount === null && $payment->method === 'manual') {
+            $payment->amount = $components['amount'];
+            $payment->admin_fee_amount = $components['admin_fee_amount'];
+            $payment->unique_code = $components['unique_code'];
+            $payment->transfer_amount = $components['transfer_amount'];
         }
 
         if ($payment->isSuccess() || $payment->isFailed() || $payment->isCancelled()
@@ -285,16 +414,8 @@ class PaymentController extends Controller
         $payment->transfer_proof_path = $path;
         $payment->method = 'manual';
         $payment->manual_account_id = $manualAccountId;
-        $payment->moota_transfer_amount = null;
         $payment->moota_mutation_id = null;
         $payment->moota_raw = null;
-        $payment->winpay_qr_url = null;
-        $payment->winpay_qr_content = null;
-        $payment->winpay_contract_id = null;
-        $payment->winpay_partner_reference_no = null;
-        $payment->winpay_expired_at = null;
-        $payment->winpay_external_id = null;
-        $payment->winpay_raw = null;
         $payment->admin_notes = null;
         $payment->reviewed_at = null;
         $payment->reviewed_by = null;
@@ -303,11 +424,8 @@ class PaymentController extends Controller
 
         ManualTransferNotifier::transferProofSubmitted($registration);
 
-        return redirect()->route('payment.create', [
-            'order_code' => $order->order_code,
-            'whatsapp' => $request->input('whatsapp'),
-            'payment_method' => 'manual',
-        ])->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
+        return redirect()->route('orders.show', $order)
+            ->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
     }
 
     /**
@@ -423,45 +541,7 @@ class PaymentController extends Controller
             ->with('status', __('Payment attempt marked as expired. Order is not cancelled by this action; use order deadline or cancel order if needed.'));
     }
 
-    /**
-     * Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay.
-     */
-    /**
-     * Jika user sudah punya pembayaran Moota + nominal unik tapi QRIS Winpay belum ada
-     * (mis. gagal saat POST, lalu .env diperbaiki), coba generate sekali saat GET halaman bayar.
-     */
-    private function ensureWinpayQrisWhenViewingPaymentPage(Registration $registration): void
-    {
-        $order = $registration->order;
-        if (! $order || $order->isExpired() || $order->isCancelled()) {
-            return;
-        }
-
-        $payment = $order->activePendingPayment();
-        if (! $payment || $payment->method !== 'moota' || $payment->moota_transfer_amount === null) {
-            return;
-        }
-
-        if (is_string($payment->winpay_qr_url) && $payment->winpay_qr_url !== '') {
-            return;
-        }
-
-        $winpay = app(WinpayQrisService::class);
-        if (! $winpay->isConfigured()) {
-            return;
-        }
-
-        try {
-            $winpay->generateDynamicQris($order, $payment);
-        } catch (\Throwable $e) {
-            Log::warning('Winpay QRIS lazy generate on payment page failed', [
-                'order_code' => $order->order_code,
-                'payment_id' => $payment->id,
-                'message' => $e->getMessage(),
-            ]);
-        }
-    }
-
+    /** Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay. */
     private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
     {
         $user = $reg->rider->user;
@@ -469,12 +549,20 @@ class PaymentController extends Controller
             return;
         }
 
-        $paymentLinkUrl = route('payment.create', [
+        $event = $reg->event;
+        $paymentLinkUrl = route('payment.create', array_filter([
             'order_code' => $order->order_code,
-            'whatsapp' => $user->whatsapp ?? '',
-        ]);
+            'whatsapp' => $user->whatsapp ?: null,
+            'payment_method' => $event->allowsQrisPayment() ? 'qris' : ($event->allowsManualPayment() ? 'manual' : null),
+        ], static fn ($v) => $v !== null && $v !== ''));
         $eventTitle = $reg->event->title ?? config('app.name');
         $recipientName = $user->name ?: $reg->rider->name;
+        $order->loadMissing('payments');
+        $pending = $order->activePendingPayment();
+        $qrisExactTotalIdr = null;
+        if ($pending && $pending->method === Payment::METHOD_QRIS && (float) ($pending->transfer_amount ?? 0) > 0) {
+            $qrisExactTotalIdr = 'Rp '.number_format((float) $pending->transfer_amount, 0, ',', '.');
+        }
 
         if ($user->whatsapp) {
             $waMessage = trim(View::make('whatsapp.payment-link', [
@@ -496,7 +584,12 @@ class PaymentController extends Controller
         }
 
         if ($user->email) {
-            Mail::to($user->email)->send(new PaymentLinkMail($paymentLinkUrl, $eventTitle, $recipientName));
+            Mail::to($user->email)->send(new PaymentLinkMail(
+                $paymentLinkUrl,
+                $eventTitle,
+                $recipientName,
+                $qrisExactTotalIdr,
+            ));
         }
     }
 }

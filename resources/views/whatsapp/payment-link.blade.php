@@ -16,7 +16,7 @@ Link pembayaran untuk event *{{ $eventTitle }}* sudah siap 🙌
 💰 Total: {{ $registration->package->formatted_payable_amount }}
 @endif
 
-Bisa lanjut lewat link ini ya, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
+Bisa lanjut lewat link ini, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
 
 {{ $paymentLinkUrl }}
 
