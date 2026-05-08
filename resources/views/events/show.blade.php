@@ -118,10 +118,42 @@
                         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
                             <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Brackets') }}</h2>
                             @if ($event->brackets->isNotEmpty())
-                                <ul class="mt-3 flex flex-wrap gap-2">
+                                <ul class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     @foreach ($event->brackets as $bracket)
-                                        <li>
-                                            <flux:badge color="zinc" size="sm">{{ $bracket->name }}</flux:badge>
+                                        @php
+                                            $quota = $bracket->quota;
+                                            $remaining = $bracket->remainingQuota();
+                                            $showQuota = !$bracket->hide_quota && $quota !== null && $remaining !== null;
+                                            $used = $showQuota ? max(0, $quota - $remaining) : null;
+                                            $pct = $showQuota && $quota > 0 ? min(100, max(0, (int) round(($used / $quota) * 100))) : null;
+                                        @endphp
+                                        <li class="rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/50 dark:bg-zinc-900/20 p-4">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <div class="min-w-0">
+                                                    <div class="font-medium text-sm text-zinc-900 dark:text-zinc-100 truncate">{{ $bracket->name }}</div>
+                                                    @if ($showQuota)
+                                                        <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                            {{ $used }} / {{ $quota }} {{ __('slots') }} ({{ $pct }}%)
+                                                        </div>
+                                                    @elseif (!$bracket->hide_quota && $quota === null)
+                                                        <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Unlimited') }}</div>
+                                                    @endif
+                                                </div>
+                                                @if ($showQuota)
+                                                    <flux:badge color="{{ $remaining > 0 ? 'zinc' : 'red' }}" size="xs">
+                                                        {{ $remaining > 0 ? $remaining . ' ' . __('left') : __('Full') }}
+                                                    </flux:badge>
+                                                @endif
+                                            </div>
+
+                                            @if ($showQuota)
+                                                <div class="mt-3 h-2 w-full rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
+                                                    <div
+                                                        class="h-full rounded-full {{ $remaining > 0 ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-red-600 dark:bg-red-500' }}"
+                                                        style="width: {{ $pct }}%"
+                                                    ></div>
+                                                </div>
+                                            @endif
                                         </li>
                                     @endforeach
                                 </ul>
