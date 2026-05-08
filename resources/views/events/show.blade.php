@@ -123,7 +123,8 @@
                                         @php
                                             $quota = $bracket->quota;
                                             $remaining = $bracket->remainingQuota();
-                                            $showQuota = !$bracket->hide_quota && $quota !== null && $remaining !== null;
+                                            // Admin overview: always show quota progress even if bracket hides it publicly.
+                                            $showQuota = $quota !== null && $remaining !== null;
                                             $used = $showQuota ? max(0, $quota - $remaining) : null;
                                             $pct = $showQuota && $quota > 0 ? min(100, max(0, (int) round(($used / $quota) * 100))) : null;
                                         @endphp
@@ -135,15 +136,17 @@
                                                         <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
                                                             {{ $used }} / {{ $quota }} {{ __('slots') }} ({{ $pct }}%)
                                                         </div>
-                                                    @elseif (!$bracket->hide_quota && $quota === null)
+                                                    @elseif ($quota === null)
                                                         <div class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Unlimited') }}</div>
                                                     @endif
                                                 </div>
-                                                @if ($showQuota)
-                                                    <flux:badge color="{{ $remaining > 0 ? 'zinc' : 'red' }}" size="xs">
-                                                        {{ $remaining > 0 ? $remaining . ' ' . __('left') : __('Full') }}
-                                                    </flux:badge>
-                                                @endif
+                                                <div class="flex flex-col items-end gap-1 shrink-0">
+                                                    @if ($showQuota)
+                                                        <flux:badge color="{{ $remaining > 0 ? 'zinc' : 'red' }}" size="xs">
+                                                            {{ $remaining > 0 ? $remaining . ' ' . __('left') : __('Full') }}
+                                                        </flux:badge>
+                                                    @endif
+                                                </div>
                                             </div>
 
                                             @if ($showQuota)
@@ -154,6 +157,11 @@
                                                     ></div>
                                                 </div>
                                             @endif
+                                                <div class="mt-3">
+                                                    <flux:badge color="{{ $bracket->hide_quota ? 'amber' : 'zinc' }}" size="xs">
+                                                        {{ $bracket->hide_quota ? __('Quota Hidden') : __('Quota Shown') }}
+                                                    </flux:badge>
+                                                </div>
                                         </li>
                                     @endforeach
                                 </ul>
