@@ -158,7 +158,7 @@
                                                 </div>
                                             @endif
                                                 <div class="mt-3">
-                                                    <flux:badge color="{{ $bracket->hide_quota ? 'amber' : 'zinc' }}" size="xs">
+                                                    <flux:badge color="{{ $bracket->hide_quota ? 'amber' : 'zinc' }}" class="text-xs">
                                                         {{ $bracket->hide_quota ? __('Quota Hidden') : __('Quota Shown') }}
                                                     </flux:badge>
                                                 </div>
