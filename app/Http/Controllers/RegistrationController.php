@@ -563,6 +563,7 @@ class RegistrationController extends Controller
 
         $registration->update([
             'team_ids' => $teamIds,
+            'number_plate' => $validated['number_plate'] ?? null,
         ]);
         $rider->teams()->sync($teamIds);
 
