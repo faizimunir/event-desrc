@@ -424,7 +424,10 @@ class PaymentController extends Controller
 
         ManualTransferNotifier::transferProofSubmitted($registration);
 
-        return redirect()->route('orders.show', $order)
+        return redirect()->route('payment.create', array_filter([
+            'order_code' => $order->order_code,
+            'whatsapp' => $request->input('whatsapp'),
+        ], static fn ($v) => $v !== null && $v !== ''))
             ->with('status', __('Transfer proof uploaded. We will verify and confirm your payment.'));
     }
 
