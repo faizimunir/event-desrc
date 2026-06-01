@@ -72,6 +72,7 @@ class Event extends Model
         'size_chart',
         'status',
         'has_live_result',
+        'show_participants_publicly',
         'registration_opens_at',
         'registration_closes_at',
     ];
@@ -121,6 +122,7 @@ class Event extends Model
             'registration_opens_at' => 'datetime',
             'registration_closes_at' => 'datetime',
             'has_live_result' => 'boolean',
+            'show_participants_publicly' => 'boolean',
             'payment_methods' => 'array',
         ];
     }

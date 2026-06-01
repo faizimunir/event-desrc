@@ -34,6 +34,19 @@
             <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
         @enderror
 
+        @if ($event)
+            <flux:field variant="inline">
+                <flux:label class="mb-0">{{ __('Show participants to the public') }}</flux:label>
+                <flux:switch wire:model="show_participants_publicly" />
+            </flux:field>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('When enabled, visitors can see the participant list on the public event page.') }}
+            </p>
+            @error('show_participants_publicly')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        @endif
+
         <div class="grid grid-cols-2 gap-4">
         <flux:input wire:model="start_at" type="datetime-local" :label="__('Start')" required />
         @error('start_at')

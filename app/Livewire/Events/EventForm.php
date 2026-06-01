@@ -69,6 +69,8 @@ class EventForm extends Component
 
     public $sizeChart = null;
 
+    public bool $show_participants_publicly = true;
+
     public function mount(?Event $event = null): void
     {
         $this->locations = Location::orderBy('name')->get();
@@ -99,6 +101,7 @@ class EventForm extends Component
             $this->location_id = $event->location_id ? (string) $event->location_id : null;
             $this->payment_methods = $event->normalizedPaymentMethods();
             $this->account_ids = $event->accounts->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+            $this->show_participants_publicly = (bool) $event->show_participants_publicly;
         }
     }
 
@@ -157,6 +160,7 @@ class EventForm extends Component
             'poster' => ['nullable', 'image', 'max:10240'],
             'logo' => ['nullable', 'image', 'max:5120'],
             'sizeChart' => ['nullable', 'image', 'max:10240'],
+            'show_participants_publicly' => ['boolean'],
         ];
         if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
             $rules['account_ids'] = ['required', 'array', 'min:1'];
@@ -228,6 +232,7 @@ class EventForm extends Component
                 'poster' => $posterPath ?? $this->event->poster,
                 'logo_url' => $logoPath ?? $this->event->logo_url,
                 'size_chart' => $sizeChartPath ?? $this->event->size_chart,
+                'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
             ]);
             $this->event->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.show', $this->event), navigate: true);
@@ -249,6 +254,7 @@ class EventForm extends Component
                 'poster' => $posterPath,
                 'logo_url' => $logoPath ?? null,
                 'size_chart' => $sizeChartPath ?? null,
+                'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
             ]);
             $newEvent->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.index'), navigate: true);

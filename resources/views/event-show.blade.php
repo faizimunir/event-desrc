@@ -395,38 +395,45 @@
 
             <div class="space-y-6 px-4 sm:px-6 lg:px-0">
                 @php
-                    $participantTabActive = request()->has('participant_page');
-                    $participantRegistrations = \App\Models\Registration::query()
-                        ->with(['rider.teams', 'bracket', 'package'])
-                        ->where('event_id', $event->id)
-                        ->where('status', \App\Models\Registration::STATUS_APPROVED)
-                        ->whereHas('order', function ($orderQuery) {
-                            $orderQuery->whereIn('status', [
-                                \App\Models\Order::STATUS_PAID,
-                                \App\Models\Order::STATUS_COMPLETED,
-                            ])->whereHas('payments', function ($paymentQuery) {
-                                $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
-                            });
-                        })
-                        ->latest('id')
-                        ->paginate(20, ['*'], 'participant_page')
-                        ->withQueryString()
-                        ->fragment('event-participants');
-                    $participantBracketOptions = $event->brackets_sorted_for_display
-                        ->map(fn ($bracket) => [
-                            'id' => (string) $bracket->id,
-                            'name' => (string) $bracket->name,
-                        ])
-                        ->values();
+                    $showParticipantsPublicly = (bool) $event->show_participants_publicly;
+                    $participantTabActive = $showParticipantsPublicly && request()->has('participant_page');
+                    $participantRegistrations = null;
+                    $participantBracketOptions = collect();
+                    if ($showParticipantsPublicly) {
+                        $participantRegistrations = \App\Models\Registration::query()
+                            ->with(['rider.teams', 'bracket', 'package'])
+                            ->where('event_id', $event->id)
+                            ->where('status', \App\Models\Registration::STATUS_APPROVED)
+                            ->whereHas('order', function ($orderQuery) {
+                                $orderQuery->whereIn('status', [
+                                    \App\Models\Order::STATUS_PAID,
+                                    \App\Models\Order::STATUS_COMPLETED,
+                                ])->whereHas('payments', function ($paymentQuery) {
+                                    $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
+                                });
+                            })
+                            ->latest('id')
+                            ->paginate(20, ['*'], 'participant_page')
+                            ->withQueryString()
+                            ->fragment('event-participants');
+                        $participantBracketOptions = $event->brackets_sorted_for_display
+                            ->map(fn ($bracket) => [
+                                'id' => (string) $bracket->id,
+                                'name' => (string) $bracket->name,
+                            ])
+                            ->values();
+                    }
                 @endphp
 
                 <flux:tab.group>
-                    <flux:tabs variant="segmented">
-                        <flux:tab icon="pencil-square" name="registration" :selected="!$participantTabActive">{{ __('Registration') }}</flux:tab>
-                        <flux:tab icon="users" name="participant" :selected="$participantTabActive">{{ __('Participant') }}</flux:tab>
-                    </flux:tabs>
+                    @if ($showParticipantsPublicly)
+                        <flux:tabs variant="segmented">
+                            <flux:tab icon="pencil-square" name="registration" :selected="!$participantTabActive">{{ __('Registration') }}</flux:tab>
+                            <flux:tab icon="users" name="participant" :selected="$participantTabActive">{{ __('Participant') }}</flux:tab>
+                        </flux:tabs>
+                    @endif
 
-                    <flux:tab.panel name="registration" :selected="!$participantTabActive">
+                    <flux:tab.panel name="registration" :selected="! $participantTabActive">
                 @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                     @php
                         $showDuplicateRiderModal = session('similar_riders_choice') && session('similar_riders');
@@ -918,6 +925,7 @@
                 @endif
                     </flux:tab.panel>
 
+                    @if ($showParticipantsPublicly)
                     <flux:tab.panel name="participant" :selected="$participantTabActive">
                         <div
                             class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden"
@@ -1004,6 +1012,7 @@
                             @endif
                         </div>
                     </flux:tab.panel>
+                    @endif
                 </flux:tab.group>
 
                 {{-- Modal: input access code for early registration (shown when registration not open) --}}
