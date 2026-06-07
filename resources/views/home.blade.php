@@ -66,31 +66,6 @@
                 </div>
             </section>
 
-            {{-- Feature highlights --}}
-            <div class="grid gap-4 sm:grid-cols-3">
-                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
-                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                        <flux:icon name="clipboard-document-check" class="size-5" />
-                    </div>
-                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Daftar Online') }}</h3>
-                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Pendaftaran cepat, pilih bracket & paket langsung dari web.') }}</p>
-                </div>
-                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
-                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400">
-                        <flux:icon name="radio" class="size-5" />
-                    </div>
-                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Live Result') }}</h3>
-                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Pantau hasil balapan secara real-time selama event berlangsung.') }}</p>
-                </div>
-                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
-                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-500/10 text-zinc-600 dark:bg-zinc-400/15 dark:text-zinc-300">
-                        <flux:icon name="qr-code" class="size-5" />
-                    </div>
-                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Tiket Digital') }}</h3>
-                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Kelola pesanan dan tiket event Anda dengan mudah.') }}</p>
-                </div>
-            </div>
-
             <div class="bento-card bento-section-shell">
                 <livewire:live-result-accordion-section section-id="live-result" :animate="true" />
             </div>
