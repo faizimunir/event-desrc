@@ -1,4 +1,4 @@
-<flux:header container class="sticky top-0 z-50 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-700">
+<flux:header container class="sticky top-0 z-50 border-b border-zinc-200/80 bg-zinc-50/80 backdrop-blur-md dark:border-zinc-700/80 dark:bg-zinc-900/80 supports-[backdrop-filter]:bg-zinc-50/70 supports-[backdrop-filter]:dark:bg-zinc-900/70">
     <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
     <flux:brand href="{{ route('home') }}" logo="{{ asset('logo-light.webp') }}" class="dark:hidden" />

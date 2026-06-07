@@ -3,40 +3,107 @@
 <head>
     @include('partials.head')
 </head>
-<body class="min-h-screen bg-white dark:bg-zinc-800 antialiased">
-    @include('partials.navbar')
+<body class="bento-page">
+    <div class="bento-shell">
+        @include('partials.navbar-bento')
 
-    <main>
-        {{-- Hero Section --}}
-        <section class="relative border-b border-zinc-200/80 dark:border-zinc-700/80 overflow-hidden bg-cover bg-center bg-no-repeat" style="background-image: url('{{ asset('hero.webp') }}');">
-            <div class="absolute inset-0 bg-black/20 dark:bg-black/50" aria-hidden="true"></div>
-            <div class="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20 lg:py-24">
-                <div class="max-w-2xl scroll-reveal" x-data x-intersect.once="$el.classList.add('in-view')">
-                    <p class="text-sm font-medium text-zinc-300 uppercase tracking-wider">
-                        {{ __('Platform Event Pushbike') }}
-                    </p>
-                    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-white sm:text-4xl lg:text-[2.5rem] drop-shadow-sm">
-                        {{ __('Temukan event balap terbaik') }}
-                    </h1>
-                    <p class="mt-4 text-lg leading-relaxed text-zinc-200">
-                        {{ __('Daftar lomba, pilih bracket, dan ikuti event favorit Anda.') }}
-                    </p>
-                    <div class="mt-8">
-                        <a href="#events" class="inline-flex items-center justify-center gap-2 rounded-lg bg-white px-5 py-2.5 text-sm font-medium text-zinc-900 shadow-sm transition hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black/20">
-                            {{ __('Lihat events') }}
-                            <flux:icon name="arrow-down" variant="mini" class="size-4" />
-                        </a>
+        <main class="mt-4 space-y-4 sm:space-y-5">
+            {{-- Hero --}}
+            <section class="bento-card bento-hero relative overflow-hidden">
+                <div
+                    class="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                    style="background-image: url('{{ asset('hero.webp') }}');"
+                    aria-hidden="true"
+                ></div>
+                <div class="absolute inset-0 bg-gradient-to-br from-zinc-950/90 via-zinc-950/70 to-zinc-950/50 dark:from-zinc-950/95 dark:via-zinc-950/80 dark:to-zinc-950/60" aria-hidden="true"></div>
+                <div class="hero-glow hero-glow--orange absolute -top-32 right-0 h-[28rem] w-[28rem] opacity-60" aria-hidden="true"></div>
+                <div class="hero-glow hero-glow--accent absolute -bottom-40 left-1/4 h-80 w-80 opacity-40" aria-hidden="true"></div>
+                <div class="absolute inset-0 bg-grid-pattern opacity-[0.15]" aria-hidden="true"></div>
+
+                <div class="relative z-10 px-6 pb-14 pt-10 sm:px-10 sm:pb-16 sm:pt-12 lg:px-12">
+                    <div class="max-w-3xl scroll-reveal" x-data x-intersect.once="$el.classList.add('in-view')">
+                        <span class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium uppercase tracking-wider text-white/90 backdrop-blur-md">
+                            <span class="relative flex size-2">
+                                <span class="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-75"></span>
+                                <span class="relative inline-flex size-2 rounded-full bg-orange-500"></span>
+                            </span>
+                            {{ __('Platform Event Pushbike') }}
+                        </span>
+
+                        <h1 class="mt-4 text-4xl font-bold tracking-tight text-white sm:mt-5 sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">
+                            {{ __('Temukan event') }}
+                            <span class="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{{ __('balap terbaik') }}</span>
+                        </h1>
+
+                        <p class="mt-5 max-w-xl text-lg leading-relaxed text-zinc-300 sm:text-xl">
+                            {{ __('Daftar lomba, pilih bracket, dan ikuti event favorit Anda — semua dalam satu platform.') }}
+                        </p>
+
+                        <div class="mt-8 flex flex-wrap items-center gap-3 sm:mt-9 sm:gap-4">
+                            <a
+                                href="#events"
+                                class="inline-flex items-center justify-center gap-2 rounded-full bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
+                            >
+                                {{ __('Lihat events') }}
+                                <flux:icon name="arrow-down" variant="mini" class="size-4" />
+                            </a>
+                            <a
+                                href="#live-result"
+                                class="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-zinc-950"
+                            >
+                                <flux:icon name="radio" variant="mini" class="size-4" />
+                                {{ __('Live Result') }}
+                            </a>
+                        </div>
                     </div>
                 </div>
+
+                <div class="absolute bottom-6 left-1/2 z-10 hidden -translate-x-1/2 sm:block" aria-hidden="true">
+                    <div class="flex flex-col items-center gap-2 text-white/50">
+                        <span class="text-xs uppercase tracking-widest">{{ __('Scroll') }}</span>
+                        <flux:icon name="chevron-down" variant="mini" class="size-4 animate-bounce" />
+                    </div>
+                </div>
+            </section>
+
+            {{-- Feature highlights --}}
+            <div class="grid gap-4 sm:grid-cols-3">
+                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
+                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+                        <flux:icon name="clipboard-document-check" class="size-5" />
+                    </div>
+                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Daftar Online') }}</h3>
+                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Pendaftaran cepat, pilih bracket & paket langsung dari web.') }}</p>
+                </div>
+                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
+                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400">
+                        <flux:icon name="radio" class="size-5" />
+                    </div>
+                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Live Result') }}</h3>
+                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Pantau hasil balapan secara real-time selama event berlangsung.') }}</p>
+                </div>
+                <div class="bento-feature-card scroll-reveal scroll-reveal--scale" x-data x-intersect.once="$el.classList.add('in-view')">
+                    <div class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-500/10 text-zinc-600 dark:bg-zinc-400/15 dark:text-zinc-300">
+                        <flux:icon name="qr-code" class="size-5" />
+                    </div>
+                    <h3 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('Tiket Digital') }}</h3>
+                    <p class="mt-2 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{{ __('Kelola pesanan dan tiket event Anda dengan mudah.') }}</p>
+                </div>
             </div>
-        </section>
 
-        <livewire:live-result-accordion-section section-id="live-result" />
+            <div class="bento-card bento-section-shell">
+                <livewire:live-result-accordion-section section-id="live-result" :animate="true" />
+            </div>
 
-        <livewire:event-cards-section :limit="12" section-id="events" :animate="true" />
+            <div class="bento-card bento-section-shell">
+                <livewire:event-cards-section :limit="12" section-id="events" :animate="true" />
+            </div>
 
-        @include('partials.footer')
-    </main>
+            <div class="bento-card bento-footer">
+                @include('partials.footer-bento')
+            </div>
+        </main>
+    </div>
 
     @fluxScripts
 </body>

@@ -12,10 +12,13 @@ class LiveResultAccordionSection extends Component
 
     public ?string $sectionId = null;
 
-    public function mount(int $limit = 6, ?string $sectionId = null): void
+    public bool $animate = false;
+
+    public function mount(int $limit = 6, ?string $sectionId = null, bool $animate = false): void
     {
         $this->limit = $limit;
         $this->sectionId = $sectionId;
+        $this->animate = $animate;
     }
 
     public function render(): View

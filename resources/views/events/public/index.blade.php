@@ -1,18 +1,11 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
-<head>
-    @include('partials.head')
-</head>
-<body class="min-h-screen bg-white dark:bg-zinc-800 antialiased">
-    @include('partials.navbar')
+@extends('layouts.bento-public')
 
-    <main>
+@section('title')
+    {{ __('Events') }}
+@endsection
+
+@section('content')
+    <div class="bento-card bento-section-shell">
         <livewire:event-cards-section />
-
-        @include('partials.footer')
-    </main>
-
-    @fluxScripts
-</body>
-</html>
-
+    </div>
+@endsection
