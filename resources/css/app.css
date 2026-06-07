@@ -171,6 +171,14 @@ select:focus[data-flux-control] {
     @apply flex size-10 shrink-0 items-center justify-center rounded-xl bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400;
 }
 
+.order-list-item {
+    @apply flex items-center gap-4 rounded-2xl border border-zinc-200/70 bg-zinc-50/50 px-4 py-3.5 transition duration-200 hover:border-zinc-300 hover:bg-white hover:shadow-sm dark:border-zinc-700/70 dark:bg-zinc-800/30 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/60;
+}
+
+.order-list-item__icon {
+    @apply flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400;
+}
+
 .bento-mobile-menu {
     @apply rounded-3xl border border-zinc-200/70 bg-white p-4 shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:border-zinc-700/70 dark:bg-zinc-900 dark:shadow-black/20;
 }

@@ -1,13 +1,17 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
-<head>
-    @include('partials.head', ['title' => __('Order') . ' #' . $order->id . ' — ' . config('app.name')])
-</head>
-<body class="min-h-screen bg-zinc-50 antialiased dark:bg-zinc-950">
-    @include('partials.navbar')
+@extends('layouts.bento-public')
 
-    <main class="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div class="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+@section('title')
+    {{ __('Order') }} #{{ $order->id }}
+@endsection
+
+@section('content')
+    @persist('toast')
+        <flux:toast />
+    @endpersist
+    <livewire:flash-toast />
+
+    <div class="mx-auto w-full max-w-2xl">
+        <div class="bento-card overflow-hidden">
             @if (session('status'))
                 <div class="border-b border-emerald-100/80 bg-emerald-50/90 px-6 py-4 dark:border-emerald-900/40 dark:bg-emerald-950/35 sm:px-8">
                     <div class="flex gap-3 text-sm text-emerald-900 dark:text-emerald-100">
@@ -382,10 +386,10 @@
                 </div>
             </div>
         </div>
-    </main>
+    </div>
+@endsection
 
-    @include('partials.footer')
-
+@push('scripts')
     <script>
         document.addEventListener('alpine:init', () => {
             Alpine.data('orderCountdown', () => ({
@@ -433,6 +437,4 @@
             }));
         });
     </script>
-    @fluxScripts
-</body>
-</html>
+@endpush
