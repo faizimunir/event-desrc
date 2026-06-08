@@ -18,7 +18,10 @@
                     wire:target="selectCategory,selectRound"
                     class="live-result-chip {{ $selectedCategory && $selectedCategory->id == $category->id ? 'live-result-chip--active' : '' }}"
                 >
-                    {{ $category->title }}
+                    <span wire:loading.remove wire:target="selectCategory,selectRound">{{ $category->title }}</span>
+                    <span wire:loading wire:target="selectCategory,selectRound" class="inline-flex items-center justify-center">
+                        <span class="live-result-loading-spinner live-result-loading-spinner--sm" aria-hidden="true"></span>
+                    </span>
                 </button>
             @endforeach
         </div>
@@ -37,7 +40,10 @@
                             wire:target="selectCategory,selectRound"
                             class="live-result-chip {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
                         >
-                            {{ $round }}
+                            <span wire:loading.remove wire:target="selectCategory,selectRound">{{ $round }}</span>
+                            <span wire:loading wire:target="selectCategory,selectRound" class="inline-flex items-center justify-center">
+                                <span class="live-result-loading-spinner live-result-loading-spinner--sm" aria-hidden="true"></span>
+                            </span>
                         </button>
                     @endforeach
                 </div>
