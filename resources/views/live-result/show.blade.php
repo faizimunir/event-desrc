@@ -64,52 +64,6 @@
     </div>
 
     <div class="bento-card bento-page-body">
-        @include('live-result.partials.content', [
-            'event' => $event,
-            'categories' => $categories,
-            'selectedCategory' => $selectedCategory ?? null,
-            'selectedRound' => $selectedRound ?? null,
-            'sheetData' => $sheetData ?? null,
-        ])
+        <livewire:live-result-panel :event="$event" />
     </div>
 @endsection
-
-@push('scripts')
-    <script>
-        (function () {
-            const pingUrl = @json(route('live-result.ping', $event->slug));
-            const pollIntervalMs = 10000;
-
-            let etag = null;
-            let inFlight = false;
-
-            async function poll() {
-                if (inFlight) return;
-                inFlight = true;
-                try {
-                    const headers = {};
-                    if (etag) headers['If-None-Match'] = etag;
-                    const res = await fetch(pingUrl, { headers, cache: 'no-store' });
-
-                    if (res.status === 304) return;
-
-                    const newEtag = res.headers.get('ETag');
-                    const hadEtag = !!etag;
-                    if (newEtag) etag = newEtag;
-
-                    if (!res.ok) return;
-
-                    if (hadEtag) {
-                        window.location.reload();
-                    }
-                } catch (e) {
-                    // silent: jangan ganggu UX, coba lagi di interval berikutnya
-                } finally {
-                    inFlight = false;
-                }
-            }
-
-            setInterval(poll, pollIntervalMs);
-        })();
-    </script>
-@endpush

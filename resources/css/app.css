@@ -233,19 +233,27 @@ select:focus[data-flux-control] {
 }
 
 .live-result-filter-label {
-    @apply mb-2.5 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400;
+    @apply mb-3 block text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400;
+}
+
+.live-result-filter-grid {
+    @apply grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4;
+}
+
+.live-result-filter-grid--rounds {
+    @apply grid-cols-2 sm:grid-cols-4;
 }
 
 .live-result-chip {
-    @apply inline-flex items-center rounded-full border border-zinc-200/80 bg-zinc-50/80 px-3.5 py-1.5 text-sm font-medium text-zinc-600 transition hover:border-zinc-300 hover:bg-white dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-300 dark:hover:border-zinc-600 dark:hover:bg-zinc-800;
+    @apply flex min-h-11 w-full cursor-pointer appearance-none items-center justify-center rounded-xl border border-zinc-200/80 bg-white px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-zinc-700 transition-all duration-200 hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-sm disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800;
 }
 
 .live-result-chip--active {
-    @apply border-orange-300 bg-orange-500 text-white shadow-sm hover:border-orange-400 hover:bg-orange-500 dark:border-orange-600 dark:bg-orange-500 dark:text-white dark:hover:border-orange-500 dark:hover:bg-orange-500;
+    @apply border-orange-500 bg-orange-500 text-white shadow-md shadow-orange-500/25 ring-2 ring-orange-500/20 hover:border-orange-500 hover:bg-orange-500 hover:text-white dark:border-orange-500 dark:bg-orange-500 dark:text-white dark:hover:border-orange-500 dark:hover:bg-orange-500;
 }
 
 .live-result-chip--round-active {
-    @apply border-emerald-300 bg-emerald-600 text-white shadow-sm hover:border-emerald-400 hover:bg-emerald-600 dark:border-emerald-600 dark:bg-emerald-600 dark:text-white dark:hover:border-emerald-600 dark:hover:bg-emerald-600;
+    @apply border-emerald-600 bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-600/20 hover:border-emerald-600 hover:bg-emerald-600 hover:text-white dark:border-emerald-600 dark:bg-emerald-600 dark:text-white dark:hover:border-emerald-600 dark:hover:bg-emerald-600;
 }
 
 .live-result-context-bar {
