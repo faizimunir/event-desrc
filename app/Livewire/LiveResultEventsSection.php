@@ -6,7 +6,7 @@ use App\Models\Event;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
-class LiveResultAccordionSection extends Component
+class LiveResultEventsSection extends Component
 {
     public ?int $limit = null;
 
@@ -41,7 +41,7 @@ class LiveResultAccordionSection extends Component
             $this->limit !== null && $events->count() >= $this->limit
         );
 
-        return view('livewire.live-result-accordion-section', [
+        return view('livewire.live-result-events-section', [
             'events' => $events,
             'showViewAll' => $showViewAll,
         ]);

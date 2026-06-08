@@ -6,6 +6,6 @@
 
 @section('content')
     <div class="bento-card bento-section-shell">
-        <livewire:live-result-accordion-section :show-view-all="false" />
+        <livewire:live-result-events-section :show-view-all="false" />
     </div>
 @endsection

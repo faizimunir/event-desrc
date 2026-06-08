@@ -19,25 +19,16 @@
                 @endif
 
                 <div class="min-w-0 flex-1">
-                    <span class="live-result-hero__badge">
-                        <span class="relative flex size-1.5">
-                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75"></span>
-                            <span class="relative inline-flex size-1.5 rounded-full bg-red-500"></span>
-                        </span>
-                        {{ __('Live') }}
-                    </span>
+                    @include('live-result.partials.day-status-badge', ['event' => $event])
 
                     <h1 class="live-result-hero__title">{{ $event->title }}</h1>
                 </div>
             </div>
 
             @if($event->start_at || $event->location)
-                @php
-                    $metaCount = (int) (bool) $event->start_at + (int) (bool) $event->location;
-                @endphp
                 <dl @class([
                     'live-result-hero__meta',
-                    'live-result-hero__meta--cols-2' => $metaCount > 1,
+                    'live-result-hero__meta--cols-2' => $event->start_at && $event->location,
                 ])>
                     @if($event->start_at)
                         <div class="live-result-hero__meta-item">

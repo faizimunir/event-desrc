@@ -321,14 +321,21 @@ class Event extends Model
 
     public function getEffectiveStatusLabelAttribute(): string
     {
-        return match ($this->effective_status) {
+        return $this->effectiveStatusLabel();
+    }
+
+    public function effectiveStatusLabel(?string $status = null): string
+    {
+        $status ??= $this->effective_status;
+
+        return match ($status) {
             self::STATUS_DRAFT => __('Draft'),
             self::STATUS_PUBLISHED => __('Published'),
             self::STATUS_OPEN_REGIST => __('Open Regist'),
             self::STATUS_CLOSED_REGIST => __('Closed Regist'),
             self::STATUS_LIVE => __('Live'),
             self::STATUS_DONE => __('Done'),
-            default => $this->effective_status,
+            default => $status,
         };
     }
 
@@ -387,13 +394,54 @@ class Event extends Model
         return 'upcoming';
     }
 
-    public function liveResultDayStatusLabel(): ?string
+    public function liveResultDayStatusLabel(?string $status = null): ?string
     {
-        return match ($this->liveResultDayStatus()) {
+        return match ($status ?? $this->liveResultDayStatus()) {
             'live' => __('Live'),
             'ended' => __('Live ended'),
             'upcoming' => __('Upcoming'),
             default => null,
+        };
+    }
+
+    /**
+     * Status badge kartu event berdasarkan tanggal.
+     * Prioritas: done → live → closed_regist → open_regist → published.
+     */
+    public function eventCardStatus(): string
+    {
+        $now = now();
+
+        if ($this->end_at && $now->gte($this->end_at)) {
+            return self::STATUS_DONE;
+        }
+
+        if ($this->start_at && $now->gte($this->start_at)) {
+            return self::STATUS_LIVE;
+        }
+
+        if ($this->registration_closes_at && $now->gte($this->registration_closes_at)) {
+            return self::STATUS_CLOSED_REGIST;
+        }
+
+        if ($this->registration_opens_at && $now->gte($this->registration_opens_at)) {
+            return self::STATUS_OPEN_REGIST;
+        }
+
+        return self::STATUS_PUBLISHED;
+    }
+
+    public function eventCardStatusLabel(?string $status = null): string
+    {
+        $status ??= $this->eventCardStatus();
+
+        return match ($status) {
+            self::STATUS_PUBLISHED => __('Published'),
+            self::STATUS_OPEN_REGIST => __('Open Regist'),
+            self::STATUS_CLOSED_REGIST => __('Closed Regist'),
+            self::STATUS_LIVE => __('Live'),
+            self::STATUS_DONE => __('Done'),
+            default => $status,
         };
     }
 

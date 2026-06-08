@@ -62,7 +62,14 @@
             </div>
         @endif
 
-        @if($selectedRound && $sheetData && is_array($sheetData) && isset($sheetData['groups']))
+        @if($selectedRound && $sheetData)
+            @php
+                $poinMotoColumns = collect([
+                    ['flag' => 'has_poin_moto_1', 'key' => 'poin_moto_1', 'label' => 'Poin Moto 1'],
+                    ['flag' => 'has_poin_moto_2', 'key' => 'poin_moto_2', 'label' => 'Poin Moto 2'],
+                    ['flag' => 'has_poin_moto_3', 'key' => 'poin_moto_3', 'label' => 'Poin Moto 3'],
+                ])->filter(fn ($col) => $sheetData['columns'][$col['flag']] ?? false);
+            @endphp
             @foreach($sheetData['groups'] as $groupIndex => $group)
                 <div class="mb-8 {{ $groupIndex > 0 ? 'mt-8 border-t border-zinc-200 pt-8 dark:border-zinc-700' : '' }}">
                     <h3 class="live-result-group-title mb-4">{{ $group['name'] }}</h3>
@@ -83,15 +90,9 @@
                                     <th>Plate</th>
                                     <th>Riders</th>
                                     <th class="text-center">Gate Moto</th>
-                                    @if($sheetData['columns']['has_poin_moto_1'] ?? false)
-                                        <th class="text-center">Poin Moto 1</th>
-                                    @endif
-                                    @if($sheetData['columns']['has_poin_moto_2'] ?? false)
-                                        <th class="text-center">Poin Moto 2</th>
-                                    @endif
-                                    @if($sheetData['columns']['has_poin_moto_3'] ?? false)
-                                        <th class="text-center">Poin Moto 3</th>
-                                    @endif
+                                    @foreach($poinMotoColumns as $poinColumn)
+                                        <th class="text-center">{{ $poinColumn['label'] }}</th>
+                                    @endforeach
                                     @if($sheetData['is_qualifikasi'] ?? false)
                                         <th class="text-center">Total</th>
                                     @endif
@@ -121,15 +122,9 @@
                                                     {{ !empty($row['gate']) ? $row['gate'] : '-' }}
                                                 @endif
                                             </td>
-                                            @if($sheetData['columns']['has_poin_moto_1'] ?? false)
-                                                <td class="cell-poin whitespace-nowrap">{{ !empty($row['poin_moto_1']) ? $row['poin_moto_1'] : '-' }}</td>
-                                            @endif
-                                            @if($sheetData['columns']['has_poin_moto_2'] ?? false)
-                                                <td class="cell-poin whitespace-nowrap">{{ !empty($row['poin_moto_2']) ? $row['poin_moto_2'] : '-' }}</td>
-                                            @endif
-                                            @if($sheetData['columns']['has_poin_moto_3'] ?? false)
-                                                <td class="cell-poin whitespace-nowrap">{{ !empty($row['poin_moto_3']) ? $row['poin_moto_3'] : '-' }}</td>
-                                            @endif
+                                            @foreach($poinMotoColumns as $poinColumn)
+                                                <td class="cell-poin whitespace-nowrap">{{ !empty($row[$poinColumn['key']]) ? $row[$poinColumn['key']] : '-' }}</td>
+                                            @endforeach
                                             @if($sheetData['is_qualifikasi'] ?? false)
                                                 <td class="cell-total whitespace-nowrap">{{ !empty($row['total']) ? $row['total'] : '-' }}</td>
                                             @endif
@@ -138,11 +133,8 @@
                                         </tr>
                                     @endforeach
                                 @else
-                                    @php
-                                        $colspan = 3 + ($sheetData['columns']['has_poin_moto_1'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_2'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_3'] ?? false ? 1 : 0) + ($sheetData['is_qualifikasi'] ?? false ? 1 : 0) + 2;
-                                    @endphp
                                     <tr>
-                                        <td colspan="{{ $colspan }}" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('Tidak ada data') }}</td>
+                                        <td colspan="{{ $sheetData['column_count'] }}" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('Tidak ada data') }}</td>
                                     </tr>
                                 @endif
                             </tbody>

@@ -27,7 +27,7 @@
                             @endif
                             <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 transition duration-300 group-hover:opacity-100"></div>
                             <div class="absolute left-3 top-3">
-                                <flux:badge variant="solid" color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}" size="sm">{{ $event->effective_status_label }}</flux:badge>
+                                @include('partials.event-status-badge', ['event' => $event, 'solid' => true])
                             </div>
                         </div>
                         <div class="p-4 sm:p-5">

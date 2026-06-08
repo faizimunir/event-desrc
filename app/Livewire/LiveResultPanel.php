@@ -28,6 +28,7 @@ class LiveResultPanel extends Component
     public function mount(Event $event): void
     {
         $this->event = $event;
+        $this->knownVersion = $this->resolveVersion();
     }
 
     public function selectCategory(int $categoryId): void
@@ -45,8 +46,8 @@ class LiveResultPanel extends Component
     {
         $version = $this->resolveVersion();
 
-        if ($this->knownVersion !== null && $this->knownVersion !== $version) {
-            $this->knownVersion = $version;
+        if ($this->knownVersion === $version) {
+            $this->skipRender();
 
             return;
         }
@@ -84,6 +85,30 @@ class LiveResultPanel extends Component
 
     private function loadSheetData(GoogleSheetsService $googleSheetsService, LiveResultCategory $category, string $round): ?array
     {
+        $version = $this->resolveVersion();
+        $cacheKey = sprintf(
+            'live_result:parsed:%d:%d:%s:%s',
+            $this->event->id,
+            $category->id,
+            md5($round),
+            $version,
+        );
+
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        $sheetData = $this->fetchAndParseSheetData($googleSheetsService, $category, $round);
+
+        if ($sheetData !== null) {
+            Cache::put($cacheKey, $sheetData, now()->addDays(30));
+        }
+
+        return $sheetData;
+    }
+
+    private function fetchAndParseSheetData(GoogleSheetsService $googleSheetsService, LiveResultCategory $category, string $round): ?array
+    {
         $result = $googleSheetsService->getSheetData(
             $category->spreadsheet_id,
             $round
@@ -93,18 +118,10 @@ class LiveResultPanel extends Component
             return null;
         }
 
-        $rawData = $result['values'];
-        $b1Range = $round.'!B1';
-
-        if (preg_match('/[^a-zA-Z0-9_]/', $round)) {
-            $escaped = str_replace("'", "''", $round);
-            $b1Range = "'".$escaped."'!B1";
-        }
-
         $b1Result = $googleSheetsService->getSheetData(
             $category->spreadsheet_id,
             $round,
-            $b1Range,
+            $this->b1RangeForRound($round),
             false
         );
 
@@ -114,7 +131,18 @@ class LiveResultPanel extends Component
             $b1Value = trim((string) $b1Result['values'][0][0]);
         }
 
-        return LiveResultSheetParser::parse($rawData, $round, $b1Value);
+        return LiveResultSheetParser::parse($result['values'], $round, $b1Value);
+    }
+
+    private function b1RangeForRound(string $round): string
+    {
+        if (preg_match('/[^a-zA-Z0-9_]/', $round)) {
+            $escaped = str_replace("'", "''", $round);
+
+            return "'".$escaped."'!B1";
+        }
+
+        return $round.'!B1';
     }
 
     private function resolveVersion(): string

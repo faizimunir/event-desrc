@@ -239,10 +239,6 @@ select:focus[data-flux-control] {
     @apply flex size-14 shrink-0 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400 sm:size-16;
 }
 
-.live-result-hero__badge {
-    @apply inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-red-600 dark:bg-red-500/15 dark:text-red-400;
-}
-
 .live-result-hero__title {
     @apply mt-2 text-xl font-bold leading-tight tracking-tight text-zinc-900 dark:text-white sm:text-2xl;
 }

@@ -67,7 +67,7 @@
             </section>
 
             <div class="bento-card bento-section-shell">
-                <livewire:live-result-accordion-section section-id="live-result" :limit="10" :animate="true" />
+                <livewire:live-result-events-section section-id="live-result" :limit="10" :animate="true" />
             </div>
 
             <div class="bento-card bento-section-shell">

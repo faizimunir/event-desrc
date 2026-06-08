@@ -229,9 +229,7 @@
                         <div class="event-section-card">
                             <div class="flex flex-wrap items-start justify-between gap-3">
                                 <div class="flex flex-wrap items-center gap-2">
-                                    <flux:badge variant="solid"
-                                        color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}"
-                                        size="sm">{{ $event->effective_status_label }}</flux:badge>
+                                    @include('partials.event-status-badge', ['event' => $event, 'solid' => true])
                                     <flux:badge color="zinc" size="sm">
                                         {{ $event->isCategoryUmur() ? __('Umur') : __('Tahun') }}
                                     </flux:badge>

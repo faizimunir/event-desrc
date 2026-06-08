@@ -7,11 +7,14 @@ class LiveResultSheetParser
     public static function parse(array $rawData, string $sheetName, string $b1Value = ''): array
     {
         if (empty($rawData)) {
+            $columns = ['has_gate' => false, 'has_gate_moto_3' => false, 'has_poin_moto_1' => false, 'has_poin_moto_2' => false, 'has_poin_moto_3' => false];
+
             return [
                 'keterangan' => '',
                 'groups' => [],
-                'columns' => ['has_gate' => false, 'has_gate_moto_3' => false, 'has_poin_moto_1' => false, 'has_poin_moto_2' => false, 'has_poin_moto_3' => false],
+                'columns' => $columns,
                 'is_qualifikasi' => false,
+                'column_count' => self::tableColumnCount($columns, false),
             ];
         }
 
@@ -124,18 +127,33 @@ class LiveResultSheetParser
             $groups[] = ['name' => $currentGroupName !== '' ? trim($currentGroupName) : 'Batch '.$groupNumber, 'data' => $currentGroup];
         }
 
+        $columns = [
+            'has_gate' => $colGate !== null,
+            'has_gate_moto_3' => $colGateMoto3 !== null,
+            'has_poin_moto_1' => $colPoinMoto1 !== null,
+            'has_poin_moto_2' => $colPoinMoto2 !== null,
+            'has_poin_moto_3' => $colPoinMoto3 !== null,
+        ];
+
         return [
             'keterangan' => $keterangan,
             'groups' => $groups,
             'is_qualifikasi' => $isQualifikasi,
-            'columns' => [
-                'has_gate' => $colGate !== null,
-                'has_gate_moto_3' => $colGateMoto3 !== null,
-                'has_poin_moto_1' => $colPoinMoto1 !== null,
-                'has_poin_moto_2' => $colPoinMoto2 !== null,
-                'has_poin_moto_3' => $colPoinMoto3 !== null,
-            ],
+            'columns' => $columns,
+            'column_count' => self::tableColumnCount($columns, $isQualifikasi),
         ];
+    }
+
+    /**
+     * @param  array{has_poin_moto_1: bool, has_poin_moto_2: bool, has_poin_moto_3: bool}  $columns
+     */
+    protected static function tableColumnCount(array $columns, bool $isQualifikasi): int
+    {
+        return 5
+            + ($columns['has_poin_moto_1'] ? 1 : 0)
+            + ($columns['has_poin_moto_2'] ? 1 : 0)
+            + ($columns['has_poin_moto_3'] ? 1 : 0)
+            + ($isQualifikasi ? 1 : 0);
     }
 
     protected static function findCol(array $headerMap, array $names): ?int

@@ -30,7 +30,7 @@
                     >
                         <td class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $event->title }}</td>
                         <td class="px-4 py-3">
-                            <flux:badge color="{{ $event->isEffectiveDraft() ? 'zinc' : ($event->isEffectiveOpenRegist() ? 'green' : 'blue') }}" size="sm">{{ $event->effective_status_label }}</flux:badge>
+                            @include('partials.event-status-badge', ['event' => $event, 'source' => 'effective'])
                         </td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{{ $event->start_at->format('d M Y H:i') }}</td>
                         <td class="whitespace-nowrap px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400">{{ $event->end_at?->format('d M Y H:i') ?? '—' }}</td>
