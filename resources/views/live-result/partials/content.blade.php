@@ -79,7 +79,7 @@
                     @endphp
                     @if($showKeterangan)
                         <div class="live-result-keterangan mb-5">
-                            <flux:icon name="info" class="live-result-keterangan__icon" />
+                            <flux:icon name="information-circle" class="live-result-keterangan__icon" />
                             <span>{{ $sheetData['keterangan'] }}</span>
                         </div>
                     @endif
