@@ -6,10 +6,6 @@
     {{ __('Auto refresh') }}
 </div>
 
-<div wire:loading.delay.shortest wire:target="selectCategory,selectRound" class="mb-4 flex items-center justify-center py-2">
-    <flux:icon name="arrow-path" class="size-6 animate-spin text-blue-600 dark:text-blue-400" />
-</div>
-
 @if($categories->count() > 0)
     <div class="mb-6">
         <span class="live-result-filter-label">{{ __('Pilih Kategori') }}</span>
