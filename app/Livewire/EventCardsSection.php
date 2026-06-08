@@ -16,12 +16,15 @@ class EventCardsSection extends Component
 
     public bool $showHeader = true;
 
-    public function mount(?int $limit = null, ?string $sectionId = null, bool $animate = false, bool $showHeader = true): void
+    public ?bool $showViewAll = null;
+
+    public function mount(?int $limit = null, ?string $sectionId = null, bool $animate = false, bool $showHeader = true, ?bool $showViewAll = null): void
     {
         $this->limit = $limit;
         $this->sectionId = $sectionId;
         $this->animate = $animate;
         $this->showHeader = $showHeader;
+        $this->showViewAll = $showViewAll;
     }
 
     public function render(): View
@@ -34,8 +37,15 @@ class EventCardsSection extends Component
             $query->limit($this->limit);
         }
 
+        $events = $query->get();
+
+        $showViewAll = $this->showViewAll ?? (
+            $this->limit !== null && $events->count() >= $this->limit
+        );
+
         return view('livewire.event-cards-section', [
-            'events' => $query->get(),
+            'events' => $events,
+            'showViewAll' => $showViewAll,
         ]);
     }
 }

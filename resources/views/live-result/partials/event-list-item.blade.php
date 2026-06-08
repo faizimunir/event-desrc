@@ -5,11 +5,11 @@
 >
     @if($event->logoUrl())
         <div class="live-result-list-item__logo">
-            <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="max-h-9 max-w-[88px] object-contain" />
+            <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="max-h-full max-w-full object-contain" />
         </div>
     @else
         <div class="live-result-list-item__icon">
-            <flux:icon name="radio" variant="outline" class="size-5" />
+            <flux:icon name="radio" variant="outline" class="size-6" />
         </div>
     @endif
 

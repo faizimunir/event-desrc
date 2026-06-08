@@ -5,7 +5,7 @@
 @endsection
 
 @section('content')
-    <div class="bento-card bento-page-header live-result-hero">
+    <div class="bento-card bento-section-shell live-result-hero">
         <div class="live-result-hero__inner">
             <div class="live-result-hero__top">
                 @if($event->logoUrl())
@@ -37,7 +37,7 @@
                 @endphp
                 <dl @class([
                     'live-result-hero__meta',
-                    'sm:grid-cols-2' => $metaCount > 1,
+                    'live-result-hero__meta--cols-2' => $metaCount > 1,
                 ])>
                     @if($event->start_at)
                         <div class="live-result-hero__meta-item">
@@ -67,7 +67,7 @@
         </div>
     </div>
 
-    <div class="bento-card bento-page-body">
+    <div class="bento-card bento-section-shell">
         <livewire:live-result-panel :event="$event" />
     </div>
 @endsection

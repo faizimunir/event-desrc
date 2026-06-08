@@ -12,13 +12,7 @@ class LiveResultController extends Controller
 {
     public function index()
     {
-        $events = Event::with('location')
-            ->visibleOnHomePage()
-            ->where('has_live_result', true)
-            ->orderBy('start_at', 'desc')
-            ->get();
-
-        return view('live-result.index', compact('events'));
+        return view('live-result.index');
     }
 
     public function show(Request $request, Event $event)
