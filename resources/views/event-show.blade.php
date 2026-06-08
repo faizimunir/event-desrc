@@ -1120,9 +1120,6 @@
                                                                 {{ __('Rider') }}</th>
                                                             <th
                                                                 class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                                                {{ __('Team') }}</th>
-                                                            <th
-                                                                class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                                                                 {{ __('Bracket') }}</th>
                                                         </tr>
                                                     </thead>
@@ -1156,9 +1153,9 @@
                                                                 {{ $participantRegistration->rider?->nickname ?? '—' }}
                                                                 ({{ $participantRegistration->rider?->number_plate ?? '—' }})
                                                             </span>
-                                                        </td>
-                                                        <td class="text-sm text-zinc-700 dark:text-zinc-300">
-                                                            {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
+                                                            <span class="text-zinc-500 dark:text-zinc-400 block">
+                                                                {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
+                                                            </span>
                                                         </td>
                                                         <td class="text-sm text-zinc-700 dark:text-zinc-300">
                                                             {{ $participantRegistration->bracket?->name ?? '—' }}
