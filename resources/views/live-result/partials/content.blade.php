@@ -6,6 +6,29 @@
     {{ __('Auto refresh') }}
 </div>
 
+<div
+    wire:loading.delay.shortest
+    wire:target="selectCategory,selectRound"
+    class="live-result-loading"
+    role="status"
+    aria-live="polite"
+>
+    <div class="live-result-loading__track" aria-hidden="true">
+        <div class="live-result-loading__bar"></div>
+    </div>
+    <div class="live-result-loading__content">
+        <span class="live-result-loading__spinner" aria-hidden="true"></span>
+        <span class="live-result-loading__text">
+            {{ __('Memuat data') }}
+            <span class="live-result-loading__dots" aria-hidden="true">
+                <span class="live-result-loading__dot"></span>
+                <span class="live-result-loading__dot"></span>
+                <span class="live-result-loading__dot"></span>
+            </span>
+        </span>
+    </div>
+</div>
+
 @if($categories->count() > 0)
     <div class="mb-6">
         <span class="live-result-filter-label">{{ __('Pilih Kategori') }}</span>
@@ -18,10 +41,7 @@
                     wire:target="selectCategory,selectRound"
                     class="live-result-chip {{ $selectedCategory && $selectedCategory->id == $category->id ? 'live-result-chip--active' : '' }}"
                 >
-                    <span wire:loading.remove wire:target="selectCategory,selectRound">{{ $category->title }}</span>
-                    <span wire:loading wire:target="selectCategory,selectRound" class="inline-flex items-center justify-center">
-                        <span class="live-result-loading-spinner live-result-loading-spinner--sm" aria-hidden="true"></span>
-                    </span>
+                    {{ $category->title }}
                 </button>
             @endforeach
         </div>
@@ -40,10 +60,7 @@
                             wire:target="selectCategory,selectRound"
                             class="live-result-chip {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
                         >
-                            <span wire:loading.remove wire:target="selectCategory,selectRound">{{ $round }}</span>
-                            <span wire:loading wire:target="selectCategory,selectRound" class="inline-flex items-center justify-center">
-                                <span class="live-result-loading-spinner live-result-loading-spinner--sm" aria-hidden="true"></span>
-                            </span>
+                            {{ $round }}
                         </button>
                     @endforeach
                 </div>
