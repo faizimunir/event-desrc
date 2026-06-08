@@ -1,8 +1,10 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="scroll-smooth">
+@extends('layouts.bento-public')
 
-<head>
-    @include('partials.head', ['title' => $event->title])
+@section('title')
+    {{ $event->title }}
+@endsection
+
+@push('head')
     <style>
         html {
             scroll-behavior: smooth;
@@ -11,50 +13,18 @@
         #registration-form,
         #registration-packages,
         #event-participants {
-            scroll-margin-top: 6rem;
+            scroll-margin-top: 7rem;
         }
     </style>
-</head>
+@endpush
 
-<body class="min-h-screen bg-zinc-50 dark:bg-zinc-950 antialiased">
+@section('content')
     @persist('toast')
         <flux:toast />
     @endpersist
     <livewire:flash-toast />
-    @include('partials.navbar')
 
-    <flux:main container class="!p-0 overflow-x-hidden">
-        <div class="pb-10 lg:pb-12">
-            <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-                <div
-                    class="mb-6 mt-4 hidden items-center justify-between gap-4 rounded-2xl border border-zinc-200/80 bg-white px-5 py-3.5 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900 lg:flex">
-                    <nav aria-label="Breadcrumb" class="min-w-0">
-                        <flux:breadcrumbs
-                            class="flex flex-wrap items-center gap-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            <flux:breadcrumbs.item href="{{ route('home') }}" wire:navigate>{{ __('Home') }}
-                            </flux:breadcrumbs.item>
-                            <flux:breadcrumbs.item href="{{ route('home') }}#events" wire:navigate>{{ __('Events') }}
-                            </flux:breadcrumbs.item>
-                            <flux:breadcrumbs.item
-                                class="truncate text-zinc-900 dark:text-zinc-100 max-w-[12rem] sm:max-w-none">
-                                {{ $event->title }}</flux:breadcrumbs.item>
-                        </flux:breadcrumbs>
-                    </nav>
-                    <div class="flex shrink-0 items-center gap-2">
-                        @if ($event->has_live_result)
-                            <flux:button variant="filled" size="sm"
-                                href="{{ route('live-result.show', $event->slug) }}" wire:navigate icon="chart-bar"
-                                class="!bg-red-600 hover:!bg-red-500 focus:!ring-red-500 dark:!bg-red-600 dark:hover:!bg-red-500">
-                                {{ __('Live Result') }}
-                            </flux:button>
-                        @endif
-                        <flux:button variant="ghost" size="sm" href="{{ route('home') }}#events" wire:navigate
-                            icon="arrow-left">
-                            {{ __('Back') }}
-                        </flux:button>
-                    </div>
-                </div>
-
+    <div class="overflow-x-hidden pb-6 lg:pb-8">
                 <div
                     class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-x-8 lg:gap-y-8">
                     {{-- 1: Left sidebar (poster + team) --}}
@@ -63,54 +33,54 @@
                         <div class="w-full lg:min-w-0 lg:h-fit">
                             @if ($event->posterUrl())
                                 <div
-                                    class="relative min-h-[60svh] w-screen ml-[calc(-50vw+50%)] overflow-hidden bg-zinc-900 lg:sticky lg:top-20 lg:w-full lg:ml-0 lg:min-h-0 lg:rounded-2xl lg:border lg:border-zinc-200/80 lg:shadow-lg dark:lg:border-zinc-700/80">
-                                    <img src="{{ $event->posterUrl() }}" alt="{{ $event->title }}"
-                                        class="absolute inset-0 h-full w-full object-cover object-center lg:static lg:aspect-[3/4]" />
+                                    x-data="{ expanded: false }"
+                                    x-on:resize.window="if (window.innerWidth >= 1024) expanded = false"
+                                    class="relative w-full overflow-hidden rounded-3xl border border-zinc-200/70 bg-zinc-900 shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:border-zinc-700/70 dark:shadow-black/20 lg:sticky lg:top-28"
+                                >
+                                    <button
+                                        type="button"
+                                        class="group relative block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 lg:pointer-events-none"
+                                        x-on:click="if (window.matchMedia('(min-width: 1024px)').matches) return; expanded = !expanded"
+                                        x-bind:aria-expanded="expanded.toString()"
+                                        aria-label="{{ __('Toggle event poster') }}"
+                                    >
+                                        <div
+                                            class="event-poster-frame overflow-hidden"
+                                            x-bind:class="expanded && 'event-poster-frame--expanded'"
+                                        >
+                                            <img src="{{ $event->posterUrl() }}" alt="{{ $event->title }}" class="event-poster-image" />
+                                        </div>
 
-                                    <div
-                                        class="absolute inset-0 bg-gradient-to-t from-zinc-950/90 via-zinc-950/40 to-transparent lg:hidden">
-                                    </div>
+                                        <div
+                                            x-show="!expanded"
+                                            x-transition:leave="transition ease-in duration-200"
+                                            x-transition:leave-start="opacity-100"
+                                            x-transition:leave-end="opacity-0"
+                                            class="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-center bg-gradient-to-t from-black/60 via-black/20 to-transparent pb-3 pt-10 lg:hidden"
+                                        >
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-800 shadow-sm backdrop-blur-sm dark:bg-zinc-900/90 dark:text-zinc-100">
+                                                <flux:icon name="chevron-down" variant="mini" class="size-3.5" />
+                                                {{ __('Tap to expand') }}
+                                            </span>
+                                        </div>
 
-                                    <div
-                                        class="absolute left-0 right-0 top-0 z-10 m-3 flex justify-between gap-2 lg:hidden">
-                                        <flux:button variant="ghost" size="sm" href="{{ route('home') }}#events"
-                                            wire:navigate icon="arrow-left"
-                                            class="!bg-black/30 !text-white backdrop-blur-md hover:!bg-black/50">
-                                            {{ __('Back') }}
-                                        </flux:button>
-                                        @if ($event->has_live_result)
-                                            <flux:button variant="filled" size="sm"
-                                                href="{{ route('live-result.show', $event->slug) }}" wire:navigate
-                                                icon="chart-bar" class="!bg-red-600 hover:!bg-red-500">
-                                                {{ __('Live Result') }}
-                                            </flux:button>
-                                        @endif
-                                    </div>
-
-                                    <div class="absolute left-4 right-4 top-14 z-10 lg:hidden">
-                                        <flux:badge variant="solid"
-                                            color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}"
-                                            size="sm">{{ $event->effective_status_label }}</flux:badge>
-                                    </div>
-
-                                    <div class="absolute inset-0 flex flex-col justify-end p-5 pb-10 lg:hidden">
-                                        <h1 class="text-3xl font-bold tracking-tight text-white drop-shadow-lg">
-                                            {{ $event->title }}</h1>
-                                        @if ($event->location)
-                                            <p class="mt-2 flex items-center gap-1.5 text-sm text-white/90 drop-shadow">
-                                                <flux:icon name="map-pin" variant="mini" class="size-4 shrink-0" />
-                                                {{ $event->location->name }}
-                                            </p>
-                                        @endif
-                                        <p class="mt-2 flex items-center gap-1.5 text-sm text-white/80">
-                                            <flux:icon name="calendar-days" variant="mini" class="size-4 shrink-0" />
-                                            {{ $event->start_at->format('d M Y, H:i') }}
-                                        </p>
-                                    </div>
+                                        <div
+                                            x-show="expanded"
+                                            x-transition:leave="transition ease-in duration-200"
+                                            x-transition:leave-start="opacity-100"
+                                            x-transition:leave-end="opacity-0"
+                                            class="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-center bg-gradient-to-t from-black/50 to-transparent pb-3 pt-8 lg:hidden"
+                                        >
+                                            <span class="inline-flex items-center gap-1.5 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-zinc-800 shadow-sm backdrop-blur-sm dark:bg-zinc-900/90 dark:text-zinc-100">
+                                                <flux:icon name="chevron-up" variant="mini" class="size-3.5" />
+                                                {{ __('Tap to collapse') }}
+                                            </span>
+                                        </div>
+                                    </button>
                                 </div>
                             @else
                                 <div
-                                    class="flex min-h-[40vh] w-screen ml-[calc(-50vw+50%)] items-center justify-center bg-zinc-200 text-zinc-500 dark:bg-zinc-800 lg:w-full lg:ml-0 lg:min-h-0 lg:rounded-2xl lg:border lg:border-zinc-200/80 lg:aspect-[3/4] lg:shadow-lg dark:lg:border-zinc-700/80">
+                                    class="flex min-h-[40vh] w-full items-center justify-center rounded-3xl border border-zinc-200/70 bg-zinc-200 text-zinc-500 shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:border-zinc-700/70 dark:bg-zinc-800 dark:shadow-black/20 lg:min-h-0 lg:aspect-[3/4]">
                                     <flux:icon name="calendar" class="size-16" />
                                 </div>
                             @endif
@@ -258,12 +228,21 @@
                     <div class="min-w-0 space-y-6 lg:col-start-2 lg:row-start-1">
                         <div class="event-section-card">
                             <div class="flex flex-wrap items-start justify-between gap-3">
-                                <flux:badge variant="solid"
-                                    color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}"
-                                    size="sm">{{ $event->effective_status_label }}</flux:badge>
-                                <flux:badge color="zinc" size="sm">
-                                    {{ $event->isCategoryUmur() ? __('Umur') : __('Tahun') }}
-                                </flux:badge>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:badge variant="solid"
+                                        color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveLive() ? 'red' : ($event->isEffectiveDone() ? 'zinc' : 'blue')) }}"
+                                        size="sm">{{ $event->effective_status_label }}</flux:badge>
+                                    <flux:badge color="zinc" size="sm">
+                                        {{ $event->isCategoryUmur() ? __('Umur') : __('Tahun') }}
+                                    </flux:badge>
+                                </div>
+                                @if ($event->has_live_result)
+                                    <flux:button variant="filled" size="sm"
+                                        href="{{ route('live-result.show', $event->slug) }}" wire:navigate icon="chart-bar"
+                                        class="!rounded-xl !bg-red-600 hover:!bg-red-500 focus:!ring-red-500 dark:!bg-red-600 dark:hover:!bg-red-500">
+                                        {{ __('Live Result') }}
+                                    </flux:button>
+                                @endif
                             </div>
 
                             <h1
@@ -318,13 +297,16 @@
                                     <p
                                         class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                                         {{ __('Description') }}</p>
-                                    <p
-                                        class="mt-2 text-sm leading-relaxed text-zinc-700 whitespace-pre-wrap dark:text-zinc-300">
-                                        {{ $event->description }}</p>
+                                    <p class="mt-2 text-sm leading-relaxed text-zinc-700 whitespace-pre-line dark:text-zinc-300">{{ trim($event->description) }}</p>
                                 </div>
                             @endif
                         </div>
 
+                        @php
+                            $registrationFlowVisible = ($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty();
+                        @endphp
+
+                        @if (! $registrationFlowVisible)
                         <div class="event-section-card">
                             <h2 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Brackets') }}</h2>
                             <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -350,6 +332,7 @@
                                     {{ __('No brackets for this event.') }}</p>
                             @endif
                         </div>
+                        @endif
 
                         <div class="event-section-card">
                             <h2 class="text-base font-bold text-zinc-900 dark:text-white">
@@ -494,17 +477,52 @@
                         }
                     @endphp
 
-                    <flux:tab.group>
-                        @if ($showParticipantsPublicly)
-                            <flux:tabs variant="segmented">
-                                <flux:tab icon="pencil-square" name="registration"
-                                    :selected="!$participantTabActive">{{ __('Registration') }}</flux:tab>
-                                <flux:tab icon="users" name="participant" :selected="$participantTabActive">
-                                    {{ __('Participant') }}</flux:tab>
-                            </flux:tabs>
-                        @endif
+                    @if ($showParticipantsPublicly)
+                        <div x-data="{ tab: @js($participantTabActive ? 'participant' : 'registration') }">
+                            <div class="bento-tabs mb-4 sm:mb-5" role="tablist" aria-label="{{ __('Event sections') }}">
+                                <div
+                                    class="bento-tabs__indicator"
+                                    x-bind:class="tab === 'participant' && 'bento-tabs__indicator--end'"
+                                    aria-hidden="true"
+                                ></div>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    class="bento-tabs__item"
+                                    x-on:click="tab = 'registration'"
+                                    x-bind:aria-selected="(tab === 'registration').toString()"
+                                    x-bind:class="tab === 'registration' && 'bento-tabs__item--active'"
+                                >
+                                    <flux:icon name="pencil-square" variant="mini" class="size-4 shrink-0" />
+                                    {{ __('Registration') }}
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    class="bento-tabs__item"
+                                    x-on:click="tab = 'participant'"
+                                    x-bind:aria-selected="(tab === 'participant').toString()"
+                                    x-bind:class="tab === 'participant' && 'bento-tabs__item--active'"
+                                >
+                                    <flux:icon name="users" variant="mini" class="size-4 shrink-0" />
+                                    {{ __('Participant') }}
+                                </button>
+                            </div>
 
-                        <flux:tab.panel name="registration" :selected="!$participantTabActive">
+                            <div
+                                x-show="tab === 'registration'"
+                                x-cloak
+                                x-transition:enter="transition ease-out duration-300"
+                                x-transition:enter-start="opacity-0 translate-x-2"
+                                x-transition:enter-end="opacity-100 translate-x-0"
+                                x-transition:leave="transition ease-in duration-200"
+                                x-transition:leave-start="opacity-100 translate-x-0"
+                                x-transition:leave-end="opacity-0 -translate-x-2"
+                                role="tabpanel"
+                            >
+                    @else
+                        <div>
+                    @endif
                             @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                                 @php
                                     $showDuplicateRiderModal =
@@ -548,12 +566,9 @@
                                         }
                                     }
                                 }" class="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900/60">
-                                    <div class="border-b border-zinc-200/80 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent px-5 py-6 sm:px-8 sm:py-7 dark:border-zinc-700/80 dark:from-orange-500/10">
-                                        <div class="flex flex-wrap items-start justify-between gap-4">
-                                            <div>
-                                                <span class="inline-flex items-center rounded-full bg-orange-500/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">{{ __('Pendaftaran') }}</span>
-                                                <h2 class="mt-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
-                                                <p class="mt-1.5 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
+                                    <div class="border-b border-zinc-200/80 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent px-4 py-5 sm:px-6 sm:py-6 dark:border-zinc-700/80 dark:from-orange-500/10">
+                                        <h2 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
+                                        <p class="mt-1.5 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
                                                     @if ($event->isEffectiveOpenRegist())
                                                         {{ __('Registration open until :date', ['date' => $event->registration_closes_at?->format('d F Y H:i') ?? '—']) }}
                                                     @elseif ($event->isEffectivePublished())
@@ -567,21 +582,13 @@
                                                         {{ $event->effective_status_label }}
                                                     @endif
                                                 </p>
-                                            </div>
-                                            <flux:badge variant="solid"
-                                                color="{{ $event->isEffectiveOpenRegist() ? 'green' : ($event->isEffectiveDone() || $event->isEffectiveClosedRegist() ? 'zinc' : 'blue') }}"
-                                                size="sm">
-                                                {{ $event->isEffectiveOpenRegist() ? __('Open') : ($event->isEffectivePublished() ? __('Early access') : $event->effective_status_label) }}
-                                            </flux:badge>
-                                        </div>
-
                                     </div>
 
-                                    <div class="space-y-8 p-5 sm:p-6 lg:p-8">
+                                    <div class="space-y-6 p-4 sm:p-5">
                                     <div>
                                         <div class="flex items-start gap-2">
-                                            <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                                                <flux:icon name="squares-2x2" class="size-4" />
+                                            <span class="registration-step-icon">
+                                                <flux:icon name="squares-2x2" class="size-5" />
                                             </span>
                                             <div>
                                                 <h3 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Select Bracket') }}</h3>
@@ -638,8 +645,8 @@
                                             x-transition:enter-start="opacity-0 translate-y-2"
                                             x-transition:enter-end="opacity-100 translate-y-0">
                                             <div class="flex items-start gap-2">
-                                                <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                                                    <flux:icon name="gift" class="size-4" />
+                                                <span class="registration-step-icon">
+                                                    <flux:icon name="gift" class="size-5" />
                                                 </span>
                                                 <div>
                                                     <h3 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Select Package') }}</h3>
@@ -695,13 +702,13 @@
                                                                         @if ($reward->icon && (str_starts_with($reward->icon, 'http') || str_starts_with($reward->icon, '/')))
                                                                             <img src="{{ $reward->icon }}"
                                                                                 alt=""
-                                                                                class="size-3.5 object-contain" />
+                                                                                class="size-4 object-contain" />
                                                                         @elseif ($reward->icon)
                                                                             <flux:icon :name="$reward->icon"
-                                                                                class="size-3.5 shrink-0" />
+                                                                                class="size-4 shrink-0" />
                                                                         @else
                                                                             <flux:icon name="gift"
-                                                                                class="size-3.5 shrink-0" />
+                                                                                class="size-4 shrink-0" />
                                                                         @endif
                                                                         {{ $reward->name }}
                                                                     </span>
@@ -728,10 +735,10 @@
                                         x-transition:enter="transition ease-out duration-300"
                                         x-transition:enter-start="opacity-0 translate-y-3"
                                         x-transition:enter-end="opacity-100 translate-y-0"
-                                        class="scroll-mt-6" style="display: none;">
-                                        <div class="flex items-start gap-2">
-                                            <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10 text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                                                <flux:icon name="clipboard-document-check" class="size-4" />
+                                        class="scroll-mt-6 space-y-4" style="display: none;">
+                                        <div class="flex items-start gap-3">
+                                            <span class="registration-step-icon">
+                                                <flux:icon name="clipboard-document-check" class="size-5" />
                                             </span>
                                             <div>
                                                 <h3 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Data Registration') }}</h3>
@@ -739,155 +746,146 @@
                                             </div>
                                         </div>
 
-                                        <div class="mt-4">
-                                            <form method="POST" action="{{ route('registrations.store', $event) }}"
-                                                id="registration-form-submit" x-ref="regForm"
-                                                enctype="multipart/form-data">
-                                                @csrf
-                                                <input type="hidden" name="package_id" x-bind:value="selectedPackage">
-                                                <input type="hidden" name="bracket_id" x-bind:value="selectedBracket">
-                                                <input type="hidden" name="use_rider_id" value="" id="input-use-rider-id">
+                                        <form method="POST" action="{{ route('registrations.store', $event) }}"
+                                            id="registration-form-submit" x-ref="regForm"
+                                            enctype="multipart/form-data"
+                                            class="space-y-5">
+                                            @csrf
+                                            <input type="hidden" name="package_id" x-bind:value="selectedPackage">
+                                            <input type="hidden" name="bracket_id" x-bind:value="selectedBracket">
+                                            <input type="hidden" name="use_rider_id" value="" id="input-use-rider-id">
 
-                                                <div class="space-y-6">
-                                                    @if ($errors->any())
-                                                        <div class="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
-                                                            <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
-                                                                @foreach ($errors->all() as $err)
-                                                                    <li>{{ $err }}</li>
-                                                                @endforeach
-                                                            </ul>
+                                            @if ($errors->any())
+                                                <div class="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+                                                    <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
+                                                        @foreach ($errors->all() as $err)
+                                                            <li>{{ $err }}</li>
+                                                        @endforeach
+                                                    </ul>
+                                                </div>
+                                            @endif
+
+                                            <div class="registration-summary">
+                                                <span class="registration-summary-chip">
+                                                    <flux:icon name="squares-2x2" variant="mini" class="size-4 text-orange-500" />
+                                                    <span x-text="selectedBracketLabel || '—'"></span>
+                                                </span>
+                                                @if ($event->packages->isNotEmpty())
+                                                    <span class="registration-summary-chip">
+                                                        <flux:icon name="gift" variant="mini" class="size-4 text-orange-500" />
+                                                        <span x-text="selectedPackageLabel || '—'"></span>
+                                                    </span>
+                                                @endif
+                                            </div>
+
+                                            <div class="registration-form-section !border-t-0 !pt-0">
+                                                <p class="registration-form-block-title">
+                                                    <flux:icon name="user" class="size-5 text-orange-500" />
+                                                    {{ __('Parent / Guardian') }}
+                                                </p>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <flux:input name="parent_name" type="text"
+                                                        :label="__('Parent / Guardian name')"
+                                                        :value="old('parent_name')" required />
+                                                    <flux:input name="whatsapp" type="tel"
+                                                        :label="__('WhatsApp number')" :value="old('whatsapp')"
+                                                        :placeholder="__('e.g. 08123456789')" required />
+                                                </div>
+                                            </div>
+
+                                            <div class="registration-form-section">
+                                                <p class="registration-form-block-title">
+                                                    <flux:icon name="identification" class="size-5 text-orange-500" />
+                                                    {{ __('Rider data') }}
+                                                </p>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <flux:input name="name" type="text"
+                                                        :label="__('Full name')" :value="old('name')"
+                                                        required />
+                                                    <flux:input name="nickname" type="text"
+                                                        :label="__('Nickname')" :value="old('nickname')"
+                                                        required />
+                                                </div>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <flux:input name="pob" type="text"
+                                                        :label="__('Place of birth')" :value="old('pob')"
+                                                        required />
+                                                    <flux:input name="dob" type="date"
+                                                        :label="__('Date of birth')" :value="old('dob')"
+                                                        required />
+                                                </div>
+                                                <div class="grid gap-3 sm:grid-cols-2">
+                                                    <flux:select name="gender" :placeholder="__('— Select —')"
+                                                        :label="__('Gender')" required>
+                                                        <option value="boys" @selected(old('gender') === 'boys')>
+                                                            {{ __('Boys') }}</option>
+                                                        <option value="girls" @selected(old('gender') === 'girls')>
+                                                            {{ __('Girls') }}</option>
+                                                    </flux:select>
+                                                    <flux:input name="number_plate" type="text"
+                                                        :label="__('Number plate')" :value="old('number_plate')"
+                                                        required />
+                                                </div>
+                                                <div x-cloak
+                                                    x-show="packageIdsWithJersey.includes(selectedPackage)"
+                                                    class="space-y-2" x-data="{ sizeChartPreviewOpen: false }"
+                                                    @keydown.escape.window="sizeChartPreviewOpen = false">
+                                                    <flux:select name="jersey_size"
+                                                        :placeholder="__('— Select size —')"
+                                                        :label="__('Jersey size')"
+                                                        x-bind:required="packageIdsWithJersey.includes(selectedPackage)">
+                                                        <option value="S" @selected(old('jersey_size') === 'S')>S
+                                                        </option>
+                                                        <option value="M" @selected(old('jersey_size') === 'M')>M
+                                                        </option>
+                                                        <option value="L" @selected(old('jersey_size') === 'L')>L
+                                                        </option>
+                                                        <option value="XL" @selected(old('jersey_size') === 'XL')>XL
+                                                        </option>
+                                                    </flux:select>
+                                                    @if ($event->sizeChartUrl())
+                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                            <button type="button"
+                                                                @click="sizeChartPreviewOpen = true"
+                                                                class="underline hover:text-zinc-700 dark:hover:text-zinc-300">
+                                                                {{ __('View size chart') }}
+                                                            </button>
+                                                        </p>
+                                                        <div x-show="sizeChartPreviewOpen" x-transition.opacity
+                                                            x-cloak
+                                                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                                            @click.self="sizeChartPreviewOpen = false"
+                                                            role="dialog" aria-modal="true"
+                                                            :aria-hidden="!sizeChartPreviewOpen">
+                                                            <img src="{{ $event->sizeChartUrl() }}"
+                                                                alt="{{ __('Size chart') }}"
+                                                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
+                                                                @click.stop />
                                                         </div>
                                                     @endif
-
-                                                    <div class="registration-summary">
-                                                        <span class="registration-summary-chip">
-                                                            <flux:icon name="squares-2x2" variant="mini" class="size-3.5 text-orange-500" />
-                                                            <span x-text="selectedBracketLabel || '—'"></span>
-                                                        </span>
-                                                        @if ($event->packages->isNotEmpty())
-                                                            <span class="registration-summary-chip">
-                                                                <flux:icon name="gift" variant="mini" class="size-3.5 text-orange-500" />
-                                                                <span x-text="selectedPackageLabel || '—'"></span>
-                                                            </span>
-                                                        @endif
-                                                    </div>
-
-                                                    <div class="registration-form-block !bg-white dark:!bg-zinc-900/50">
-                                                        <p class="registration-form-block-title">
-                                                            <flux:icon name="user" class="size-4 text-orange-500" />
-                                                            {{ __('Parent / Guardian') }}
-                                                        </p>
-                                                        <div class="grid gap-4 sm:grid-cols-2">
-                                                            <flux:input name="parent_name" type="text"
-                                                                :label="__('Parent / Guardian name')"
-                                                                :value="old('parent_name')" required />
-                                                            <flux:input name="whatsapp" type="tel"
-                                                                :label="__('WhatsApp number')" :value="old('whatsapp')"
-                                                                :placeholder="__('e.g. 08123456789')" required />
-                                                        </div>
-                                                    </div>
-
-                                                    <div class="registration-form-block !bg-white dark:!bg-zinc-900/50">
-                                                        <p class="registration-form-block-title">
-                                                            <flux:icon name="identification" class="size-4 text-orange-500" />
-                                                            {{ __('Rider data') }}
-                                                        </p>
-                                                        <div class="grid gap-4 sm:grid-cols-2">
-                                                        <flux:input name="name" type="text"
-                                                            :label="__('Full name')" :value="old('name')"
-                                                            required />
-                                                        <flux:input name="nickname" type="text"
-                                                            :label="__('Nickname')" :value="old('nickname')"
-                                                            required />
-                                                        </div>
-                                                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                                                        <flux:input name="pob" type="text"
-                                                            :label="__('Place of birth')" :value="old('pob')"
-                                                            required />
-                                                        <flux:input name="dob" type="date"
-                                                            :label="__('Date of birth')" :value="old('dob')"
-                                                            required />
-                                                        </div>
-                                                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
-                                                        <flux:select name="gender" :placeholder="__('— Select —')"
-                                                            :label="__('Gender')" required>
-                                                            <option value="boys" @selected(old('gender') === 'boys')>
-                                                                {{ __('Boys') }}</option>
-                                                            <option value="girls" @selected(old('gender') === 'girls')>
-                                                                {{ __('Girls') }}</option>
-                                                        </flux:select>
-                                                        <flux:input name="number_plate" type="text"
-                                                            :label="__('Number plate')" :value="old('number_plate')"
-                                                            required />
-                                                        </div>
-                                                    {{-- Jersey size --}}
-                                                    <div x-cloak
-                                                        x-show="packageIdsWithJersey.includes(selectedPackage)"
-                                                        class="mt-4 space-y-2" x-data="{ sizeChartPreviewOpen: false }"
-                                                        @keydown.escape.window="sizeChartPreviewOpen = false">
-                                                        <flux:select name="jersey_size"
-                                                            :placeholder="__('— Select size —')"
-                                                            :label="__('Jersey size')"
-                                                            x-bind:required="packageIdsWithJersey.includes(selectedPackage)">
-                                                            <option value="S" @selected(old('jersey_size') === 'S')>S
-                                                            </option>
-                                                            <option value="M" @selected(old('jersey_size') === 'M')>M
-                                                            </option>
-                                                            <option value="L" @selected(old('jersey_size') === 'L')>L
-                                                            </option>
-                                                            <option value="XL" @selected(old('jersey_size') === 'XL')>XL
-                                                            </option>
-                                                        </flux:select>
-                                                        @if ($event->sizeChartUrl())
-                                                            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                                <button type="button"
-                                                                    @click="sizeChartPreviewOpen = true"
-                                                                    class="underline hover:text-zinc-700 dark:hover:text-zinc-300">
-                                                                    {{ __('View size chart') }}
-                                                                </button>
-                                                            </p>
-                                                            <div x-show="sizeChartPreviewOpen" x-transition.opacity
-                                                                x-cloak
-                                                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                                                @click.self="sizeChartPreviewOpen = false"
-                                                                role="dialog" aria-modal="true"
-                                                                :aria-hidden="!sizeChartPreviewOpen">
-                                                                <img src="{{ $event->sizeChartUrl() }}"
-                                                                    alt="{{ __('Size chart') }}"
-                                                                    class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
-                                                                    @click.stop />
-                                                            </div>
-                                                        @endif
-                                                    </div>
-                                                    <div class="mt-4">
-                                                        <livewire:team-pillbox-field />
-                                                    </div>
-
-                                                    <div class="mt-4 rounded-xl border border-dashed border-zinc-300 bg-zinc-50/80 p-4 dark:border-zinc-600 dark:bg-zinc-800/30">
-                                                        <flux:label class="mb-2 block">{{ __('Photo KIA (Kartu Identitas Anak)') }}</flux:label>
-                                                        <input type="file" name="photo_kia" id="photo_kia"
-                                                            accept="image/jpeg,image/png,image/webp"
-                                                            class="block w-full cursor-pointer text-sm text-zinc-500 file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-orange-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-400 dark:file:bg-orange-600"
-                                                            required />
-                                                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                                            {{ __('JPG, PNG, WebP up to :max KB', ['max' => config('media.max_upload_size_kb', 2048)]) }}
-                                                        </p>
-                                                        @error('photo_kia')
-                                                            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-                                                        @enderror
-                                                    </div>
-                                                    </div>
-
-                                                    <div class="pt-2">
-                                                        <flux:button type="submit" variant="primary" icon="paper-airplane"
-                                                            class="w-full justify-center !bg-orange-500 hover:!bg-orange-400 sm:w-auto"
-                                                            x-bind:disabled="selectedBracket === '' || (requirePackage && selectedPackage === '')">
-                                                            {{ __('Submit registration') }}
-                                                        </flux:button>
-                                                    </div>
                                                 </div>
-                                            </form>
-                                        </div>
+                                                <livewire:team-pillbox-field />
+                                                <div class="space-y-2">
+                                                    <flux:label>{{ __('Photo KIA (Kartu Identitas Anak)') }}</flux:label>
+                                                    <input type="file" name="photo_kia" id="photo_kia"
+                                                        accept="image/jpeg,image/png,image/webp"
+                                                        class="block w-full cursor-pointer text-sm text-zinc-500 file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-orange-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-400 dark:file:bg-orange-600"
+                                                        required />
+                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                        {{ __('JPG, PNG, WebP up to :max KB', ['max' => config('media.max_upload_size_kb', 2048)]) }}
+                                                    </p>
+                                                    @error('photo_kia')
+                                                        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                                                    @enderror
+                                                </div>
+                                            </div>
+
+                                            <flux:button type="submit" variant="primary" icon="paper-airplane"
+                                                class="w-full justify-center !bg-orange-500 hover:!bg-orange-400 sm:w-auto"
+                                                x-bind:disabled="selectedBracket === '' || (requirePackage && selectedPackage === '')">
+                                                {{ __('Submit registration') }}
+                                            </flux:button>
+                                        </form>
                                     </div>
 
                                     @if ($showDuplicateRiderModal && count($similarRidersList) > 0)
@@ -988,8 +986,7 @@
                             @elseif (!$event->isRegistrationOpen() && $event->registration_opens_at)
                                 <div class="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900/60">
                                     <div class="border-b border-zinc-200/80 bg-gradient-to-r from-orange-500/5 via-transparent to-transparent px-5 py-6 sm:px-8 dark:border-zinc-700/80 dark:from-orange-500/10">
-                                        <span class="inline-flex items-center rounded-full bg-orange-500/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-orange-600 dark:text-orange-400">{{ __('Pendaftaran') }}</span>
-                                        <h2 class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
+                                        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
                                     </div>
                                     <div class="space-y-4 p-5 sm:p-6 lg:p-8">
                                     @if (session('error'))
@@ -1038,8 +1035,7 @@
                             @else
                                 <div class="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900/60">
                                     <div class="border-b border-zinc-200/80 bg-gradient-to-r from-zinc-500/5 via-transparent to-transparent px-5 py-6 sm:px-8 dark:border-zinc-700/80">
-                                        <span class="inline-flex items-center rounded-full bg-zinc-500/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">{{ __('Pendaftaran') }}</span>
-                                        <h2 class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
+                                        <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
                                     </div>
                                     <div class="space-y-4 p-5 sm:p-6 lg:p-8">
                                     @if (session('error'))
@@ -1058,20 +1054,28 @@
                                     </div>
                                 </div>
                             @endif
-                        </flux:tab.panel>
+                    @if ($showParticipantsPublicly)
+                            </div>
 
-                        @if ($showParticipantsPublicly)
-                            <flux:tab.panel name="participant" :selected="$participantTabActive">
-                                <div class="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900/60" x-data="{ search: '', selectedBracket: '' }">
-                                    <div class="border-b border-zinc-200/80 px-5 py-6 sm:px-8 dark:border-zinc-700/80">
-                                        <div class="flex items-start justify-between gap-3">
+                            <div
+                                x-show="tab === 'participant'"
+                                x-cloak
+                                x-transition:enter="transition ease-out duration-300"
+                                x-transition:enter-start="opacity-0 translate-x-2"
+                                x-transition:enter-end="opacity-100 translate-x-0"
+                                x-transition:leave="transition ease-in duration-200"
+                                x-transition:leave-start="opacity-100 translate-x-0"
+                                x-transition:leave-end="opacity-0 -translate-x-2"
+                                role="tabpanel"
+                            >
+                                <div class="registration-shell" x-data="{ search: '', selectedBracket: '' }">
+                                    <div class="registration-header">
+                                        <div class="flex flex-wrap items-start justify-between gap-4">
                                             <div>
-                                                <span
-                                                    class="inline-flex items-center rounded-full bg-zinc-500/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-zinc-600 dark:bg-zinc-400/15 dark:text-zinc-300">{{ __('Peserta') }}</span>
-                                                <h2 class="mt-2 text-xl font-bold text-zinc-900 dark:text-white">
+                                                <h2 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">
                                                     {{ __('Participant') }}
                                                 </h2>
-                                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                                <p class="mt-1.5 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
                                                     {{ __('Riders with confirmed registration.') }}
                                                 </p>
                                             </div>
@@ -1079,40 +1083,50 @@
                                                 {{ $participantRegistrations->total() }} {{ __('Rider') }}
                                             </flux:badge>
                                         </div>
-
-                                        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                                            <flux:input type="search" :label="__('Search')"
-                                                :placeholder="__('Search rider name, nickname, team, or number plate…')"
-                                                x-model.debounce.300ms="search" />
-                                            <flux:select :label="__('Filter bracket')" x-model="selectedBracket">
-                                                <option value="">{{ __('All brackets') }}</option>
-                                                @foreach ($participantBracketOptions as $participantBracketOption)
-                                                    <option value="{{ $participantBracketOption['id'] }}">
-                                                        {{ $participantBracketOption['name'] }}
-                                                    </option>
-                                                @endforeach
-                                            </flux:select>
-                                        </div>
                                     </div>
 
-                                    <div id="event-participants"
-                                        class="overflow-x-auto border-t border-zinc-200 dark:border-zinc-700">
-                                        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                                            <thead class="bg-zinc-50/80 dark:bg-zinc-800/80">
-                                                <tr>
-                                                    <th
-                                                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('Rider') }}</th>
-                                                    <th
-                                                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('Team') }}</th>
-                                                    <th
-                                                        class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('Bracket') }}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody
-                                                class="divide-y divide-zinc-200 bg-white/50 dark:divide-zinc-700 dark:bg-transparent">
+                                    <div class="registration-body">
+                                        <div>
+                                            <div class="flex items-start gap-2">
+                                                <span class="registration-step-icon">
+                                                    <flux:icon name="magnifying-glass" class="size-5" />
+                                                </span>
+                                                <div>
+                                                    <h3 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Search & filter') }}</h3>
+                                                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Cari peserta berdasarkan nama, tim, atau nomor plate.') }}</p>
+                                                </div>
+                                            </div>
+                                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                                <flux:input type="search" :label="__('Search')"
+                                                    :placeholder="__('Search rider name, nickname, team, or number plate…')"
+                                                    x-model.debounce.300ms="search" />
+                                                <flux:select :label="__('Bracket')" x-model="selectedBracket">
+                                                    <option value="">{{ __('All brackets') }}</option>
+                                                    @foreach ($participantBracketOptions as $participantBracketOption)
+                                                        <option value="{{ $participantBracketOption['id'] }}">
+                                                            {{ $participantBracketOption['name'] }}
+                                                        </option>
+                                                    @endforeach
+                                                </flux:select>
+                                            </div>
+                                        </div>
+
+                                        <div id="event-participants" class="participant-table-wrap">
+                                            <table class="participant-table min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
+                                                    <thead class="bg-zinc-50/80 dark:bg-zinc-800/80">
+                                                        <tr>
+                                                            <th
+                                                                class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                {{ __('Rider') }}</th>
+                                                            <th
+                                                                class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                {{ __('Team') }}</th>
+                                                            <th
+                                                                class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                                                                {{ __('Bracket') }}</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900/60">
                                                 @forelse ($participantRegistrations as $participantRegistration)
                                                     @php
                                                         $participantSearchText = mb_strtolower(
@@ -1136,40 +1150,43 @@
                                                     <tr
                                                         x-show="(selectedBracket === '' || selectedBracket === '{{ (string) $participantRegistration->bracket_id }}') && (search.trim() === '' || '{{ addslashes($participantSearchText) }}'.includes(search.trim().toLowerCase()))">
                                                         <td
-                                                            class="px-4 py-3 text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                            class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                             {{ $participantRegistration->rider?->name ?? '—' }}
                                                             <span class="text-zinc-500 dark:text-zinc-400 block">
                                                                 {{ $participantRegistration->rider?->nickname ?? '—' }}
                                                                 ({{ $participantRegistration->rider?->number_plate ?? '—' }})
                                                             </span>
                                                         </td>
-                                                        <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <td class="text-sm text-zinc-700 dark:text-zinc-300">
                                                             {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
                                                         </td>
-                                                        <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
+                                                        <td class="text-sm text-zinc-700 dark:text-zinc-300">
                                                             {{ $participantRegistration->bracket?->name ?? '—' }}
                                                         </td>
                                                     </tr>
                                                 @empty
                                                     <tr>
                                                         <td colspan="3"
-                                                            class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                                            class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                                             {{ __('No participants yet.') }}
                                                         </td>
                                                     </tr>
                                                 @endforelse
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    @if ($participantRegistrations->hasPages())
-                                        <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-4 sm:px-6">
-                                            {{ $participantRegistrations->links() }}
+                                                    </tbody>
+                                                </table>
                                         </div>
-                                    @endif
+                                        @if ($participantRegistrations->hasPages())
+                                            <div class="participant-table-pagination">
+                                                {{ $participantRegistrations->links() }}
+                                            </div>
+                                        @endif
+                                    </div>
                                 </div>
-                            </flux:tab.panel>
-                        @endif
-                    </flux:tab.group>
+                            </div>
+                        </div>
+                    @else
+                        </div>
+                    @endif
 
                     {{-- Modal: input access code for early registration (shown when registration not open) --}}
                     @if (!$event->isRegistrationOpen())
@@ -1202,12 +1219,10 @@
                     @endif
 
                 </div>
-            </div>
-        </div>
-    </flux:main>
+    </div>
+@endsection
 
-    @include('partials.footer')
-
+@push('scripts')
     <script>
         function scrollToId(id) {
             var attempts = 0;
@@ -1219,7 +1234,7 @@
                 if (isVisible) {
                     clearInterval(idInterval);
                     var y = el.getBoundingClientRect().top + window.pageYOffset;
-                    var offset = 80;
+                    var offset = 112;
                     window.scrollTo({
                         top: Math.max(0, y - offset),
                         left: 0,
@@ -1237,7 +1252,4 @@
             scrollToId('registration-form');
         };
     </script>
-    @fluxScripts
-</body>
-
-</html>
+@endpush
