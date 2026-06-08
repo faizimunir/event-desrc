@@ -1,32 +1,18 @@
-<div class="live-result-status-bar mb-6">
-    <span class="relative flex size-2">
-        <span class="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75"></span>
-        <span class="relative inline-flex size-2 rounded-full bg-blue-500"></span>
+<div class="live-result-status-bar mb-6" role="status" aria-live="polite">
+    <span
+        class="live-result-status-indicator"
+        wire:loading.class="is-loading"
+        wire:target="selectCategory,selectRound"
+        aria-hidden="true"
+    >
+        <span class="live-result-status-indicator__ping"></span>
+        <span class="live-result-status-indicator__dot"></span>
+        <span class="live-result-status-indicator__spinner"></span>
     </span>
-    {{ __('Auto refresh') }}
-</div>
-
-<div
-    wire:loading.delay.shortest
-    wire:target="selectCategory,selectRound"
-    class="live-result-loading"
-    role="status"
-    aria-live="polite"
->
-    <div class="live-result-loading__track" aria-hidden="true">
-        <div class="live-result-loading__bar"></div>
-    </div>
-    <div class="live-result-loading__content">
-        <span class="live-result-loading__spinner" aria-hidden="true"></span>
-        <span class="live-result-loading__text">
-            {{ __('Memuat data') }}
-            <span class="live-result-loading__dots" aria-hidden="true">
-                <span class="live-result-loading__dot"></span>
-                <span class="live-result-loading__dot"></span>
-                <span class="live-result-loading__dot"></span>
-            </span>
-        </span>
-    </div>
+    <span class="live-result-status-bar__label">
+        <span wire:loading.remove.delay.shortest wire:target="selectCategory,selectRound">{{ __('Auto refresh') }}</span>
+        <span wire:loading.delay.shortest wire:target="selectCategory,selectRound">{{ __('Memuat data...') }}</span>
+    </span>
 </div>
 
 @if($categories->count() > 0)
