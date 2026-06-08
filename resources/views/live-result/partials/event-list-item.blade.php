@@ -18,13 +18,23 @@
             <h3 class="font-semibold text-zinc-900 transition group-hover:text-orange-600 dark:text-white dark:group-hover:text-orange-400">
                 {{ $event->title }}
             </h3>
-            <span class="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-600 dark:bg-red-500/15 dark:text-red-400">
-                <span class="relative flex size-1.5">
-                    <span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75"></span>
-                    <span class="relative inline-flex size-1.5 rounded-full bg-red-500"></span>
+            @php($liveResultDayStatus = $event->liveResultDayStatus())
+            @if($liveResultDayStatus)
+                <span @class([
+                    'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                    'bg-red-500/10 text-red-600 dark:bg-red-500/15 dark:text-red-400' => $liveResultDayStatus === 'live',
+                    'bg-zinc-500/10 text-zinc-600 dark:bg-zinc-500/15 dark:text-zinc-400' => $liveResultDayStatus === 'ended',
+                    'bg-blue-500/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400' => $liveResultDayStatus === 'upcoming',
+                ])>
+                    @if($liveResultDayStatus === 'live')
+                        <span class="relative flex size-1.5">
+                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75"></span>
+                            <span class="relative inline-flex size-1.5 rounded-full bg-red-500"></span>
+                        </span>
+                    @endif
+                    {{ $event->liveResultDayStatusLabel() }}
                 </span>
-                Live
-            </span>
+            @endif
         </div>
 
         @if($event->start_at || $event->location)

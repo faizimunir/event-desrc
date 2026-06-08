@@ -363,6 +363,41 @@ class Event extends Model
     }
 
     /**
+     * Status tampilan live result berdasarkan tanggal event vs hari ini.
+     *
+     * @return 'live'|'ended'|'upcoming'|null
+     */
+    public function liveResultDayStatus(): ?string
+    {
+        if (! $this->start_at) {
+            return null;
+        }
+
+        $today = now()->startOfDay();
+        $eventDay = $this->start_at->copy()->startOfDay();
+
+        if ($eventDay->equalTo($today)) {
+            return 'live';
+        }
+
+        if ($eventDay->lt($today)) {
+            return 'ended';
+        }
+
+        return 'upcoming';
+    }
+
+    public function liveResultDayStatusLabel(): ?string
+    {
+        return match ($this->liveResultDayStatus()) {
+            'live' => __('Live'),
+            'ended' => __('Live ended'),
+            'upcoming' => __('Upcoming'),
+            default => null,
+        };
+    }
+
+    /**
      * Apakah pendaftaran sedang dibuka.
      * Constraint: mengikuti effective_status (registration_opens_at / registration_closes_at sudah diperhitungkan di effective_status).
      */

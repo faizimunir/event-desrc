@@ -12,6 +12,10 @@
                     <div class="live-result-hero__logo">
                         <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="max-h-11 max-w-full object-contain sm:max-h-12" />
                     </div>
+                @else
+                    <div class="live-result-hero__icon">
+                        <flux:icon name="radio" variant="outline" class="size-6 sm:size-7" />
+                    </div>
                 @endif
 
                 <div class="min-w-0 flex-1">

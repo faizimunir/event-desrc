@@ -31,12 +31,12 @@
                         </span>
 
                         <h1 class="mt-4 text-4xl font-bold tracking-tight text-white sm:mt-5 sm:text-5xl lg:text-[3.5rem] lg:leading-[1.1]">
-                            {{ __('Temukan event') }}
-                            <span class="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{{ __('balap terbaik') }}</span>
+                            {{ __('Bangun Event') }}
+                            <span class="bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">{{ __('Pushbike Terbaik') }}</span>
                         </h1>
 
                         <p class="mt-5 max-w-xl text-lg leading-relaxed text-zinc-300 sm:text-xl">
-                            {{ __('Daftar lomba, pilih bracket, dan ikuti event favorit Anda — semua dalam satu platform.') }}
+                            {{ __('Kelola event pushbike andalan kamu dalam satu platform — mulai dari RSVP, manajemen rider, sampai live result.') }}
                         </p>
 
                         <div class="mt-8 flex flex-wrap items-center gap-3 sm:mt-9 sm:gap-4">
