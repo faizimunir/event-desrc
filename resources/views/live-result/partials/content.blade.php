@@ -1,3 +1,11 @@
+<div class="live-result-status-bar mb-6">
+    <span class="relative flex size-2">
+        <span class="absolute inline-flex size-full animate-ping rounded-full bg-blue-500 opacity-75"></span>
+        <span class="relative inline-flex size-2 rounded-full bg-blue-500"></span>
+    </span>
+    {{ __('Auto refresh') }}
+</div>
+
 @if($categories->count() > 0)
     <div class="mb-6">
         <span class="live-result-filter-label">{{ __('Pilih Kategori') }}</span>
