@@ -238,8 +238,8 @@
                                 </div>
                                 @if ($event->has_live_result)
                                     <flux:button variant="filled" size="sm"
-                                        href="{{ route('live-result.show', $event->slug) }}" wire:navigate icon="chart-bar"
-                                        class="!rounded-xl !bg-red-600 hover:!bg-red-500 focus:!ring-red-500 dark:!bg-red-600 dark:hover:!bg-red-500">
+                                        href="{{ route('live-result.show', $event->slug) }}" wire:navigate icon="radio"
+                                        class="!rounded-xl !bg-red-500 !text-white hover:!bg-red-500 focus:!ring-red-600 dark:!bg-red-600 dark:hover:!bg-red-500">
                                         {{ __('Live Result') }}
                                     </flux:button>
                                 @endif
@@ -444,37 +444,6 @@
                 <div class="mt-8 space-y-6 lg:mt-10">
                     @php
                         $showParticipantsPublicly = (bool) $event->show_participants_publicly;
-                        $participantTabActive = $showParticipantsPublicly && request()->has('participant_page');
-                        $participantRegistrations = null;
-                        $participantBracketOptions = collect();
-                        if ($showParticipantsPublicly) {
-                            $participantRegistrations = \App\Models\Registration::query()
-                                ->with(['rider.teams', 'bracket', 'package'])
-                                ->where('event_id', $event->id)
-                                ->where('status', \App\Models\Registration::STATUS_APPROVED)
-                                ->whereHas('order', function ($orderQuery) {
-                                    $orderQuery
-                                        ->whereIn('status', [
-                                            \App\Models\Order::STATUS_PAID,
-                                            \App\Models\Order::STATUS_COMPLETED,
-                                        ])
-                                        ->whereHas('payments', function ($paymentQuery) {
-                                            $paymentQuery->where('status', \App\Models\Payment::STATUS_SUCCESS);
-                                        });
-                                })
-                                ->latest('id')
-                                ->paginate(20, ['*'], 'participant_page')
-                                ->withQueryString()
-                                ->fragment('event-participants');
-                            $participantBracketOptions = $event->brackets_sorted_for_display
-                                ->map(
-                                    fn($bracket) => [
-                                        'id' => (string) $bracket->id,
-                                        'name' => (string) $bracket->name,
-                                    ],
-                                )
-                                ->values();
-                        }
                     @endphp
 
                     @if ($showParticipantsPublicly)
@@ -1068,7 +1037,7 @@
                                 x-transition:leave-end="opacity-0 -translate-x-2"
                                 role="tabpanel"
                             >
-                                <div class="registration-shell" x-data="{ search: '', selectedBracket: '' }">
+                                <div class="registration-shell" x-data="{ submitParticipantFilter() { this.$refs.participantFilterForm.submit(); } }">
                                     <div class="registration-header">
                                         <div class="flex flex-wrap items-start justify-between gap-4">
                                             <div>
@@ -1096,19 +1065,45 @@
                                                     <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Cari peserta berdasarkan nama, tim, atau nomor plate.') }}</p>
                                                 </div>
                                             </div>
-                                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
-                                                <flux:input type="search" :label="__('Search')"
+                                            <form
+                                                method="GET"
+                                                action="{{ url()->current() }}#event-participants"
+                                                x-ref="participantFilterForm"
+                                                @input.debounce.400ms="if ($event.target.name === 'participant_search') submitParticipantFilter()"
+                                                @change="if ($event.target.name === 'participant_bracket') submitParticipantFilter()"
+                                                class="mt-4 grid gap-3 sm:grid-cols-2"
+                                            >
+                                                @foreach (request()->except(['participant_search', 'participant_bracket', 'participant_page']) as $key => $value)
+                                                    @if (is_array($value))
+                                                        @foreach ($value as $nestedValue)
+                                                            <input type="hidden" name="{{ $key }}[]" value="{{ $nestedValue }}">
+                                                        @endforeach
+                                                    @else
+                                                        <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                                    @endif
+                                                @endforeach
+                                                <flux:input
+                                                    type="search"
+                                                    name="participant_search"
+                                                    :label="__('Search')"
                                                     :placeholder="__('Search rider name, nickname, team, or number plate…')"
-                                                    x-model.debounce.300ms="search" />
-                                                <flux:select :label="__('Bracket')" x-model="selectedBracket">
-                                                    <option value="">{{ __('All brackets') }}</option>
+                                                    value="{{ $participantSearch }}"
+                                                />
+                                                <flux:select
+                                                    name="participant_bracket"
+                                                    :label="__('Filter bracket')"
+                                                >
+                                                    <option value="" @selected($participantBracket === '')>{{ __('All brackets') }}</option>
                                                     @foreach ($participantBracketOptions as $participantBracketOption)
-                                                        <option value="{{ $participantBracketOption['id'] }}">
+                                                        <option
+                                                            value="{{ $participantBracketOption['id'] }}"
+                                                            @selected($participantBracket === $participantBracketOption['id'])
+                                                        >
                                                             {{ $participantBracketOption['name'] }}
                                                         </option>
                                                     @endforeach
                                                 </flux:select>
-                                            </div>
+                                            </form>
                                         </div>
 
                                         <div id="event-participants" class="participant-table-wrap">
@@ -1125,27 +1120,7 @@
                                                     </thead>
                                                     <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-900/60">
                                                 @forelse ($participantRegistrations as $participantRegistration)
-                                                    @php
-                                                        $participantSearchText = mb_strtolower(
-                                                            trim(
-                                                                implode(' ', [
-                                                                    (string) ($participantRegistration->rider?->name ??
-                                                                        ''),
-                                                                    (string) ($participantRegistration->rider
-                                                                        ?->nickname ?? ''),
-                                                                    (string) ($participantRegistration->number_plate ??
-                                                                        ''),
-                                                                    (string) ($participantRegistration->rider
-                                                                        ?->number_plate ?? ''),
-                                                                    (string) ($participantRegistration->rider?->teams
-                                                                        ->pluck('name')
-                                                                        ->implode(' ') ?? ''),
-                                                                ]),
-                                                            ),
-                                                        );
-                                                    @endphp
-                                                    <tr
-                                                        x-show="(selectedBracket === '' || selectedBracket === '{{ (string) $participantRegistration->bracket_id }}') && (search.trim() === '' || '{{ addslashes($participantSearchText) }}'.includes(search.trim().toLowerCase()))">
+                                                    <tr>
                                                         <td
                                                             class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                             {{ $participantRegistration->rider?->name ?? '—' }}
@@ -1163,9 +1138,13 @@
                                                     </tr>
                                                 @empty
                                                     <tr>
-                                                        <td colspan="3"
+                                                        <td colspan="2"
                                                             class="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                                                            {{ __('No participants yet.') }}
+                                                            @if ($participantSearch !== '' || $participantBracket !== '')
+                                                                {{ __('No participants match your search.') }}
+                                                            @else
+                                                                {{ __('No participants yet.') }}
+                                                            @endif
                                                         </td>
                                                     </tr>
                                                 @endforelse

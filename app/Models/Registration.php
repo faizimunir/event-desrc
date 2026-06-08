@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -130,5 +131,44 @@ class Registration extends Model
     public function scopeCountsTowardQuota($query): void
     {
         $query->whereIn('status', [self::STATUS_PENDING, self::STATUS_APPROVED]);
+    }
+
+    /** Approved registration with successful payment — shown on public participant list. */
+    public function scopePubliclyListed(Builder $query): Builder
+    {
+        return $query
+            ->where('status', self::STATUS_APPROVED)
+            ->whereHas('order', function (Builder $orderQuery): void {
+                $orderQuery
+                    ->whereIn('status', [Order::STATUS_PAID, Order::STATUS_COMPLETED])
+                    ->whereHas('payments', function (Builder $paymentQuery): void {
+                        $paymentQuery->where('status', Payment::STATUS_SUCCESS);
+                    });
+            });
+    }
+
+    public function scopeParticipantSearch(Builder $query, string $term): Builder
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return $query;
+        }
+
+        $like = '%'.addcslashes($term, '%_\\').'%';
+
+        return $query->where(function (Builder $searchQuery) use ($like): void {
+            $searchQuery
+                ->where('number_plate', 'like', $like)
+                ->orWhereHas('rider', function (Builder $riderQuery) use ($like): void {
+                    $riderQuery
+                        ->where(function (Builder $riderTextQuery) use ($like): void {
+                            $riderTextQuery
+                                ->where('name', 'like', $like)
+                                ->orWhere('nickname', 'like', $like)
+                                ->orWhere('number_plate', 'like', $like);
+                        })
+                        ->orWhereHas('teams', fn (Builder $teamQuery) => $teamQuery->where('name', 'like', $like));
+                });
+        });
     }
 }

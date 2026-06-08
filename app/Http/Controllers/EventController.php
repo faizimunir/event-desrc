@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Event;
 use App\Models\Location;
 use App\Models\Order;
+use App\Models\Registration;
 use Illuminate\Http\Request;
 
 class EventController extends Controller
@@ -59,7 +60,53 @@ class EventController extends Controller
 
         $hasEarlyAccess = $this->hasEarlyAccessForEvent($event);
 
-        return view('event-show', compact('event', 'hasEarlyAccess'));
+        $participantRegistrations = null;
+        $participantBracketOptions = collect();
+        $participantSearch = trim((string) request('participant_search', ''));
+        $participantBracket = (string) request('participant_bracket', '');
+        $participantTabActive = false;
+
+        if ($event->show_participants_publicly) {
+            $participantTabActive = request()->has('participant_page')
+                || $participantSearch !== ''
+                || $participantBracket !== '';
+
+            $participantQuery = Registration::query()
+                ->with(['rider.teams', 'bracket', 'package'])
+                ->where('event_id', $event->id)
+                ->publiclyListed();
+
+            if ($participantBracket !== '' && ctype_digit($participantBracket)) {
+                $participantQuery->where('bracket_id', (int) $participantBracket);
+            }
+
+            if ($participantSearch !== '') {
+                $participantQuery->participantSearch($participantSearch);
+            }
+
+            $participantRegistrations = $participantQuery
+                ->latest('id')
+                ->paginate(20, ['*'], 'participant_page')
+                ->withQueryString()
+                ->fragment('event-participants');
+
+            $participantBracketOptions = $event->brackets_sorted_for_display
+                ->map(fn ($bracket) => [
+                    'id' => (string) $bracket->id,
+                    'name' => (string) $bracket->name,
+                ])
+                ->values();
+        }
+
+        return view('event-show', compact(
+            'event',
+            'hasEarlyAccess',
+            'participantRegistrations',
+            'participantBracketOptions',
+            'participantSearch',
+            'participantBracket',
+            'participantTabActive',
+        ));
     }
 
     /**
