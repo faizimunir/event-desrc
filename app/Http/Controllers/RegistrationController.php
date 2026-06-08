@@ -65,6 +65,8 @@ class RegistrationController extends Controller
         $activePackageIds = $event->packages->where('status', Package::STATUS_ACTIVE)->pluck('id')->all();
         $packageRules = ['required', 'exists:event_packages,id', Rule::in($activePackageIds)];
 
+        $this->resolvePendingTeamSearch($request);
+
         try {
             $validated = $request->validate([
                 'parent_name' => ['required', 'string', 'max:255'],
@@ -78,10 +80,13 @@ class RegistrationController extends Controller
                 'gender' => ['required', 'string', 'in:boys,girls,other'],
                 'number_plate' => ['nullable', 'string', 'max:50'],
                 'jersey_size' => ['nullable', 'string', 'max:50'],
-                'team_ids' => ['nullable', 'array'],
+                'team_ids' => ['required', 'array', 'min:1'],
                 'team_ids.*' => ['integer', 'exists:teams,id'],
                 'use_rider_id' => ['nullable', 'integer', 'exists:riders,id'],
                 'photo_kia' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:'.(config('media.max_upload_size_kb', 2048))],
+            ], [
+                'team_ids.required' => __('Please select or add at least one team.'),
+                'team_ids.min' => __('Please select or add at least one team.'),
             ]);
         } catch (ValidationException $e) {
             throw $e->redirectTo(route('events.public.show', $event->slug));
@@ -913,5 +918,29 @@ class RegistrationController extends Controller
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('status', $message);
+    }
+
+    /**
+     * If user typed a team name but did not click Create, auto-add it before validation.
+     */
+    private function resolvePendingTeamSearch(Request $request): void
+    {
+        $teamIds = array_values(array_filter(array_map('intval', (array) $request->input('team_ids', []))));
+
+        if ($teamIds !== []) {
+            return;
+        }
+
+        $pendingSearch = trim((string) $request->input('team_search_pending', ''));
+        if ($pendingSearch === '') {
+            return;
+        }
+
+        $team = Team::firstOrCreate(
+            ['name' => $pendingSearch],
+            ['name' => $pendingSearch]
+        );
+
+        $request->merge(['team_ids' => [$team->id]]);
     }
 }

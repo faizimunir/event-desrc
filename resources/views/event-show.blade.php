@@ -492,34 +492,19 @@
                     @endif
                             @if (($event->isRegistrationOpen() || $hasEarlyAccess) && $event->brackets_sorted_for_display->isNotEmpty())
                                 @php
-                                    $showDuplicateRiderModal =
-                                        session('similar_riders_choice') && session('similar_riders');
-                                    $similarRidersList = $showDuplicateRiderModal ? session('similar_riders') : [];
-                                    $oldPackageId = old('package_id');
-                                    $oldBracketId = old('bracket_id');
-                                    $selectedPackageObj = $oldPackageId
-                                        ? $event->packages->firstWhere('id', (int) $oldPackageId)
-                                        : null;
-                                    if ($selectedPackageObj && !$selectedPackageObj->isActive()) {
-                                        $selectedPackageObj = null;
-                                    }
-                                    $selectedBracketObj = $oldBracketId
-                                        ? $event->brackets_sorted_for_display->firstWhere('id', (int) $oldBracketId)
-                                        : null;
                                     $packageIdsWithJersey = $event->packages
                                         ->filter(fn($p) => $p->hasJerseyReward())
                                         ->pluck('id')
-                                        ->map(fn($id) => (string) $id)
                                         ->values()
                                         ->all();
                                     $hasActivePackage = $event->packages->contains(fn($p) => $p->isActive());
                                 @endphp
 
                                 <div x-data="{
-                                    selectedPackage: '{{ (string) ($selectedPackageObj?->id ?? '') }}',
-                                    selectedPackageLabel: '{{ addslashes((string) ($selectedPackageObj?->name ?? '')) }}',
-                                    selectedBracket: '{{ (string) ($selectedBracketObj?->id ?? '') }}',
-                                    selectedBracketLabel: '{{ addslashes((string) ($selectedBracketObj?->name ?? '')) }}',
+                                    selectedPackage: '',
+                                    selectedPackageLabel: '',
+                                    selectedBracket: '',
+                                    selectedBracketLabel: '',
                                     requirePackage: {{ $hasActivePackage ? 'true' : 'false' }},
                                     packageIdsWithJersey: {!! e(json_encode($packageIdsWithJersey)) !!},
                                     scrollToForm() {
@@ -575,7 +560,7 @@
                                                         : 0;
                                                 @endphp
                                                 <button type="button"
-                                                    @if ($isFull) disabled @else x-on:click="selectedBracket = '{{ $bracket->id }}'; selectedBracketLabel = '{{ addslashes($bracket->name) }}'; if (requirePackage) scrollToPackages(); else scrollToForm()" @endif
+                                                    @if ($isFull) disabled @else x-on:click="selectedBracket = '{{ $bracket->id }}'; selectedBracketLabel = '{{ addslashes($bracket->name) }}'; $dispatch('registration-bracket-selected', { id: {{ $bracket->id }} }); if (requirePackage) scrollToPackages(); else scrollToForm()" @endif
                                                     class="registration-bracket-card h-full w-full"
                                                     :class="selectedBracket === '{{ $bracket->id }}'
                                                         ? 'border-orange-500 bg-orange-50/50 ring-2 ring-orange-500/20 dark:bg-orange-950/20'
@@ -637,7 +622,7 @@
                                                         }
                                                     @endphp
                                                     <button type="button"
-                                                        @if ($pkgSelectable) x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; scrollToForm()" @endif
+                                                        @if ($pkgSelectable) x-on:click="selectedPackage = '{{ $package->id }}'; selectedPackageLabel = '{{ addslashes($package->name) }}'; $dispatch('registration-package-selected', { id: {{ $package->id }} }); scrollToForm()" @endif
                                                         @if (!$pkgSelectable) disabled @endif
                                                         class="registration-bracket-card h-full w-full"
                                                         :class="selectedPackage === '{{ $package->id }}'
@@ -696,7 +681,7 @@
                                             {{ __('Package Belum Tersedia') }}</p>
                                     </div>
 
-                                    {{-- Form registrasi rider --}}
+                                    {{-- Form registrasi rider (Livewire — no page reload on error) --}}
                                     <div id="registration-form" x-cloak
                                         x-show="selectedBracket !== '' && (requirePackage && selectedPackage !== '')"
                                         x-transition:enter="transition ease-out duration-300"
@@ -713,241 +698,12 @@
                                             </div>
                                         </div>
 
-                                        <form method="POST" action="{{ route('registrations.store', $event) }}"
-                                            id="registration-form-submit" x-ref="regForm"
-                                            enctype="multipart/form-data"
-                                            class="space-y-5">
-                                            @csrf
-                                            <input type="hidden" name="package_id" x-bind:value="selectedPackage">
-                                            <input type="hidden" name="bracket_id" x-bind:value="selectedBracket">
-                                            <input type="hidden" name="use_rider_id" value="" id="input-use-rider-id">
-
-                                            @if ($errors->any())
-                                                <div class="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-                                                    <ul class="list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
-                                                        @foreach ($errors->all() as $err)
-                                                            <li>{{ $err }}</li>
-                                                        @endforeach
-                                                    </ul>
-                                                </div>
-                                            @endif
-
-                                            <div class="registration-summary">
-                                                <span class="registration-summary-chip">
-                                                    <flux:icon name="squares-2x2" variant="mini" class="size-4 text-orange-500" />
-                                                    <span x-text="selectedBracketLabel || '—'"></span>
-                                                </span>
-                                                @if ($event->packages->isNotEmpty())
-                                                    <span class="registration-summary-chip">
-                                                        <flux:icon name="gift" variant="mini" class="size-4 text-orange-500" />
-                                                        <span x-text="selectedPackageLabel || '—'"></span>
-                                                    </span>
-                                                @endif
-                                            </div>
-
-                                            <div class="registration-form-section !border-t-0 !pt-0">
-                                                <p class="registration-form-block-title">
-                                                    <flux:icon name="user" class="size-5 text-orange-500" />
-                                                    {{ __('Parent / Guardian') }}
-                                                </p>
-                                                <div class="grid gap-3 sm:grid-cols-2">
-                                                    <flux:input name="parent_name" type="text"
-                                                        :label="__('Parent / Guardian name')"
-                                                        :value="old('parent_name')" required />
-                                                    <flux:input name="whatsapp" type="tel"
-                                                        :label="__('WhatsApp number')" :value="old('whatsapp')"
-                                                        :placeholder="__('e.g. 08123456789')" required />
-                                                </div>
-                                            </div>
-
-                                            <div class="registration-form-section">
-                                                <p class="registration-form-block-title">
-                                                    <flux:icon name="identification" class="size-5 text-orange-500" />
-                                                    {{ __('Rider data') }}
-                                                </p>
-                                                <div class="grid gap-3 sm:grid-cols-2">
-                                                    <flux:input name="name" type="text"
-                                                        :label="__('Full name')" :value="old('name')"
-                                                        required />
-                                                    <flux:input name="nickname" type="text"
-                                                        :label="__('Nickname')" :value="old('nickname')"
-                                                        required />
-                                                </div>
-                                                <div class="grid gap-3 sm:grid-cols-2">
-                                                    <flux:input name="pob" type="text"
-                                                        :label="__('Place of birth')" :value="old('pob')"
-                                                        required />
-                                                    <flux:input name="dob" type="date"
-                                                        :label="__('Date of birth')" :value="old('dob')"
-                                                        required />
-                                                </div>
-                                                <div class="grid gap-3 sm:grid-cols-2">
-                                                    <flux:select name="gender" :placeholder="__('— Select —')"
-                                                        :label="__('Gender')" required>
-                                                        <option value="boys" @selected(old('gender') === 'boys')>
-                                                            {{ __('Boys') }}</option>
-                                                        <option value="girls" @selected(old('gender') === 'girls')>
-                                                            {{ __('Girls') }}</option>
-                                                    </flux:select>
-                                                    <flux:input name="number_plate" type="text"
-                                                        :label="__('Number plate')" :value="old('number_plate')"
-                                                        required />
-                                                </div>
-                                                <div x-cloak
-                                                    x-show="packageIdsWithJersey.includes(selectedPackage)"
-                                                    class="space-y-2" x-data="{ sizeChartPreviewOpen: false }"
-                                                    @keydown.escape.window="sizeChartPreviewOpen = false">
-                                                    <flux:select name="jersey_size"
-                                                        :placeholder="__('— Select size —')"
-                                                        :label="__('Jersey size')"
-                                                        x-bind:required="packageIdsWithJersey.includes(selectedPackage)">
-                                                        <option value="S" @selected(old('jersey_size') === 'S')>S
-                                                        </option>
-                                                        <option value="M" @selected(old('jersey_size') === 'M')>M
-                                                        </option>
-                                                        <option value="L" @selected(old('jersey_size') === 'L')>L
-                                                        </option>
-                                                        <option value="XL" @selected(old('jersey_size') === 'XL')>XL
-                                                        </option>
-                                                    </flux:select>
-                                                    @if ($event->sizeChartUrl())
-                                                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                                                            <button type="button"
-                                                                @click="sizeChartPreviewOpen = true"
-                                                                class="underline hover:text-zinc-700 dark:hover:text-zinc-300">
-                                                                {{ __('View size chart') }}
-                                                            </button>
-                                                        </p>
-                                                        <div x-show="sizeChartPreviewOpen" x-transition.opacity
-                                                            x-cloak
-                                                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                                            @click.self="sizeChartPreviewOpen = false"
-                                                            role="dialog" aria-modal="true"
-                                                            :aria-hidden="!sizeChartPreviewOpen">
-                                                            <img src="{{ $event->sizeChartUrl() }}"
-                                                                alt="{{ __('Size chart') }}"
-                                                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
-                                                                @click.stop />
-                                                        </div>
-                                                    @endif
-                                                </div>
-                                                <livewire:team-pillbox-field />
-                                                <div class="space-y-2">
-                                                    <flux:label>{{ __('Photo KIA (Kartu Identitas Anak)') }}</flux:label>
-                                                    <input type="file" name="photo_kia" id="photo_kia"
-                                                        accept="image/jpeg,image/png,image/webp"
-                                                        class="block w-full cursor-pointer text-sm text-zinc-500 file:mr-4 file:cursor-pointer file:rounded-lg file:border-0 file:bg-orange-500 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-orange-400 dark:file:bg-orange-600"
-                                                        required />
-                                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                                                        {{ __('JPG, PNG, WebP up to :max KB', ['max' => config('media.max_upload_size_kb', 2048)]) }}
-                                                    </p>
-                                                    @error('photo_kia')
-                                                        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
-                                                    @enderror
-                                                </div>
-                                            </div>
-
-                                            <flux:button type="submit" variant="primary" icon="paper-airplane"
-                                                class="w-full justify-center !bg-orange-500 hover:!bg-orange-400 sm:w-auto"
-                                                x-bind:disabled="selectedBracket === '' || (requirePackage && selectedPackage === '')">
-                                                {{ __('Submit registration') }}
-                                            </flux:button>
-                                        </form>
+                                        <livewire:registrations.event-registration-form
+                                            :event="$event"
+                                            :package-ids-with-jersey="$packageIdsWithJersey"
+                                            :key="'event-reg-'.$event->id"
+                                        />
                                     </div>
-
-                                    @if ($showDuplicateRiderModal && count($similarRidersList) > 0)
-                                        <div x-data x-init="$nextTick(() => $dispatch('modal-show', { name: 'duplicate-rider-modal' }))"></div>
-                                        <flux:modal name="duplicate-rider-modal" focusable class="max-w-2xl"
-                                            dismissible>
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <flux:heading size="lg">
-                                                        {{ __('You may already be registered') }}
-                                                    </flux:heading>
-                                                    <flux:subheading class="mt-1">
-                                                        {{ __('We found a rider with similar data for this WhatsApp number. Compare below and use the existing profile to continue.') }}
-                                                    </flux:subheading>
-                                                </div>
-                                                <ul class="space-y-4">
-                                                    @foreach ($similarRidersList as $sr)
-                                                        <li
-                                                            class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                                                            <div
-                                                                class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                                                                <span
-                                                                    class="inline-flex items-center rounded-full bg-amber-100 dark:bg-amber-900/30 px-2.5 py-0.5 text-sm font-medium text-amber-800 dark:text-amber-200">
-                                                                    {{ __('Similarity') }}: {{ $sr['score'] }}%
-                                                                </span>
-                                                                <flux:button type="button" variant="primary"
-                                                                    size="sm"
-                                                                    x-on:click="document.getElementById('input-use-rider-id').value = '{{ $sr['id'] }}'; document.getElementById('registration-form-submit').submit()">
-                                                                    {{ __('Use this profile') }}
-                                                                </flux:button>
-                                                            </div>
-                                                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                                                                <div
-                                                                    class="rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 p-3">
-                                                                    <div
-                                                                        class="font-medium text-blue-800 dark:text-blue-200 mb-2">
-                                                                        {{ __('New data (from form)') }}</div>
-                                                                    <dl
-                                                                        class="space-y-1.5 text-zinc-700 dark:text-zinc-300">
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Full name') }}:</span>
-                                                                            {{ old('name', '—') }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Nickname') }}:</span>
-                                                                            {{ old('nickname') ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Place of birth') }}:</span>
-                                                                            {{ old('pob') ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Date of birth') }}:</span>
-                                                                            {{ old('dob', '—') }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Gender') }}:</span>
-                                                                            {{ match (old('gender')) {'boys' => __('Boys'),'girls' => __('Girls'),'other' => __('Other'),default => old('gender') ?: '—'} }}
-                                                                        </div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Number plate') }}:</span>
-                                                                            {{ old('number_plate') ?: '—' }}</div>
-                                                                    </dl>
-                                                                </div>
-                                                                <div
-                                                                    class="rounded-lg bg-zinc-100/80 dark:bg-zinc-700/30 border border-zinc-200 dark:border-zinc-600 p-3">
-                                                                    <div
-                                                                        class="font-medium text-zinc-800 dark:text-zinc-200 mb-2">
-                                                                        {{ __('Existing profile') }}</div>
-                                                                    <dl
-                                                                        class="space-y-1.5 text-zinc-700 dark:text-zinc-300">
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Full name') }}:</span>
-                                                                            {{ $sr['name'] ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Nickname') }}:</span>
-                                                                            {{ $sr['nickname'] ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Place of birth') }}:</span>
-                                                                            {{ $sr['pob'] ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Date of birth') }}:</span>
-                                                                            {{ $sr['dob'] ?: '—' }}</div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Gender') }}:</span>
-                                                                            {{ $sr['gender_label'] ?? ($sr['gender'] ?? '—') }}
-                                                                        </div>
-                                                                        <div><span
-                                                                                class="text-zinc-500 dark:text-zinc-400">{{ __('Number plate') }}:</span>
-                                                                            {{ $sr['number_plate'] ?: '—' }}</div>
-                                                                    </dl>
-                                                                </div>
-                                                            </div>
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
-                                            </div>
-                                        </flux:modal>
-                                    @endif
                                     </div>
                                 </div>
                             @elseif (!$event->isRegistrationOpen() && $event->registration_opens_at)
