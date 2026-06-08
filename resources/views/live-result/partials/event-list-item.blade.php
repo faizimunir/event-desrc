@@ -3,9 +3,15 @@
     wire:navigate
     class="live-result-list-item group"
 >
-    <div class="live-result-list-item__icon">
-        <flux:icon name="radio" variant="outline" class="size-5" />
-    </div>
+    @if($event->logoUrl())
+        <div class="live-result-list-item__logo">
+            <img src="{{ $event->logoUrl() }}" alt="{{ $event->title }}" class="max-h-9 max-w-[88px] object-contain" />
+        </div>
+    @else
+        <div class="live-result-list-item__icon">
+            <flux:icon name="radio" variant="outline" class="size-5" />
+        </div>
+    @endif
 
     <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-2">
