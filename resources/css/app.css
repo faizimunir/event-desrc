@@ -363,7 +363,11 @@ select:focus[data-flux-control] {
 }
 
 .live-result-keterangan {
-    @apply rounded-xl border border-orange-200/80 bg-orange-50/60 px-4 py-3 text-sm leading-relaxed text-zinc-700 dark:border-orange-800/60 dark:bg-orange-950/25 dark:text-orange-100;
+    @apply flex items-start gap-3 rounded-xl border border-orange-200/80 bg-orange-50/60 px-4 py-3 text-sm leading-relaxed text-zinc-700 dark:border-orange-800/60 dark:bg-orange-950/25 dark:text-orange-100;
+}
+
+.live-result-keterangan__icon {
+    @apply mt-0.5 size-5 shrink-0 text-orange-600 dark:text-orange-400;
 }
 
 .live-result-table-wrap {
