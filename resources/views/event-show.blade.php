@@ -1153,7 +1153,7 @@
                                                                 {{ $participantRegistration->rider?->nickname ?? '—' }}
                                                                 ({{ $participantRegistration->rider?->number_plate ?? '—' }})
                                                             </span>
-                                                            <span class="text-zinc-500 dark:text-zinc-400 block">
+                                                            <span class="text-amber-500 dark:text-amber-400 block">
                                                                 {{ $participantRegistration->rider?->teams->pluck('name')->implode(', ') ?? '—' }}
                                                             </span>
                                                         </td>
