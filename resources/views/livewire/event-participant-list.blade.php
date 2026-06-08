@@ -93,7 +93,7 @@
 
         @if ($this->registrations->hasPages())
             <div class="participant-table-pagination">
-                {{ $this->registrations->links() }}
+                {{ $this->registrations->links(data: ['scrollTo' => '#event-participants']) }}
             </div>
         @endif
     </div>

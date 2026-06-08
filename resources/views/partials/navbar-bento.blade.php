@@ -5,23 +5,22 @@
     x-effect="document.body.classList.toggle('overflow-hidden', mobileMenuOpen)"
 >
     <div class="bento-nav">
-        <div class="bento-card px-3 py-2 sm:px-4 sm:py-2.5">
+        <div class="bento-nav-card px-3 py-2 sm:px-4 sm:py-2.5">
             <flux:header class="!min-h-12 !border-0 !bg-transparent !shadow-none !px-0">
                 <flux:button
                     icon="bars-2"
                     variant="subtle"
                     square
-                    class="!rounded-xl lg:hidden"
+                    class="!rounded-xl !text-zinc-100/90 hover:!bg-white/10 lg:hidden"
                     x-on:click="mobileMenuOpen = true"
                     aria-label="{{ __('Open menu') }}"
                     x-bind:aria-expanded="mobileMenuOpen.toString()"
                 />
 
-                <flux:brand href="{{ route('home') }}" logo="{{ asset('logo-light.webp') }}" class="dark:hidden" />
-                <flux:brand href="{{ route('home') }}" logo="{{ asset('logo-dark.webp') }}" class="hidden dark:flex" />
+                <flux:brand href="{{ route('home') }}" logo="{{ asset('logo-dark.webp') }}" />
 
                 <flux:navbar class="-mb-px max-lg:hidden">
-                    <flux:navbar.item icon="calendar" href="{{ route('events.public.index') }}" wire:navigate class="!rounded-xl">Events</flux:navbar.item>
+                    <flux:navbar.item icon="calendar" href="{{ route('events.public.index') }}" wire:navigate class="!rounded-xl !text-zinc-100/90 hover:!bg-white/10 hover:!text-white">Events</flux:navbar.item>
                     <flux:navbar.item icon="radio" href="{{ route('live-result.index') }}" wire:navigate class="!rounded-xl !bg-red-500 !text-white hover:!bg-red-500 focus:!ring-red-600 dark:!bg-red-600 dark:hover:!bg-red-500">{{ __('Live Result') }}</flux:navbar.item>
                 </flux:navbar>
 
@@ -29,14 +28,14 @@
 
                 <flux:navbar class="me-2 sm:me-3">
                     <a href="{{ route('orders.index') }}" class="relative inline-flex" aria-label="{{ __('My orders') }}">
-                        <flux:button icon="shopping-cart" variant="subtle" aria-label="{{ __('My orders') }}" class="!rounded-xl" />
+                        <flux:button icon="shopping-cart" variant="subtle" aria-label="{{ __('My orders') }}" class="!rounded-xl !text-zinc-100/90 hover:!bg-white/10" />
                         @if (isset($pendingOrdersCount) && $pendingOrdersCount > 0)
-                            <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-zinc-900">
+                            <span class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white ring-2 ring-zinc-800">
                                 {{ $pendingOrdersCount > 99 ? '99+' : $pendingOrdersCount }}
                             </span>
                         @endif
                     </a>
-                    <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" class="!rounded-xl" />
+                    <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" class="!rounded-xl !text-zinc-100/90 hover:!bg-white/10" />
                 </flux:navbar>
 
                 @auth
@@ -88,8 +87,8 @@
                     </flux:dropdown>
                 @else
                     <flux:navbar class="gap-2 max-lg:hidden">
-                        <flux:button variant="ghost" href="{{ route('login') }}" wire:navigate class="!rounded-xl">Masuk</flux:button>
-                        <flux:button variant="primary" href="{{ route('register') }}" wire:navigate class="!rounded-xl">Daftar</flux:button>
+                        <flux:button variant="ghost" href="{{ route('login') }}" wire:navigate class="!rounded-xl !text-zinc-100/90 hover:!bg-white/10">Masuk</flux:button>
+                        <flux:button variant="primary" href="{{ route('register') }}" wire:navigate class="!rounded-xl !bg-orange-500 !text-white hover:!bg-orange-400">Daftar</flux:button>
                     </flux:navbar>
 
                     <flux:dropdown position="top" align="end" class="lg:hidden">

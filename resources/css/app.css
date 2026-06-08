@@ -121,6 +121,23 @@ select:focus[data-flux-control] {
 /* Bento homepage layout */
 .bento-page {
     @apply min-h-screen bg-zinc-100 antialiased dark:bg-zinc-950;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 14px,
+        rgb(24 24 27 / 0.04) 14px,
+        rgb(24 24 27 / 0.04) 15px
+    );
+}
+
+.dark .bento-page {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        transparent,
+        transparent 14px,
+        rgb(255 255 255 / 0.035) 14px,
+        rgb(255 255 255 / 0.035) 15px
+    );
 }
 
 .bento-shell {
@@ -133,6 +150,33 @@ select:focus[data-flux-control] {
 
 .bento-nav {
     @apply sticky top-4 z-50;
+}
+
+.bento-nav-card {
+    @apply overflow-hidden rounded-3xl border backdrop-blur-md;
+    border-color: rgb(63 63 70 / 0.55);
+    background: linear-gradient(
+        125deg,
+        rgb(39 39 42) 0%,
+        rgb(24 24 27 / 0.98) 50%,
+        rgb(39 39 42) 100%
+    );
+    box-shadow:
+        0 4px 24px rgb(0 0 0 / 0.18),
+        0 1px 0 rgb(255 255 255 / 0.08) inset;
+}
+
+.dark .bento-nav-card {
+    border-color: rgb(39 39 42 / 0.9);
+    background: linear-gradient(
+        125deg,
+        rgb(9 9 11) 0%,
+        rgb(24 24 27 / 0.98) 50%,
+        rgb(9 9 11) 100%
+    );
+    box-shadow:
+        0 4px 28px rgb(0 0 0 / 0.55),
+        0 1px 0 rgb(255 255 255 / 0.05) inset;
 }
 
 .bento-hero {
