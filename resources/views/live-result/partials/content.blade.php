@@ -6,8 +6,8 @@
     {{ __('Auto refresh') }}
 </div>
 
-<div wire:loading.delay.shortest wire:target="selectCategory,selectRound" class="mb-4 rounded-xl border border-blue-200/70 bg-blue-50/80 px-4 py-2.5 text-sm font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300">
-    {{ __('Memuat data...') }}
+<div wire:loading.delay.shortest wire:target="selectCategory,selectRound" class="mb-4 flex items-center justify-center py-2">
+    <flux:icon name="arrow-path" class="size-6 animate-spin text-blue-600 dark:text-blue-400" />
 </div>
 
 @if($categories->count() > 0)
