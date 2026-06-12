@@ -3,6 +3,7 @@
 namespace App\Livewire\Events;
 
 use App\Models\Event;
+use App\Services\EventTicketCheckinScanService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -15,6 +16,10 @@ class EventCheckinList extends Component
 
     public string $search = '';
 
+    public ?string $scanMessage = null;
+
+    public ?string $scanMessageType = null;
+
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('checkin.read'), 403);
@@ -23,6 +28,22 @@ class EventCheckinList extends Component
 
     public function updatedSearch(): void
     {
+        $this->resetPage();
+    }
+
+    public function processScannedCode(string $code): void
+    {
+        abort_unless(auth()->user()->canAs('checkin.create'), 403);
+
+        $result = app(EventTicketCheckinScanService::class)->process(
+            $this->event,
+            $code,
+            checkedInByUserId: (int) auth()->id(),
+        );
+
+        $this->scanMessage = $result['message'];
+        $this->scanMessageType = $result['type'];
+        unset($this->checkins, $this->registrationsAvailableForCheckin);
         $this->resetPage();
     }
 

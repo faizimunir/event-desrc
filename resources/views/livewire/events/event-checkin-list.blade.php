@@ -7,9 +7,32 @@
     @endif
 
     @canAs('checkin.create')
-        @if ($this->registrationsAvailableForCheckin->isNotEmpty())
-            <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-6 mb-6">
-                <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">{{ __('Record check-in') }}</h2>
+        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-6 mb-6">
+            <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">{{ __('Record check-in') }}</h2>
+
+            @if ($scanMessage)
+                @php
+                    $scanAlertVariant = match ($scanMessageType) {
+                        'success' => 'success',
+                        'error' => 'danger',
+                        default => 'warning',
+                    };
+                @endphp
+                <flux:callout :variant="$scanAlertVariant" class="rounded-lg mb-4">{{ $scanMessage }}</flux:callout>
+            @endif
+
+            <div class="flex flex-wrap items-end gap-3 mb-4">
+                @php
+                    $scannerRegionId = 'event-checkin-scanner-' . $event->id;
+                @endphp
+                <div wire:ignore>
+                    @include('partials.event-checkin-scanner', [
+                        'scannerRegionId' => $scannerRegionId,
+                    ])
+                </div>
+            </div>
+
+            @if ($this->registrationsAvailableForCheckin->isNotEmpty())
                 <form method="POST" action="{{ route('events.checkins.store', $event) }}" class="max-w-2xl space-y-4">
                     @csrf
                     <div class="grid gap-4 sm:grid-cols-2">
@@ -25,8 +48,10 @@
                     </div>
                     <flux:button type="submit" variant="primary" icon="check">{{ __('Check in') }}</flux:button>
                 </form>
-            </div>
-        @endif
+            @else
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No pending registrations. Scan a ticket QR code to check in.') }}</p>
+            @endif
+        </div>
     @endcanAs
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-2 mb-4">
