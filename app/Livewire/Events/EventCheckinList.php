@@ -38,7 +38,7 @@ class EventCheckinList extends Component
 
     public function updatedSearch(): void
     {
-        $this->resetPage();
+        $this->resetPage('checkinsPage');
     }
 
     public function processScannedCode(string $code): void
@@ -54,8 +54,9 @@ class EventCheckinList extends Component
         $this->scanMessage = $result['type'] === 'success' ? null : $result['message'];
         $this->scanMessageType = $result['type'] === 'success' ? null : $result['type'];
         $this->scanSummary = $result['summary'] ?? null;
+        $this->event = $this->event->fresh();
         unset($this->checkins, $this->registrationsAvailableForCheckin);
-        $this->resetPage();
+        $this->resetPage('checkinsPage');
     }
 
     public function openRegistrationEdit(int $registrationId): void
@@ -94,7 +95,7 @@ class EventCheckinList extends Component
                 });
             })
             ->orderByDesc('checked_in_at')
-            ->paginate(15);
+            ->paginate(15, ['*'], 'checkinsPage');
     }
 
     /** Registrations that can be checked in (approved, no check-in yet). */
