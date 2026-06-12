@@ -46,6 +46,12 @@
                     <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Ticket code') }}</dt>
                     <dd class="mt-0.5 font-mono text-sm text-zinc-900 dark:text-zinc-100">{{ $ticket->ticket_code }}</dd>
                 </div>
+                <div>
+                    <dt class="text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Check-in') }}</dt>
+                    <dd class="mt-1">
+                        @include('tickets.partials.checkin-status', ['registration' => $reg])
+                    </dd>
+                </div>
             </dl>
         </div>
     </main>

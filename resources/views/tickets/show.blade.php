@@ -97,6 +97,12 @@
                                 <dd class="e-ticket-detail-item__value">{{ $reg->jersey_size }}</dd>
                             </div>
                         @endif
+                        <div class="e-ticket-detail-item sm:col-span-2 lg:col-span-3">
+                            <dt class="e-ticket-detail-item__label">{{ __('Check-in') }}</dt>
+                            <dd class="mt-1">
+                                @include('tickets.partials.checkin-status', ['registration' => $reg])
+                            </dd>
+                        </div>
                     </dl>
                 </div>
             </div>
