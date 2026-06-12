@@ -54,6 +54,13 @@
     }
 }
 
+/* Authenticated app shell: tight horizontal padding (public bento pages unchanged). */
+.app-shell [data-flux-main],
+.app-shell [data-flux-header],
+.app-shell [data-flux-header] > div {
+    @apply !px-1 lg:!px-1;
+}
+
 [data-flux-field]:not(ui-radio, ui-checkbox) {
     @apply grid gap-2;
 }
@@ -608,6 +615,22 @@ select:focus[data-flux-control] {
 
 .ticket-verify__code {
     @apply mt-5 border-t border-zinc-100 pt-4 text-center font-mono text-[10px] text-zinc-400 dark:border-zinc-800 dark:text-zinc-500;
+}
+
+.checkin-success-callout {
+    @apply flex items-center gap-2.5 rounded-lg border border-emerald-200/80 bg-emerald-50 px-3 py-2 dark:border-emerald-900/50 dark:bg-emerald-950/40;
+}
+
+.checkin-success-callout__icon {
+    @apply size-5 shrink-0 text-emerald-600 dark:text-emerald-400;
+}
+
+.checkin-success-callout__name {
+    @apply truncate text-sm font-semibold leading-tight text-emerald-900 dark:text-emerald-100;
+}
+
+.checkin-success-callout__meta {
+    @apply truncate text-xs leading-tight text-emerald-700/90 dark:text-emerald-300/90;
 }
 
 .e-ticket-divider {

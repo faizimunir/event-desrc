@@ -91,6 +91,32 @@ class Registration extends Model
         return $this->hasOne(EventCheckin::class, 'registration_id');
     }
 
+    /** @return array{name: string, number_plate: ?string, teams: ?string, bracket: ?string} */
+    public function checkinSummary(): array
+    {
+        $this->loadMissing(['rider', 'bracket']);
+
+        $teamIds = collect($this->team_ids ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        $teams = $teamIds !== []
+            ? Team::query()->whereIn('id', $teamIds)->orderBy('name')->pluck('name')->join(', ')
+            : null;
+
+        $numberPlate = filled($this->number_plate) ? $this->number_plate : $this->rider?->number_plate;
+
+        return [
+            'name' => $this->rider?->name ?? __('Rider'),
+            'number_plate' => filled($numberPlate) ? $numberPlate : null,
+            'teams' => filled($teams) ? $teams : null,
+            'bracket' => $this->bracket?->name,
+        ];
+    }
+
     public function whatsappNotificationLogs(): HasMany
     {
         return $this->hasMany(WhatsappNotificationLog::class)->orderBy('id');

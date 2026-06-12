@@ -5,7 +5,7 @@
     @include('partials.head')
 </head>
 
-<body class="min-h-screen bg-white dark:bg-zinc-800 antialiased">
+<body class="app-shell min-h-screen bg-white dark:bg-zinc-800 antialiased">
     <flux:sidebar sticky collapsible
         class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
         <flux:sidebar.header>
@@ -174,7 +174,7 @@
 
     <!-- Mobile User Menu -->
     <flux:header
-        class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700">
+        class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700 !px-1 lg:!px-1">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
         <x-app-logo :sidebar="true" href="{{ route('home') }}" wire:navigate />

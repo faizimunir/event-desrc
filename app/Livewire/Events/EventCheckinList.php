@@ -21,6 +21,9 @@ class EventCheckinList extends Component
 
     public ?string $scanMessageType = null;
 
+    /** @var ?array{name: string, number_plate: ?string, teams: ?string, bracket: ?string} */
+    public ?array $scanSummary = null;
+
     public ?int $editingRegistrationId = null;
 
     public function mount(Event $event): void
@@ -48,8 +51,9 @@ class EventCheckinList extends Component
             checkedInByUserId: (int) auth()->id(),
         );
 
-        $this->scanMessage = $result['message'];
-        $this->scanMessageType = $result['type'];
+        $this->scanMessage = $result['type'] === 'success' ? null : $result['message'];
+        $this->scanMessageType = $result['type'] === 'success' ? null : $result['type'];
+        $this->scanSummary = $result['summary'] ?? null;
         unset($this->checkins, $this->registrationsAvailableForCheckin);
         $this->resetPage();
     }

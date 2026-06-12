@@ -24,7 +24,7 @@ class EventTicketCheckinScanService
             return $this->result('error', __('Ticket not found for code :code.', ['code' => $ticketCode]));
         }
 
-        $registration = $ticket->registration()->with('rider')->first();
+        $registration = $ticket->registration()->with(['rider', 'bracket'])->first();
         if (! $registration) {
             return $this->result('error', __('Registration not found for this ticket.'));
         }
@@ -57,7 +57,8 @@ class EventTicketCheckinScanService
         return $this->result(
             'success',
             __(':name checked in.', ['name' => $riderName]),
-            $checkin->load(['registration.rider', 'checkedInByUser']),
+            $checkin->load(['registration.rider', 'registration.bracket', 'checkedInByUser']),
+            $registration->checkinSummary(),
         );
     }
 
@@ -83,14 +84,15 @@ class EventTicketCheckinScanService
     }
 
     /**
-     * @return array{type: string, message: string, checkin: ?EventCheckin}
+     * @return array{type: string, message: string, checkin: ?EventCheckin, summary: ?array}
      */
-    protected function result(string $type, string $message, ?EventCheckin $checkin = null): array
+    protected function result(string $type, string $message, ?EventCheckin $checkin = null, ?array $summary = null): array
     {
         return [
             'type' => $type,
             'message' => $message,
             'checkin' => $checkin,
+            'summary' => $summary,
         ];
     }
 }

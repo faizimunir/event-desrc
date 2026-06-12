@@ -18,7 +18,7 @@ class EventCheckinController extends Controller
             'registration_id' => ['required', 'integer', 'exists:registrations,id'],
         ]);
 
-        $registration = Registration::findOrFail($validated['registration_id']);
+        $registration = Registration::with(['rider', 'bracket'])->findOrFail($validated['registration_id']);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -34,7 +34,7 @@ class EventCheckinController extends Controller
         ]);
 
         return redirect()->route('events.show', ['event' => $event, 'tab' => 'checkin'])
-            ->with('status', __('Check-in recorded.'));
+            ->with('checkin_success', $registration->checkinSummary());
     }
 
     public function update(Request $request, Event $event, EventCheckin $checkin)
