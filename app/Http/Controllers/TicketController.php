@@ -63,7 +63,7 @@ class TicketController extends Controller
      */
     public function verify(Ticket $ticket)
     {
-        $ticket->load(['registration.event', 'registration.rider', 'registration.bracket', 'registration.package', 'registration.checkin']);
+        $ticket->load(['registration.event.location', 'registration.rider', 'registration.bracket', 'registration.package', 'registration.checkin']);
         $reg = $ticket->registration;
         $event = $reg->event;
         $rider = $reg->rider;
