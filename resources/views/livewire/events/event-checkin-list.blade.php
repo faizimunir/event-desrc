@@ -72,10 +72,15 @@
 
     <div class="space-y-2">
         @forelse ($this->checkins as $checkin)
+            @php
+                $canEditRegistration = auth()->user()->canAs('event.update');
+            @endphp
             <x-event-checkin-card
                 wire:key="checkin-{{ $checkin->id }}"
                 :checkin="$checkin"
                 :event="$event"
+                :can-edit="$canEditRegistration"
+                @if ($canEditRegistration) wire:click="openRegistrationEdit({{ $checkin->registration_id }})" @endif
             />
         @empty
             <div class="rounded-xl border border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
@@ -88,5 +93,15 @@
         <div class="mt-4 flex justify-center">
             {{ $this->checkins->links() }}
         </div>
+    @endif
+
+    @if ($this->editingRegistration)
+        @include('registrations.partials.edit-rider-data-modal', [
+            'event' => $event,
+            'registration' => $this->editingRegistration,
+            'modalName' => 'edit-checkin-registration',
+            'returnTab' => 'checkin',
+            'openOnLoad' => request()->filled('edit_registration'),
+        ])
     @endif
 </div>

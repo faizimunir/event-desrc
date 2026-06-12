@@ -524,16 +524,21 @@ class RegistrationController extends Controller
             abort(404);
         }
 
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'nickname' => ['nullable', 'string', 'max:255'],
-            'pob' => ['nullable', 'string', 'max:255'],
-            'dob' => ['required', 'date', 'before_or_equal:today'],
-            'gender' => ['required', 'string', 'in:boys,girls,other'],
-            'number_plate' => ['nullable', 'string', 'max:50'],
-            'team_ids' => ['nullable', 'array'],
-            'team_ids.*' => ['integer', 'exists:teams,id'],
-        ]);
+        try {
+            $validated = $request->validate([
+                'name' => ['required', 'string', 'max:255'],
+                'nickname' => ['nullable', 'string', 'max:255'],
+                'pob' => ['nullable', 'string', 'max:255'],
+                'dob' => ['required', 'date', 'before_or_equal:today'],
+                'gender' => ['required', 'string', 'in:boys,girls,other'],
+                'number_plate' => ['nullable', 'string', 'max:50'],
+                'team_ids' => ['nullable', 'array'],
+                'team_ids.*' => ['integer', 'exists:teams,id'],
+                'return_tab' => ['nullable', 'string', 'in:checkin'],
+            ]);
+        } catch (ValidationException $e) {
+            throw $e->redirectTo($this->registrationRiderEditErrorUrl($request, $event, $registration));
+        }
 
         $registration->loadMissing('bracket.event');
         $rider = $registration->rider;
@@ -552,7 +557,7 @@ class RegistrationController extends Controller
         if (! $eligibilityCheck['eligible']) {
             throw ValidationException::withMessages([
                 'rider_data' => $eligibilityCheck['message'],
-            ]);
+            ])->redirectTo($this->registrationRiderEditErrorUrl($request, $event, $registration));
         }
 
         $teamIds = array_values(array_unique(array_map('intval', $validated['team_ids'] ?? [])));
@@ -572,8 +577,30 @@ class RegistrationController extends Controller
         ]);
         $rider->teams()->sync($teamIds);
 
-        return redirect()->route('events.registrations.show', [$event, $registration])
+        return redirect()->to($this->registrationRiderEditSuccessUrl($request, $event, $registration))
             ->with('status', __('Rider and team details updated.'));
+    }
+
+    protected function registrationRiderEditSuccessUrl(Request $request, Event $event, Registration $registration): string
+    {
+        if ($request->input('return_tab') === 'checkin') {
+            return route('events.show', ['event' => $event, 'tab' => 'checkin']);
+        }
+
+        return route('events.registrations.show', [$event, $registration]);
+    }
+
+    protected function registrationRiderEditErrorUrl(Request $request, Event $event, Registration $registration): string
+    {
+        if ($request->input('return_tab') === 'checkin') {
+            return route('events.show', [
+                'event' => $event,
+                'tab' => 'checkin',
+                'edit_registration' => $registration->id,
+            ]);
+        }
+
+        return route('events.registrations.show', [$event, $registration]);
     }
 
     /**

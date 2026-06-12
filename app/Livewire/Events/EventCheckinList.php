@@ -3,6 +3,7 @@
 namespace App\Livewire\Events;
 
 use App\Models\Event;
+use App\Models\Registration;
 use App\Services\EventTicketCheckinScanService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -20,10 +21,16 @@ class EventCheckinList extends Component
 
     public ?string $scanMessageType = null;
 
+    public ?int $editingRegistrationId = null;
+
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('checkin.read'), 403);
         $this->event = $event;
+
+        if (request()->filled('edit_registration')) {
+            $this->editingRegistrationId = (int) request('edit_registration');
+        }
     }
 
     public function updatedSearch(): void
@@ -47,11 +54,35 @@ class EventCheckinList extends Component
         $this->resetPage();
     }
 
+    public function openRegistrationEdit(int $registrationId): void
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+
+        $registration = $this->event->registrations()->whereKey($registrationId)->exists();
+        abort_unless($registration, 404);
+
+        $this->editingRegistrationId = $registrationId;
+        unset($this->editingRegistration);
+        $this->js('$dispatch("modal-show", { name: "edit-checkin-registration" })');
+    }
+
+    #[Computed]
+    public function editingRegistration(): ?Registration
+    {
+        if ($this->editingRegistrationId === null) {
+            return null;
+        }
+
+        return $this->event->registrations()
+            ->with(['rider', 'bracket'])
+            ->find($this->editingRegistrationId);
+    }
+
     #[Computed]
     public function checkins()
     {
         return $this->event->checkins()
-            ->with(['registration.rider', 'checkedInByUser'])
+            ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
             ->when($this->search !== '', function ($q) {
                 $q->whereHas('registration.rider', function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%')
