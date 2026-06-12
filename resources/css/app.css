@@ -58,7 +58,7 @@
 .app-shell [data-flux-main],
 .app-shell [data-flux-header],
 .app-shell [data-flux-header] > div {
-    @apply !px-1 lg:!px-1;
+    @apply !px-4 lg:!px-4;
 }
 
 [data-flux-field]:not(ui-radio, ui-checkbox) {

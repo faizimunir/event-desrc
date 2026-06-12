@@ -174,7 +174,7 @@
 
     <!-- Mobile User Menu -->
     <flux:header
-        class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700 !px-1 lg:!px-1">
+        class="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-zinc-800/80 backdrop-blur border-b border-zinc-200 dark:border-zinc-700 !px-4 lg:!px-4">
         <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
         <x-app-logo :sidebar="true" href="{{ route('home') }}" wire:navigate />
