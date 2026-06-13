@@ -1,13 +1,4 @@
 <div>
-    @if (session('checkin_success'))
-        <x-checkin-success-callout :summary="session('checkin_success')" class="mb-4" />
-    @elseif (session('status'))
-        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
-    @endif
-    @if (session('error'))
-        <flux:callout variant="danger" class="rounded-lg mb-4">{{ session('error') }}</flux:callout>
-    @endif
-
     @canAs('checkin.create')
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-6 mb-6">
             <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">{{ __('Record check-in') }}</h2>
