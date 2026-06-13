@@ -7,15 +7,14 @@ use App\Models\Registration;
 use App\Services\EventTicketCheckinScanService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 class EventCheckinList extends Component
 {
-    use WithPagination;
-
     public Event $event;
 
     public string $search = '';
+
+    public int $checkinsVersion = 0;
 
     public ?string $scanMessage = null;
 
@@ -36,11 +35,6 @@ class EventCheckinList extends Component
         }
     }
 
-    public function updatedSearch(): void
-    {
-        $this->resetPage('checkinsPage');
-    }
-
     public function processScannedCode(string $code): void
     {
         abort_unless(auth()->user()->canAs('checkin.create'), 403);
@@ -55,8 +49,8 @@ class EventCheckinList extends Component
         $this->scanMessageType = $result['type'] === 'success' ? null : $result['type'];
         $this->scanSummary = $result['summary'] ?? null;
         $this->event = $this->event->fresh();
-        unset($this->checkins, $this->registrationsAvailableForCheckin);
-        $this->resetPage('checkinsPage');
+        $this->checkinsVersion++;
+        unset($this->registrationsAvailableForCheckin);
     }
 
     public function openRegistrationEdit(int $registrationId): void
@@ -83,8 +77,7 @@ class EventCheckinList extends Component
             ->find($this->editingRegistrationId);
     }
 
-    #[Computed]
-    public function checkins()
+    protected function checkinsQuery()
     {
         return $this->event->checkins()
             ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
@@ -94,8 +87,7 @@ class EventCheckinList extends Component
                         ->orWhere('nickname', 'like', '%'.$this->search.'%');
                 });
             })
-            ->orderByDesc('checked_in_at')
-            ->paginate(15, ['*'], 'checkinsPage');
+            ->orderByDesc('checked_in_at');
     }
 
     /** Registrations that can be checked in (approved, no check-in yet). */
@@ -112,6 +104,8 @@ class EventCheckinList extends Component
 
     public function render()
     {
-        return view('livewire.events.event-checkin-list');
+        return view('livewire.events.event-checkin-list', [
+            'checkins' => $this->checkinsQuery()->get(),
+        ]);
     }
 }

@@ -14,7 +14,7 @@
         'class' => 'flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2.5 dark:border-zinc-700 dark:bg-zinc-800/80'
             . ($canEdit ? ' cursor-pointer transition hover:border-zinc-300 hover:bg-zinc-50 dark:hover:border-zinc-600 dark:hover:bg-zinc-800' : ''),
     ]) }}
-    @if ($canEdit) role="button" tabindex="0" @endif
+    @if ($canEdit) wire:click="openRegistrationEdit({{ $checkin->registration_id }})" role="button" tabindex="0" @endif
 >
     <div class="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 px-1 font-mono text-[10px] font-semibold uppercase leading-none text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
         <span class="truncate">{{ $checkin->registration->number_plate ?? '—' }}</span>

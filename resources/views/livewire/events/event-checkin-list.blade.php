@@ -74,8 +74,8 @@
         />
     </div>
 
-    <div class="space-y-2">
-        @forelse ($this->checkins as $checkin)
+    <div class="space-y-2" wire:key="checkin-list-{{ $checkinsVersion }}-{{ $checkins->count() }}">
+        @forelse ($checkins as $checkin)
             @php
                 $canEditRegistration = auth()->user()->canAs('event.update');
             @endphp
@@ -84,7 +84,6 @@
                 :checkin="$checkin"
                 :event="$event"
                 :can-edit="$canEditRegistration"
-                @if ($canEditRegistration) wire:click="openRegistrationEdit({{ $checkin->registration_id }})" @endif
             />
         @empty
             <div class="rounded-xl border border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
@@ -92,12 +91,6 @@
             </div>
         @endforelse
     </div>
-
-    @if ($this->checkins->hasPages())
-        <div class="mt-4 flex justify-center">
-            {{ $this->checkins->links() }}
-        </div>
-    @endif
 
     @if ($this->editingRegistration)
         @include('registrations.partials.edit-rider-data-modal', [
