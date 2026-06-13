@@ -30,7 +30,7 @@ test('user with multiple roles can switch active role', function () {
         '_token' => csrf_token(),
     ]);
 
-    $response->assertRedirect();
+    $response->assertRedirect(route('dashboard'));
     expect(session('active_role'))->toBe('coach');
 });
 

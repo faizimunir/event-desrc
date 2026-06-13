@@ -19,6 +19,6 @@ class SwitchRoleController extends Controller
 
         Auth::user()->setActiveRole($request->input('role'));
 
-        return redirect()->back();
+        return redirect()->route('dashboard');
     }
 }
