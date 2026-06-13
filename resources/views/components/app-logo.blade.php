@@ -4,7 +4,7 @@
 
 @if ($sidebar)
     <flux:sidebar.brand {{ $attributes }}>
-        <x-slot name="logo">
+        <x-slot name="logo" class="!h-8 !min-w-0 !overflow-visible">
             <img
                 src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
@@ -19,7 +19,7 @@
     </flux:sidebar.brand>
 @else
     <flux:brand {{ $attributes }}>
-        <x-slot name="logo">
+        <x-slot name="logo" class="!h-8 !min-w-0 !overflow-visible">
             <img
                 src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
