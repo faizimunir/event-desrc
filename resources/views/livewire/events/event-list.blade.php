@@ -15,8 +15,10 @@
                     href="{{ route('events.show', $event) }}"
                     wire:navigate
                     wire:key="event-{{ $event->id }}"
-                    class="group flex items-center gap-4 rounded-xl border border-zinc-200/80 bg-white px-4 py-3.5 transition duration-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700/80 dark:bg-zinc-800/50 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
+                    class="group relative flex items-center gap-4 overflow-hidden rounded-xl border border-zinc-200/80 bg-white py-3.5 pl-10 pr-4 transition duration-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700/80 dark:bg-zinc-800/50 dark:hover:border-zinc-600 dark:hover:bg-zinc-800"
                 >
+                    @include('partials.event-status-badge', ['event' => $event, 'source' => 'effective', 'variant' => 'edge'])
+
                     @if ($event->logoUrl())
                         <div class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-zinc-200/80 bg-zinc-50 p-1.5 dark:border-zinc-600 dark:bg-zinc-900/60">
                             <img
@@ -32,12 +34,9 @@
                     @endif
 
                     <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <h3 class="truncate font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
-                                {{ $event->title }}
-                            </h3>
-                            @include('partials.event-status-badge', ['event' => $event, 'source' => 'effective'])
-                        </div>
+                        <h3 class="truncate font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
+                            {{ $event->title }}
+                        </h3>
 
                         <p class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
                             <span class="inline-flex items-center gap-1.5">
@@ -50,13 +49,13 @@
                                     {{ $event->end_at->format('d M Y, H:i') }}
                                 </span>
                             @endif
-                            @if ($event->location)
-                                <span class="inline-flex min-w-0 items-center gap-1.5">
-                                    <flux:icon name="map-pin" class="size-3.5 shrink-0" />
-                                    <span class="truncate">{{ $event->location->name }}</span>
-                                </span>
-                            @endif
                         </p>
+                        @if ($event->location)
+                            <p class="mt-1 flex min-w-0 items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+                                <flux:icon name="map-pin" class="size-3.5 shrink-0" />
+                                <span class="truncate">{{ $event->location->name }}</span>
+                            </p>
+                        @endif
                     </div>
 
                     <div class="hidden shrink-0 text-right lg:block">
