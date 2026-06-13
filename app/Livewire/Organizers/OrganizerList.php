@@ -29,7 +29,7 @@ class OrganizerList extends Component
         $user = auth()->user();
         $query = Organizer::query();
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee')) {
             $query->where('user_id', $user->id);
         }
 

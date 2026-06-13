@@ -79,7 +79,7 @@ class EventForm extends Component
 
         $user = auth()->user();
         $organizerQuery = Organizer::query()->orderBy('name');
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee')) {
             $organizerQuery->where('user_id', $user->id);
         }
         $this->organizers = $organizerQuery->get();

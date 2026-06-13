@@ -29,7 +29,7 @@ class EventList extends Component
         $user = auth()->user();
         $query = Event::query()->with(['location', 'organizer']);
 
-        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
+        if (! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee')) {
             $query->whereHas('organizer', fn ($q) => $q->where('user_id', $user->id));
         }
 
