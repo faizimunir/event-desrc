@@ -8,12 +8,12 @@
             <img
                 src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
-                class="size-8 dark:hidden"
+                class="dark:hidden"
             >
             <img
                 src="{{ asset('logo-dark.webp') }}"
                 alt="DESRC"
-                class="size-8 hidden dark:block"
+                class="hidden dark:block"
             >
         </x-slot>
     </flux:sidebar.brand>
@@ -23,12 +23,12 @@
             <img
                 src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
-                class="size-8 dark:hidden"
+                class="dark:hidden"
             >
             <img
                 src="{{ asset('logo-dark.webp') }}"
                 alt="DESRC"
-                class="size-8 hidden dark:block"
+                class="hidden dark:block"
             >
         </x-slot>
     </flux:brand>
