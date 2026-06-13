@@ -6,6 +6,7 @@
 
 @php
     $rider = $checkin->registration->rider;
+    $summary = $checkin->registration->checkinSummary();
     $canDelete = auth()->user()->canAs('checkin.delete') && auth()->user()->can('delete', $checkin);
 @endphp
 
@@ -27,6 +28,12 @@
             </p>
             <flux:icon icon="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" aria-hidden="true" />
         </div>
+        @if (filled($summary['teams']))
+            <p class="truncate text-xs text-zinc-600 dark:text-zinc-300">{{ $summary['teams'] }}</p>
+        @endif
+        @if (filled($summary['bracket']))
+            <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{ $summary['bracket'] }}</p>
+        @endif
         <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
             <span>{{ $checkin->checked_in_at->format('d/m/Y H:i') }}</span>
             @if ($checkin->checkedInByUser)
