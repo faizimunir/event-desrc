@@ -3,30 +3,30 @@
 ])
 
 @if ($sidebar)
-    <flux:sidebar.brand name="Delta Eagle Sidoarjo" {{ $attributes }}>
+    <flux:sidebar.brand {{ $attributes }}>
         <x-slot name="logo">
             <img
-                src="{{ asset('toogle-light.webp') }}"
+                src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
                 class="size-8 dark:hidden"
             >
             <img
-                src="{{ asset('toogle-dark.webp') }}"
+                src="{{ asset('logo-dark.webp') }}"
                 alt="DESRC"
                 class="size-8 hidden dark:block"
             >
         </x-slot>
     </flux:sidebar.brand>
 @else
-    <flux:brand name="Delta Eagle Sidoarjo" {{ $attributes }}>
+    <flux:brand {{ $attributes }}>
         <x-slot name="logo">
             <img
-                src="{{ asset('toogle-light.webp') }}"
+                src="{{ asset('logo-light.webp') }}"
                 alt="DESRC"
                 class="size-8 dark:hidden"
             >
             <img
-                src="{{ asset('toogle-dark.webp') }}"
+                src="{{ asset('logo-dark.webp') }}"
                 alt="DESRC"
                 class="size-8 hidden dark:block"
             >
