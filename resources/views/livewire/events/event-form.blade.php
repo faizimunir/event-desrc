@@ -253,6 +253,17 @@
         </div>
 
         <div>
+            <flux:label class="mb-2 block">{{ __('Jersey sizes') }}</flux:label>
+            <flux:textarea wire:model="jersey_sizes" rows="2" placeholder="S, M, L, XL"></flux:textarea>
+            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('Pisahkan ukuran dengan koma atau baris baru. Contoh: XS, S, M, L, XL, 2XL') }}
+            </p>
+            @error('jersey_sizes')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+
+        <div>
             <flux:label class="mb-2 block">{{ __('Size chart') }}</flux:label>
             <flux:file-upload wire:model="sizeChart" :label="__('Upload size chart')">
                 <flux:file-upload.dropzone

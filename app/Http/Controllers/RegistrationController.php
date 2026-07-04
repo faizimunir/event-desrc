@@ -64,6 +64,15 @@ class RegistrationController extends Controller
 
         $activePackageIds = $event->packages->where('status', Package::STATUS_ACTIVE)->pluck('id')->all();
         $packageRules = ['required', 'exists:event_packages,id', Rule::in($activePackageIds)];
+        $packageIdsWithJersey = $event->packages
+            ->filter(fn ($package) => $package->hasJerseyReward())
+            ->pluck('id')
+            ->values()
+            ->all();
+        $selectedPackageRequiresJersey = in_array((int) $request->input('package_id'), $packageIdsWithJersey, true);
+        $jerseyRules = $selectedPackageRequiresJersey
+            ? ['required', 'string', Rule::in($event->jerseySizeOptions())]
+            : ['nullable', 'string', 'max:50'];
 
         $this->resolvePendingTeamSearch($request);
 
@@ -79,7 +88,7 @@ class RegistrationController extends Controller
                 'dob' => ['required', 'date', 'before_or_equal:today'],
                 'gender' => ['required', 'string', 'in:boys,girls,other'],
                 'number_plate' => ['nullable', 'string', 'max:50'],
-                'jersey_size' => ['nullable', 'string', 'max:50'],
+                'jersey_size' => $jerseyRules,
                 'team_ids' => ['required', 'array', 'min:1'],
                 'team_ids.*' => ['integer', 'exists:teams,id'],
                 'use_rider_id' => ['nullable', 'integer', 'exists:riders,id'],
@@ -189,7 +198,7 @@ class RegistrationController extends Controller
                 $bracket->id,
                 $package->id,
                 null,
-                function () use ($event, $bracket, $package, $rider, $validated, $request) {
+                function () use ($event, $bracket, $package, $rider, $validated, $request, $selectedPackageRequiresJersey) {
                     if (Registration::query()->where('event_id', $event->id)
                         ->where('rider_id', $rider->id)
                         ->where('bracket_id', $bracket->id)
@@ -228,7 +237,7 @@ class RegistrationController extends Controller
                         'package_id' => $validated['package_id'],
                         'status' => Registration::STATUS_PENDING,
                         'number_plate' => $validated['number_plate'] ?? null,
-                        'jersey_size' => $validated['jersey_size'] ?? null,
+                        'jersey_size' => $selectedPackageRequiresJersey ? ($validated['jersey_size'] ?? null) : null,
                     ]);
 
                     return Order::create([
@@ -255,7 +264,7 @@ class RegistrationController extends Controller
     {
         abort_unless(auth()->user()->canAs('event.update'), 403);
 
-        $event->load(['brackets', 'packages' => fn ($q) => $q->where('status', Package::STATUS_ACTIVE)]);
+        $event->load(['brackets', 'packages' => fn ($q) => $q->where('status', Package::STATUS_ACTIVE)->with('rewards')]);
         $riders = Rider::with('user')->orderBy('name')->get();
 
         return view('registrations.create', compact('event', 'riders'));
@@ -268,10 +277,24 @@ class RegistrationController extends Controller
     {
         abort_unless(auth()->user()->canAs('event.update'), 403);
 
+        $event->loadMissing(['brackets', 'packages.rewards']);
+        $activePackageIds = $event->packages->where('status', Package::STATUS_ACTIVE)->pluck('id')->all();
+        $packageIdsWithJersey = $event->packages
+            ->where('status', Package::STATUS_ACTIVE)
+            ->filter(fn ($package) => $package->hasJerseyReward())
+            ->pluck('id')
+            ->values()
+            ->all();
+        $selectedPackageRequiresJersey = in_array((int) $request->input('package_id'), $packageIdsWithJersey, true);
+        $jerseyRules = $selectedPackageRequiresJersey
+            ? ['required', 'string', Rule::in($event->jerseySizeOptions())]
+            : ['nullable', 'string', 'max:50'];
+
         $validated = $request->validate([
             'rider_id' => ['required', 'integer', 'exists:riders,id'],
             'bracket_id' => ['required', 'integer', Rule::in($event->brackets()->pluck('id')->all())],
-            'package_id' => ['required', 'integer', Rule::in($event->packages()->where('status', Package::STATUS_ACTIVE)->pluck('id')->all())],
+            'package_id' => ['required', 'integer', Rule::in($activePackageIds)],
+            'jersey_size' => $jerseyRules,
         ]);
 
         $bracket = $event->brackets()->find($validated['bracket_id']);
@@ -287,7 +310,7 @@ class RegistrationController extends Controller
             $bracket->id,
             $package->id,
             null,
-            function () use ($event, $bracket, $package, $rider, $request) {
+            function () use ($event, $bracket, $package, $rider, $request, $validated, $selectedPackageRequiresJersey) {
                 if (Registration::query()->where('event_id', $event->id)
                     ->where('rider_id', $rider->id)
                     ->where('bracket_id', $bracket->id)
@@ -323,6 +346,7 @@ class RegistrationController extends Controller
                     'package_id' => $package->id,
                     'status' => Registration::STATUS_PENDING,
                     'team_ids' => [],
+                    'jersey_size' => $selectedPackageRequiresJersey ? ($validated['jersey_size'] ?? null) : null,
                 ]);
 
                 Order::create([

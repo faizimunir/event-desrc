@@ -69,6 +69,8 @@ class EventForm extends Component
 
     public $sizeChart = null;
 
+    public string $jersey_sizes = '';
+
     public bool $show_participants_publicly = true;
 
     public function mount(?Event $event = null): void
@@ -101,7 +103,10 @@ class EventForm extends Component
             $this->location_id = $event->location_id ? (string) $event->location_id : null;
             $this->payment_methods = $event->normalizedPaymentMethods();
             $this->account_ids = $event->accounts->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
+            $this->jersey_sizes = implode(', ', $event->jerseySizeOptions());
             $this->show_participants_publicly = (bool) $event->show_participants_publicly;
+        } else {
+            $this->jersey_sizes = implode(', ', Event::DEFAULT_JERSEY_SIZES);
         }
     }
 
@@ -135,6 +140,8 @@ class EventForm extends Component
         $this->racing_committee_id = $this->racing_committee_id ?: null;
         $this->master_of_ceremony_id = $this->master_of_ceremony_id ?: null;
         $this->location_id = $this->location_id ?: null;
+        $this->jersey_sizes = implode(', ', Event::normalizeJerseySizes($this->jersey_sizes));
+
         if (! $this->event && $this->organizer_id === null && ! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
             $autoOrganizerId = Organizer::where('user_id', $user->id)->value('id');
             if ($autoOrganizerId) {
@@ -160,6 +167,7 @@ class EventForm extends Component
             'poster' => ['nullable', 'image', 'max:10240'],
             'logo' => ['nullable', 'image', 'max:5120'],
             'sizeChart' => ['nullable', 'image', 'max:10240'],
+            'jersey_sizes' => ['required', 'string', 'max:1000'],
             'show_participants_publicly' => ['boolean'],
         ];
         if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
@@ -183,6 +191,7 @@ class EventForm extends Component
         $organizerId = $validated['organizer_id'] ? (int) $validated['organizer_id'] : null;
         $racingCommitteeId = $validated['racing_committee_id'] ? (int) $validated['racing_committee_id'] : null;
         $masterOfCeremonyId = $validated['master_of_ceremony_id'] ? (int) $validated['master_of_ceremony_id'] : null;
+        $jerseySizes = Event::normalizeJerseySizes($validated['jersey_sizes']);
 
         $posterPath = $this->event?->poster;
 
@@ -232,6 +241,7 @@ class EventForm extends Component
                 'poster' => $posterPath ?? $this->event->poster,
                 'logo_url' => $logoPath ?? $this->event->logo_url,
                 'size_chart' => $sizeChartPath ?? $this->event->size_chart,
+                'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
             ]);
             $this->event->accounts()->sync($syncAccountIds);
@@ -254,6 +264,7 @@ class EventForm extends Component
                 'poster' => $posterPath,
                 'logo_url' => $logoPath ?? null,
                 'size_chart' => $sizeChartPath ?? null,
+                'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
             ]);
             $newEvent->accounts()->sync($syncAccountIds);

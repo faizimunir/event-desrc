@@ -113,6 +113,14 @@ class EventRegistrationForm extends Component
             && in_array($this->package_id, $this->packageIdsWithJersey, true);
     }
 
+    /**
+     * @return list<string>
+     */
+    public function getJerseySizeOptionsProperty(): array
+    {
+        return $this->event->jerseySizeOptions();
+    }
+
     public function removePhotoKia(): void
     {
         $this->photo_kia = null;
@@ -265,7 +273,7 @@ class EventRegistrationForm extends Component
     {
         $activePackageIds = $this->event->packages->where('status', Package::STATUS_ACTIVE)->pluck('id')->all();
         $jerseyRules = $this->requiresJerseySize
-            ? ['required', 'string', 'in:S,M,L,XL']
+            ? ['required', 'string', Rule::in($this->event->jerseySizeOptions())]
             : ['nullable', 'string', 'max:50'];
 
         return $this->validate([
@@ -397,7 +405,7 @@ class EventRegistrationForm extends Component
                         'package_id' => $package->id,
                         'status' => Registration::STATUS_PENDING,
                         'number_plate' => $validated['number_plate'] ?? null,
-                        'jersey_size' => $validated['jersey_size'] ?? null,
+                        'jersey_size' => $this->requiresJerseySize ? ($validated['jersey_size'] ?? null) : null,
                     ]);
 
                     return Order::create([
@@ -477,11 +485,13 @@ class EventRegistrationForm extends Component
         if ($onlyAllowedNativeFailures) {
             if (isset($failed['selectedTeamIds'])) {
                 $this->dispatch('registration-native-validation', field: 'team');
+
                 return;
             }
 
             if (isset($failed['photo_kia'])) {
                 $this->dispatch('registration-native-validation', field: 'photo_kia');
+
                 return;
             }
         }

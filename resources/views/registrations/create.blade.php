@@ -67,6 +67,21 @@
                     </flux:select>
                 </div>
 
+                @if ($event->packages->contains(fn ($pkg) => $pkg->hasJerseyReward()))
+                    <div>
+                        <flux:label for="jersey_size" class="mb-1">{{ __('Jersey size') }}</flux:label>
+                        <flux:select id="jersey_size" name="jersey_size" :placeholder="__('Select size')">
+                            <option value="">{{ __('— Select size —') }}</option>
+                            @foreach ($event->jerseySizeOptions() as $size)
+                                <option value="{{ $size }}" @selected(old('jersey_size') === $size)>{{ $size }}</option>
+                            @endforeach
+                        </flux:select>
+                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ __('Required when the selected package includes a jersey.') }}
+                        </p>
+                    </div>
+                @endif
+
                 <div class="flex flex-wrap gap-2 pt-2">
                     <flux:button variant="primary" type="submit" icon="plus">
                         {{ __('Add registration') }}

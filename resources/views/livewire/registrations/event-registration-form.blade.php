@@ -104,10 +104,9 @@
                 @if ($this->requiresJerseySize)
                     <div class="space-y-2" x-data="{ sizeChartPreviewOpen: false }" @keydown.escape.window="sizeChartPreviewOpen = false">
                         <flux:select wire:model="jersey_size" :placeholder="__('— Select size —')" :label="__('Jersey size')" required>
-                            <flux:select.option value="S">S</flux:select.option>
-                            <flux:select.option value="M">M</flux:select.option>
-                            <flux:select.option value="L">L</flux:select.option>
-                            <flux:select.option value="XL">XL</flux:select.option>
+                            @foreach ($this->jerseySizeOptions as $size)
+                                <flux:select.option :value="$size">{{ $size }}</flux:select.option>
+                            @endforeach
                         </flux:select>
                         @if ($event->sizeChartUrl())
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">

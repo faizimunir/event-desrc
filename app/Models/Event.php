@@ -14,6 +14,8 @@ class Event extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_JERSEY_SIZES = ['S', 'M', 'L', 'XL'];
+
     public const CATEGORY_UMUR = 'umur';
 
     public const CATEGORY_TAHUN = 'tahun';
@@ -70,6 +72,7 @@ class Event extends Model
         'poster',
         'logo_url',
         'size_chart',
+        'jersey_sizes',
         'status',
         'has_live_result',
         'show_participants_publicly',
@@ -114,6 +117,52 @@ class Event extends Model
         return str_starts_with($this->size_chart, 'http') ? $this->size_chart : Storage::disk('public')->url($this->size_chart);
     }
 
+    /**
+     * @return list<string>
+     */
+    public function jerseySizeOptions(): array
+    {
+        $sizes = self::normalizeJerseySizes($this->jersey_sizes);
+
+        return $sizes === [] ? self::DEFAULT_JERSEY_SIZES : $sizes;
+    }
+
+    /**
+     * @param  array<int, mixed>|string|null  $sizes
+     * @return list<string>
+     */
+    public static function normalizeJerseySizes(array|string|null $sizes): array
+    {
+        if (is_string($sizes)) {
+            $items = preg_split('/[\r\n,]+/', $sizes) ?: [];
+        } elseif (is_array($sizes)) {
+            $items = $sizes;
+        } else {
+            $items = [];
+        }
+
+        $seen = [];
+        $normalized = [];
+
+        foreach ($items as $size) {
+            $size = trim((string) $size);
+
+            if ($size === '' || mb_strlen($size) > 50) {
+                continue;
+            }
+
+            $key = mb_strtolower($size);
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $normalized[] = $size;
+        }
+
+        return $normalized;
+    }
+
     protected function casts(): array
     {
         return [
@@ -124,6 +173,7 @@ class Event extends Model
             'has_live_result' => 'boolean',
             'show_participants_publicly' => 'boolean',
             'payment_methods' => 'array',
+            'jersey_sizes' => 'array',
         ];
     }
 
