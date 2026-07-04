@@ -427,6 +427,7 @@ class RegistrationController extends Controller
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
+        $event->loadMissing('brackets');
         $registration->load(['rider.user', 'bracket', 'package', 'payment.reviewedByUser', 'order', 'ticket']);
         $registration->order?->enforceExpiredDraftIfNeeded();
         $registration->order?->enforceExpiredPaymentWindowIfNeeded();
@@ -579,6 +580,108 @@ class RegistrationController extends Controller
 
         return redirect()->to($this->registrationRiderEditSuccessUrl($request, $event, $registration))
             ->with('status', __('Rider and team details updated.'));
+    }
+
+    /**
+     * Admin: move a registration to another bracket in the same event.
+     */
+    public function updateRegistrationBracket(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        try {
+            $validated = $request->validate([
+                'bracket_id' => ['required', 'integer', Rule::in($event->brackets()->pluck('id')->all())],
+            ]);
+        } catch (ValidationException $e) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', collect($e->validator->errors()->all())->first() ?: __('Invalid bracket.'));
+        }
+
+        $targetBracket = $event->brackets()->with('event')->find($validated['bracket_id']);
+        if (! $targetBracket) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('Invalid bracket.'));
+        }
+
+        $registration->loadMissing(['rider', 'order']);
+
+        if ((int) $registration->bracket_id === (int) $targetBracket->id) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('status', __('Bracket unchanged.'));
+        }
+
+        $eligibilityCheck = $this->eligibility->checkEligibility($registration->rider, $targetBracket);
+        if (! $eligibilityCheck['eligible']) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $eligibilityCheck['message']);
+        }
+
+        $result = DB::transaction(function () use ($event, $registration, $targetBracket) {
+            collect([$registration->bracket_id, $targetBracket->id])
+                ->unique()
+                ->sort()
+                ->each(fn (int $bracketId) => Bracket::query()->whereKey($bracketId)->lockForUpdate()->firstOrFail());
+
+            $lockedRegistration = Registration::query()
+                ->with(['rider', 'order'])
+                ->whereKey($registration->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ((int) $lockedRegistration->bracket_id === (int) $targetBracket->id) {
+                return 'unchanged';
+            }
+
+            if (Registration::query()
+                ->where('event_id', $event->id)
+                ->where('rider_id', $lockedRegistration->rider_id)
+                ->where('bracket_id', $targetBracket->id)
+                ->whereKeyNot($lockedRegistration->id)
+                ->exists()) {
+                return 'duplicate';
+            }
+
+            $target = Bracket::query()->with('event')->findOrFail($targetBracket->id);
+            $eligibilityCheck = $this->eligibility->checkEligibility($lockedRegistration->rider, $target);
+            if (! $eligibilityCheck['eligible']) {
+                return ['ineligible', $eligibilityCheck['message']];
+            }
+
+            if (! $target->hasQuota()) {
+                return 'bracket_quota';
+            }
+
+            $lockedRegistration->update(['bracket_id' => $target->id]);
+
+            return 'updated';
+        });
+
+        if ($result === 'updated') {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('status', __('Registration bracket updated.'));
+        }
+
+        if ($result === 'unchanged') {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('status', __('Bracket unchanged.'));
+        }
+
+        if ($result === 'duplicate') {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('This rider is already registered for the target bracket.'));
+        }
+
+        if ($result === 'bracket_quota') {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('This bracket has no remaining quota.'));
+        }
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('error', is_array($result) ? $result[1] : __('Unable to update bracket.'));
     }
 
     protected function registrationRiderEditSuccessUrl(Request $request, Event $event, Registration $registration): string

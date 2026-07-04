@@ -267,7 +267,23 @@
                     </div>
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Bracket') }}</dt>
-                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">{{ $registration->bracket->name }}</dd>
+                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span>{{ $registration->bracket->name }}</span>
+                                @if ($canUpdate)
+                                    <flux:modal.trigger name="edit-registration-bracket">
+                                        <flux:button
+                                            type="button"
+                                            variant="ghost"
+                                            size="xs"
+                                            class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                            icon="pencil-square"
+                                            title="{{ __('Edit bracket') }}"
+                                        ></flux:button>
+                                    </flux:modal.trigger>
+                                @endif
+                            </div>
+                        </dd>
                     </div>
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Package') }}</dt>
@@ -392,6 +408,38 @@
                         'modalName' => 'edit-rider-data',
                         'openOnLoad' => $openEditRiderDataModal,
                     ])
+                    <flux:modal name="edit-registration-bracket" focusable class="max-w-md" dismissible>
+                        <form method="post" action="{{ route('events.registrations.update-bracket', [$event, $registration]) }}" class="space-y-4 p-2">
+                            @csrf
+                            <flux:heading size="lg">{{ __('Edit bracket') }}</flux:heading>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Move this rider to another bracket. Quota, birth year or age, and gender will be checked before saving.') }}
+                            </p>
+
+                            <flux:select name="bracket_id" :label="__('Target bracket')" required>
+                                @foreach ($event->brackets_sorted_for_display as $bracketOption)
+                                    @php
+                                        $remaining = $bracketOption->remainingQuota();
+                                        $quotaLabel = $remaining === null
+                                            ? __('Unlimited quota')
+                                            : trans_choice(':count slot left|:count slots left', $remaining, ['count' => $remaining]);
+                                    @endphp
+                                    <option value="{{ $bracketOption->id }}" @selected(old('bracket_id', $registration->bracket_id) == $bracketOption->id)>
+                                        {{ $bracketOption->name }} — {{ $quotaLabel }}
+                                    </option>
+                                @endforeach
+                            </flux:select>
+
+                            <div class="flex justify-end gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" variant="primary" size="sm" icon="arrow-path">
+                                    {{ __('Update bracket') }}
+                                </flux:button>
+                            </div>
+                        </form>
+                    </flux:modal>
                 @endif
                 @if ($showStatusActions)
                     <div class="border-t border-zinc-200 dark:border-zinc-700 px-4 py-3">

@@ -29,7 +29,7 @@
             <div>
                 <flux:label class="mb-2 block">{{ __('Gender rule') }}</flux:label>
                 <flux:select name="gender_rule" :placeholder="__('No restriction')" class="w-full">
-                    <flux:select.option value="">{{ __('— No restriction —') }}</flux:select.option>
+                    <flux:select.option value="">{{ __('Mix') }}</flux:select.option>
                     <flux:select.option value="boys" :selected="old('gender_rule') === 'boys'">{{ __('Boys') }}</flux:select.option>
                     <flux:select.option value="girls" :selected="old('gender_rule') === 'girls'">{{ __('Girls') }}</flux:select.option>
                 </flux:select>

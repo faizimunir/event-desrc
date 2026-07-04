@@ -51,6 +51,12 @@ class UserList extends Component
         $this->resetPage();
     }
 
+    public function setRoleFilter(string $role = ''): void
+    {
+        $this->roleFilter = $role;
+        $this->resetPage();
+    }
+
     public function closeMergeModal(): void
     {
         $this->mergeModalOpen = false;

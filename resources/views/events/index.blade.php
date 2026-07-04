@@ -3,7 +3,7 @@
         <div class="flex flex-row items-center justify-between gap-4">
             <flux:heading>{{ __('Events Management') }}</flux:heading>
             @canAs('event.create')
-                <flux:button variant="primary" :href="route('events.create')" wire:navigate icon="plus">
+                <flux:button variant="primary" size="sm" :href="route('events.create')" wire:navigate icon="plus">
                     {{ __('Add Event') }}
                 </flux:button>
             @endcanAs
