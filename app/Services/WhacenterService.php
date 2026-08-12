@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
 use App\Jobs\SendWhacenterMessageJob;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -62,94 +62,64 @@ class WhacenterService
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
     public function queueMessage(
-        string $number,
-        string $message,
-        ?int $whatsappNotificationLogId = null
-    ): void {
-        $min = max(
-            30,
-            (int) config('services.whacenter.delay_min_seconds', 30)
-        );
-    
-        $max = max(
-            $min,
-            (int) config('services.whacenter.delay_max_seconds', 300)
-        );
-    
-        $delay = random_int($min, $max);
-    
-        $redis = app('redis')->connection();
-    
-        $key = 'whacenter:next_available_at';
-    
-        $now = now()->timestamp;
-    
-        /*
-         * Lock agar request yang masuk bersamaan
-         * tidak mendapatkan slot yang sama.
-         */
-        $lock = $redis->set(
-            'whacenter:scheduler_lock',
-            '1',
-            'EX',
-            5,
-            'NX'
-        );
-    
-        while (! $lock) {
-            usleep(100000);
-    
-            $lock = $redis->set(
-                'whacenter:scheduler_lock',
-                '1',
-                'EX',
-                5,
-                'NX'
-            );
-        }
-    
-        try {
-            $current = $redis->get($key);
-    
-            if ($current !== null && (int) $current > $now) {
-                $runAt = (int) $current;
-            } else {
-                $runAt = $now;
-            }
-    
-            $nextAvailable = $runAt + $delay;
-    
-            $redis->set(
-                $key,
-                (string) $nextAvailable,
-                'EX',
-                86400
-            );
-        } finally {
-            $redis->del('whacenter:scheduler_lock');
-        }
-    
-        \Illuminate\Support\Facades\Log::info(
-            'Whacenter queue scheduled',
-            [
-                'number' => $number,
-                'run_at' => date('Y-m-d H:i:s', $runAt),
-                'next_available' => date(
-                    'Y-m-d H:i:s',
-                    $nextAvailable
-                ),
-                'delay' => $delay,
-            ]
-        );
-    
-        SendWhacenterMessageJob::dispatch(
-            $number,
-            $message,
-            $whatsappNotificationLogId
-        )->delay(
-            \Illuminate\Support\Carbon::createFromTimestamp($runAt)
-        );
+    string $number,
+    string $message,
+    ?int $whatsappNotificationLogId = null
+): void {
+    $min = max(
+        30,
+        (int) config('services.whacenter.delay_min_seconds', 30)
+    );
+
+    $max = max(
+        $min,
+        (int) config('services.whacenter.delay_max_seconds', 300)
+    );
+
+    $delay = random_int($min, $max);
+
+    $redis = app('redis')->connection();
+
+    $key = 'whacenter:next_available_at';
+
+    $now = now()->timestamp;
+
+    // Ambil slot terakhir
+    $current = $redis->get($key);
+
+    if ($current !== null && (int) $current > $now) {
+        $runAt = (int) $current;
+    } else {
+        $runAt = $now;
     }
+
+    // Slot berikutnya
+    $nextAvailable = $runAt + $delay;
+
+    // Simpan slot berikutnya selama 24 jam
+    $redis->set(
+        $key,
+        (string) $nextAvailable,
+        'EX',
+        86400
+    );
+
+    Log::info('Whacenter queue scheduled', [
+        'number' => $number,
+        'run_at' => date('Y-m-d H:i:s', $runAt),
+        'next_available' => date('Y-m-d H:i:s', $nextAvailable),
+        'delay' => $delay,
+    ]);
+
+    // Jadwalkan job pada slot yang sudah ditentukan
+    SendWhacenterMessageJob::dispatch(
+        $number,
+        $message,
+        $whatsappNotificationLogId
+    )->delay(
+        now()->setTimestamp($runAt)
+    );
+}
 
     /**
      * Generate OTP, simpan di cache, kirim ke WA. Return kode OTP (untuk testing/log).
