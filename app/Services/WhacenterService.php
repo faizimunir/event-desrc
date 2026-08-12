@@ -60,10 +60,17 @@ class WhacenterService
     /**
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
-    public function queueMessage(string $number, string $message, ?int $whatsappNotificationLogId = null): void
-    {
-        SendWhacenterMessageJob::dispatchWithRandomDelay($number, $message, $whatsappNotificationLogId);
-    }
+    public function queueMessage(
+    string $number,
+    string $message,
+    ?int $whatsappNotificationLogId = null
+): void {
+    SendWhacenterMessageJob::dispatch(
+        $number,
+        $message,
+        $whatsappNotificationLogId
+    );
+}
 
     /**
      * Generate OTP, simpan di cache, kirim ke WA. Return kode OTP (untuk testing/log).
