@@ -68,80 +68,79 @@ class WhacenterService
     ): void {
         $min = max(
             30,
-            (int) config(
-                'services.whacenter.delay_min_seconds',
-                30
-            )
+            (int) config('services.whacenter.delay_min_seconds', 30)
         );
     
         $max = max(
             $min,
-            (int) config(
-                'services.whacenter.delay_max_seconds',
-                300
-            )
+            (int) config('services.whacenter.delay_max_seconds', 300)
         );
     
         $delay = random_int($min, $max);
     
-        /*
-         * Redis Lua script:
-         *
-         * Membaca slot terakhir dan menggesernya
-         * secara ATOMIC.
-         *
-         * Ini mencegah dua request bersamaan
-         * mendapatkan slot yang sama.
-         */
         $redis = app('redis')->connection();
     
         $key = 'whacenter:next_available_at';
     
         $now = now()->timestamp;
     
-        $script = <<<'LUA'
-    local current = redis.call('GET', KEYS[1])
-    local now = tonumber(ARGV[1])
-    local delay = tonumber(ARGV[2])
-    local ttl = tonumber(ARGV[3])
-    
-    local run_at = now
-    
-    if current then
-        local current_value = tonumber(current)
-    
-        if current_value > now then
-            run_at = current_value
-        end
-    end
-    
-    local next_available = run_at + delay
-    
-    redis.call(
-        'SET',
-        KEYS[1],
-        tostring(next_available),
-        'EX',
-        ttl
-    )
-    
-    return run_at
-    LUA;
-    
-        $runAt = (int) $redis->eval(
-            $script,
-            1,
-            $key,
-            $now,
-            $delay,
-            86400
+        /*
+         * Lock agar request yang masuk bersamaan
+         * tidak mendapatkan slot yang sama.
+         */
+        $lock = $redis->set(
+            'whacenter:scheduler_lock',
+            '1',
+            'EX',
+            5,
+            'NX'
         );
     
-        Log::info('Whacenter: job scheduled', [
-            'number' => $number,
-            'run_at' => $runAt,
-            'delay_after' => $delay,
-        ]);
+        while (! $lock) {
+            usleep(100000);
+    
+            $lock = $redis->set(
+                'whacenter:scheduler_lock',
+                '1',
+                'EX',
+                5,
+                'NX'
+            );
+        }
+    
+        try {
+            $current = $redis->get($key);
+    
+            if ($current !== null && (int) $current > $now) {
+                $runAt = (int) $current;
+            } else {
+                $runAt = $now;
+            }
+    
+            $nextAvailable = $runAt + $delay;
+    
+            $redis->set(
+                $key,
+                (string) $nextAvailable,
+                'EX',
+                86400
+            );
+        } finally {
+            $redis->del('whacenter:scheduler_lock');
+        }
+    
+        \Illuminate\Support\Facades\Log::info(
+            'Whacenter queue scheduled',
+            [
+                'number' => $number,
+                'run_at' => date('Y-m-d H:i:s', $runAt),
+                'next_available' => date(
+                    'Y-m-d H:i:s',
+                    $nextAvailable
+                ),
+                'delay' => $delay,
+            ]
+        );
     
         SendWhacenterMessageJob::dispatch(
             $number,
