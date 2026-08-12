@@ -5,14 +5,13 @@ namespace App\Jobs;
 use App\Models\WhatsappNotificationLog;
 use App\Services\WhacenterService;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
-use Illuminate\Contracts\ShouldQueue;
+use Illuminate\Contracts\Queue\ShouldQueueAfterCommit;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
-class SendWhacenterMessageJob implements ShouldQueue
+class SendWhacenterMessageJob implements ShouldQueueAfterCommit
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -28,10 +27,8 @@ class SendWhacenterMessageJob implements ShouldQueue
         $this->onQueue(config('services.whacenter.queue', 'whatsapp'));
     }
 
-    public function handle(
-        WhacenterService $whacenter,
-        CacheRepository $cache,
-    ): void {
+    public function handle(WhacenterService $whacenter): void
+    {
         $log = $this->whatsappNotificationLogId
             ? WhatsappNotificationLog::query()->find($this->whatsappNotificationLogId)
             : null;
@@ -44,47 +41,6 @@ class SendWhacenterMessageJob implements ShouldQueue
             return;
         }
 
-        /*
-         * Ambil waktu pengiriman terakhir.
-         */
-        $key = config(
-            'services.whacenter.rate_limit_key',
-            'whacenter:last_sent_at'
-        );
-
-        $lastSentAt = $cache->get($key);
-
-        if ($lastSentAt !== null) {
-            $min = max(
-                30,
-                (int) config('services.whacenter.delay_min_seconds', 30)
-            );
-
-            $max = max(
-                $min,
-                (int) config('services.whacenter.delay_max_seconds', 300)
-            );
-
-            $requiredDelay = random_int($min, $max);
-
-            $elapsed = now()->timestamp - (int) $lastSentAt;
-
-            if ($elapsed < $requiredDelay) {
-                $wait = $requiredDelay - $elapsed;
-
-                Log::info('Whacenter: rate limit waiting', [
-                    'number' => $this->number,
-                    'wait_seconds' => $wait,
-                    'elapsed_seconds' => $elapsed,
-                ]);
-
-                sleep($wait);
-            }
-        }
-
-        /*
-         * Kirim pesan.
-         */
         Log::info('Whacenter: sending message', [
             'number' => $this->number,
         ]);
@@ -94,15 +50,6 @@ class SendWhacenterMessageJob implements ShouldQueue
                 'Whacenter gagal mengirim pesan ke '.$this->number
             );
         }
-
-        /*
-         * Catat waktu pengiriman sukses.
-         */
-        $cache->put(
-            $key,
-            now()->timestamp,
-            now()->addHours(24)
-        );
 
         $log?->markSent();
 
