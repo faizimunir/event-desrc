@@ -67,45 +67,10 @@ class WhacenterService
     string $message,
     ?int $whatsappNotificationLogId = null
 ): void {
-    $min = max(
-        30,
-        (int) config('services.whacenter.delay_min_seconds', 30)
-    );
+    $delay = random_int(30, 60);
 
-    $max = max(
-        $min,
-        (int) config('services.whacenter.delay_max_seconds', 300)
-    );
-
-    $delay = random_int($min, $max);
-
-    $redis = app('redis')->connection();
-
-    $key = 'whacenter:next_available_at';
-
-    $now = now()->timestamp;
-
-    $current = $redis->get($key);
-
-    if ($current !== null && (int) $current > $now) {
-        $runAt = (int) $current;
-    } else {
-        $runAt = $now;
-    }
-
-    $nextAvailable = $runAt + $delay;
-
-    $redis->set(
-        $key,
-        (string) $nextAvailable,
-        'EX',
-        86400
-    );
-
-    Log::info('Whacenter queue scheduled', [
+    Log::info('Whacenter queue dispatch', [
         'number' => $number,
-        'run_at' => date('Y-m-d H:i:s', $runAt),
-        'next_available' => date('Y-m-d H:i:s', $nextAvailable),
         'delay' => $delay,
     ]);
 
@@ -113,9 +78,9 @@ class WhacenterService
         $number,
         $message,
         $whatsappNotificationLogId
-    )->delay(
-        now()->setTimestamp($runAt)
-    );
+    )
+        ->onQueue('whatsapp')
+        ->delay(now()->addSeconds($delay));
 }
 
     /**
