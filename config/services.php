@@ -38,9 +38,11 @@ return [
     'whacenter' => [
         'device_id' => env('WHACENTER_DEVICE_ID'),
         'base_url' => env('WHACENTER_BASE_URL', 'https://app.whacenter.com'),
-        /** Nama antrian database/redis untuk job kirim WA */
+        /** Paksa ke Redis biar worker `queue:work redis --queue=whatsapp` yang memproses */
+        'queue_connection' => env('WHACENTER_QUEUE_CONNECTION', 'redis'),
+        /** Nama antrian untuk job kirim WA */
         'queue' => env('WHACENTER_QUEUE', 'whatsapp'),
-        /** Jeda acak sebelum worker mengirim (detik), rentang inklusif */
+        /** Jeda acak serial antar pesan (detik), rentang inklusif */
         'delay_min_seconds' => (int) env('WHACENTER_DELAY_MIN_SECONDS', 30),
         'delay_max_seconds' => (int) env('WHACENTER_DELAY_MAX_SECONDS', 300),
     ],

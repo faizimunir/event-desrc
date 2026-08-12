@@ -46,7 +46,7 @@ class WhacenterTestCommand extends Command
                     $fail++;
                 }
             } else {
-                $this->info("Mengantrekan ke {$number} (jeda acak, butuh queue worker)...");
+                $this->info("Mengantrekan ke {$number} (serial + jeda acak, butuh worker whatsapp)...");
                 $whacenter->queueMessage($number, $message);
                 $ok++;
             }
@@ -56,7 +56,7 @@ class WhacenterTestCommand extends Command
         if ($sync) {
             $this->info("Selesai: {$ok} terkirim, {$fail} gagal.");
         } else {
-            $this->info("Di-antrekan: {$ok} job. Jalankan `php artisan queue:work` untuk memproses.");
+            $this->info("Di-antrekan: {$ok} job (serial). Jalankan: php artisan queue:work redis --queue=whatsapp");
         }
 
         return $fail > 0 ? self::FAILURE : self::SUCCESS;

@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use App\Jobs\SendWhacenterMessageJob;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class WhacenterService
@@ -15,6 +15,10 @@ class WhacenterService
     private const OTP_TTL_MINUTES = 10;
 
     private const OTP_LENGTH = 6;
+
+    private const NEXT_SEND_CACHE_KEY = 'whacenter:next_send_at';
+
+    private const SCHEDULE_LOCK_KEY = 'whacenter:schedule-lock';
 
     /**
      * Normalize nomor WA ke format 62xxx (tanpa + atau 0 di depan).
@@ -56,32 +60,54 @@ class WhacenterService
     }
 
     /**
-     * Antrekan pesan WA ke worker (jeda acak 5–30 dtk default), tidak kirim sync.
-     */
-    /**
+     * Antrekan pesan WA ke queue `whatsapp` secara serial.
+     * Pesan pertama segera; berikutnya dijadwalkan setelah slot sebelumnya + jeda acak (default 30–300 dtk).
+     *
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
-    
     public function queueMessage(
-    string $number,
-    string $message,
-    ?int $whatsappNotificationLogId = null
-): void {
-    $delay = random_int(30, 60);
+        string $number,
+        string $message,
+        ?int $whatsappNotificationLogId = null
+    ): void {
+        $min = max(0, (int) config('services.whacenter.delay_min_seconds', 30));
+        $max = max($min, (int) config('services.whacenter.delay_max_seconds', 300));
+        $gap = random_int($min, $max);
 
-    Log::info('Whacenter queue dispatch', [
-        'number' => $number,
-        'delay' => $delay,
-    ]);
+        $delaySeconds = Cache::lock(self::SCHEDULE_LOCK_KEY, 10)->block(5, function () use ($gap) {
+            $now = now()->timestamp;
+            $next = (int) Cache::get(self::NEXT_SEND_CACHE_KEY, $now);
+            $sendAt = max($next, $now);
 
-    SendWhacenterMessageJob::dispatch(
-        $number,
-        $message,
-        $whatsappNotificationLogId
-    )
-        ->onQueue('whatsapp')
-        ->delay(now()->addSeconds($delay));
-}
+            // Slot berikutnya = setelah pesan ini + jeda acak (serial, bukan paralel).
+            Cache::put(self::NEXT_SEND_CACHE_KEY, $sendAt + $gap, now()->addDay());
+
+            return max(0, $sendAt - $now);
+        });
+
+        $connection = config('services.whacenter.queue_connection', 'redis');
+        $queue = config('services.whacenter.queue', 'whatsapp');
+
+        Log::info('Whacenter queue dispatch', [
+            'number' => $number,
+            'connection' => $connection,
+            'queue' => $queue,
+            'delay' => $delaySeconds,
+            'gap_after' => $gap,
+        ]);
+
+        $pending = SendWhacenterMessageJob::dispatch(
+            $number,
+            $message,
+            $whatsappNotificationLogId
+        )
+            ->onConnection($connection)
+            ->onQueue($queue);
+
+        if ($delaySeconds > 0) {
+            $pending->delay(now()->addSeconds($delaySeconds));
+        }
+    }
 
     /**
      * Generate OTP, simpan di cache, kirim ke WA. Return kode OTP (untuk testing/log).
