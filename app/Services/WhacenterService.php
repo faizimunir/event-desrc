@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Log;
 use App\Jobs\SendWhacenterMessageJob;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -61,16 +62,95 @@ class WhacenterService
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
     public function queueMessage(
-    string $number,
-    string $message,
-    ?int $whatsappNotificationLogId = null
-): void {
-    SendWhacenterMessageJob::dispatch(
-        $number,
-        $message,
-        $whatsappNotificationLogId
-    );
-}
+        string $number,
+        string $message,
+        ?int $whatsappNotificationLogId = null
+    ): void {
+        $min = max(
+            30,
+            (int) config(
+                'services.whacenter.delay_min_seconds',
+                30
+            )
+        );
+    
+        $max = max(
+            $min,
+            (int) config(
+                'services.whacenter.delay_max_seconds',
+                300
+            )
+        );
+    
+        $delay = random_int($min, $max);
+    
+        /*
+         * Redis Lua script:
+         *
+         * Membaca slot terakhir dan menggesernya
+         * secara ATOMIC.
+         *
+         * Ini mencegah dua request bersamaan
+         * mendapatkan slot yang sama.
+         */
+        $redis = app('redis')->connection();
+    
+        $key = 'whacenter:next_available_at';
+    
+        $now = now()->timestamp;
+    
+        $script = <<<'LUA'
+    local current = redis.call('GET', KEYS[1])
+    local now = tonumber(ARGV[1])
+    local delay = tonumber(ARGV[2])
+    local ttl = tonumber(ARGV[3])
+    
+    local run_at = now
+    
+    if current then
+        local current_value = tonumber(current)
+    
+        if current_value > now then
+            run_at = current_value
+        end
+    end
+    
+    local next_available = run_at + delay
+    
+    redis.call(
+        'SET',
+        KEYS[1],
+        tostring(next_available),
+        'EX',
+        ttl
+    )
+    
+    return run_at
+    LUA;
+    
+        $runAt = (int) $redis->eval(
+            $script,
+            1,
+            $key,
+            $now,
+            $delay,
+            86400
+        );
+    
+        Log::info('Whacenter: job scheduled', [
+            'number' => $number,
+            'run_at' => $runAt,
+            'delay_after' => $delay,
+        ]);
+    
+        SendWhacenterMessageJob::dispatch(
+            $number,
+            $message,
+            $whatsappNotificationLogId
+        )->delay(
+            \Illuminate\Support\Carbon::createFromTimestamp($runAt)
+        );
+    }
 
     /**
      * Generate OTP, simpan di cache, kirim ke WA. Return kode OTP (untuk testing/log).

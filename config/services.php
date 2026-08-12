@@ -39,10 +39,10 @@ return [
         'device_id' => env('WHACENTER_DEVICE_ID'),
         'base_url' => env('WHACENTER_BASE_URL', 'https://app.whacenter.com'),
         /** Nama antrian database/redis untuk job kirim WA */
-        'queue' => env('WHACENTER_QUEUE', 'default'),
+        'queue' => env('WHACENTER_QUEUE', 'whatsapp'),
         /** Jeda acak sebelum worker mengirim (detik), rentang inklusif */
-        'delay_min_seconds' => (int) env('WHACENTER_DELAY_MIN_SECONDS', 5),
-        'delay_max_seconds' => (int) env('WHACENTER_DELAY_MAX_SECONDS', 30),
+        'delay_min_seconds' => (int) env('WHACENTER_DELAY_MIN_SECONDS', 30),
+        'delay_max_seconds' => (int) env('WHACENTER_DELAY_MAX_SECONDS', 300),
     ],
 
     'google_sheets' => [
