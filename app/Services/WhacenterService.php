@@ -61,7 +61,8 @@ class WhacenterService
 
     /**
      * Antrekan pesan WA ke queue `whatsapp` secara serial.
-     * Pesan pertama segera; berikutnya dijadwalkan setelah slot sebelumnya + jeda acak (default 30–300 dtk).
+     * Setiap pesan (termasuk pertama) dijadwalkan dengan jeda acak (default 30–300 dtk)
+     * setelah slot sebelumnya / sekarang.
      *
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
@@ -77,10 +78,10 @@ class WhacenterService
         $delaySeconds = Cache::lock(self::SCHEDULE_LOCK_KEY, 10)->block(5, function () use ($gap) {
             $now = now()->timestamp;
             $next = (int) Cache::get(self::NEXT_SEND_CACHE_KEY, $now);
-            $sendAt = max($next, $now);
+            // Jeda acak selalu di depan (termasuk pesan pertama), lalu serial ke pesan berikutnya.
+            $sendAt = max($next, $now) + $gap;
 
-            // Slot berikutnya = setelah pesan ini + jeda acak (serial, bukan paralel).
-            Cache::put(self::NEXT_SEND_CACHE_KEY, $sendAt + $gap, now()->addDay());
+            Cache::put(self::NEXT_SEND_CACHE_KEY, $sendAt, now()->addDay());
 
             return max(0, $sendAt - $now);
         });
@@ -93,7 +94,7 @@ class WhacenterService
             'connection' => $connection,
             'queue' => $queue,
             'delay' => $delaySeconds,
-            'gap_after' => $gap,
+            'gap' => $gap,
         ]);
 
         $pending = SendWhacenterMessageJob::dispatch(
