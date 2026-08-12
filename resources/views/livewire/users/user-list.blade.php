@@ -248,7 +248,7 @@
         @endif
 
         @if ($this->users->hasPages())
-            <div class="mt-4 flex justify-center pb-2">
+            <div class="mt-4 pb-2">
                 {{ $this->users->links() }}
             </div>
         @endif
