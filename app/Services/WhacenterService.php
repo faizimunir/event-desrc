@@ -61,6 +61,7 @@ class WhacenterService
     /**
      * @param  int|null  $whatsappNotificationLogId  Optional log row to update when send completes or fails.
      */
+    
     public function queueMessage(
     string $number,
     string $message,
@@ -84,7 +85,6 @@ class WhacenterService
 
     $now = now()->timestamp;
 
-    // Ambil slot terakhir
     $current = $redis->get($key);
 
     if ($current !== null && (int) $current > $now) {
@@ -93,10 +93,8 @@ class WhacenterService
         $runAt = $now;
     }
 
-    // Slot berikutnya
     $nextAvailable = $runAt + $delay;
 
-    // Simpan slot berikutnya selama 24 jam
     $redis->set(
         $key,
         (string) $nextAvailable,
@@ -111,7 +109,6 @@ class WhacenterService
         'delay' => $delay,
     ]);
 
-    // Jadwalkan job pada slot yang sudah ditentukan
     SendWhacenterMessageJob::dispatch(
         $number,
         $message,
