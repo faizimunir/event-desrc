@@ -50,10 +50,23 @@
 
             @if ($this->categories->total() > 0)
                 @canAs('manage_live_results')
-                    <form method="POST" action="{{ route('events.live-result-categories.sync-all', $event) }}" class="shrink-0">
-                        @csrf
-                        <flux:button type="submit" variant="outline" icon="arrow-path" square :aria-label="__('Sync All')" />
-                    </form>
+                    <flux:button
+                        type="button"
+                        variant="outline"
+                        square
+                        class="shrink-0"
+                        wire:click="syncAll"
+                        wire:loading.attr="disabled"
+                        wire:target="syncAll"
+                        :aria-label="__('Sync All')"
+                    >
+                        <span wire:loading.remove wire:target="syncAll" class="inline-flex">
+                            <flux:icon :name="$justSyncedAll ? 'check' : 'arrow-path'" variant="mini" class="size-4" />
+                        </span>
+                        <span wire:loading wire:target="syncAll" class="inline-flex">
+                            <flux:icon name="arrow-path" variant="mini" class="size-4 animate-spin" />
+                        </span>
+                    </flux:button>
                 @endcanAs
 
                 <flux:button
@@ -139,17 +152,23 @@
 
                         @if ($sheetCount > 0)
                             @canAs('manage_live_results')
-                                <form method="POST" action="{{ route('events.live-result-categories.sync', [$event, $category]) }}" class="shrink-0">
-                                    @csrf
-                                    <flux:button
-                                        type="submit"
-                                        variant="ghost"
-                                        icon="arrow-path"
-                                        square
-                                        class="!text-green-600 hover:!text-green-700 dark:!text-green-400"
-                                        :aria-label="__('Sync')"
-                                    />
-                                </form>
+                                <flux:button
+                                    type="button"
+                                    variant="ghost"
+                                    square
+                                    class="shrink-0 !text-green-600 hover:!text-green-700 dark:!text-green-400"
+                                    wire:click="syncCategory({{ $category->id }})"
+                                    wire:loading.attr="disabled"
+                                    wire:target="syncCategory({{ $category->id }})"
+                                    :aria-label="__('Sync')"
+                                >
+                                    <span wire:loading.remove wire:target="syncCategory({{ $category->id }})" class="inline-flex">
+                                        <flux:icon :name="$justSyncedId === $category->id ? 'check' : 'arrow-path'" variant="mini" class="size-4" />
+                                    </span>
+                                    <span wire:loading wire:target="syncCategory({{ $category->id }})" class="inline-flex">
+                                        <flux:icon name="arrow-path" variant="mini" class="size-4 animate-spin" />
+                                    </span>
+                                </flux:button>
 
                                 <flux:dropdown position="bottom" align="end">
                                     <flux:button

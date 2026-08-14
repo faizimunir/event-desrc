@@ -7,9 +7,9 @@ use App\Models\Event;
 use App\Models\LiveResultCategory;
 use App\Services\GoogleSheetsService;
 use App\Services\LiveResultSheetParser;
+use App\Services\LiveResultSyncService;
 use App\Services\PrintCenterExcelExportService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -17,6 +17,7 @@ class LiveResultCategoryController extends Controller
 {
     public function __construct(
         protected GoogleSheetsService $googleSheetsService,
+        protected LiveResultSyncService $liveResultSyncService,
         protected PrintCenterExcelExportService $printCenterExcelExportService
     ) {}
 
@@ -156,33 +157,11 @@ class LiveResultCategoryController extends Controller
         abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
-        if ($liveResultCategory->event_id !== $event->id) {
-            abort(404);
-        }
-
-        if (empty($liveResultCategory->selected_sheets) || count($liveResultCategory->selected_sheets) === 0) {
-            return redirect()
-                ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
-                ->with('error', __('Tidak ada sheet yang dipilih. Silakan pilih sheet terlebih dahulu.'));
-        }
-
-        $this->googleSheetsService->clearAllCache($liveResultCategory->spreadsheet_id);
-
-        foreach ($liveResultCategory->selected_sheets as $sheetName) {
-            $this->googleSheetsService->getSheetData(
-                $liveResultCategory->spreadsheet_id,
-                $sheetName,
-                null,
-                false
-            );
-        }
-
-        $liveResultCategory->update(['last_sync' => now()]);
-        Cache::put("live_result:event:{$event->id}:version", (string) now()->toISOString(), now()->addDays(30));
+        $result = $this->liveResultSyncService->syncCategory($event, $liveResultCategory);
 
         return redirect()
             ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
-            ->with('status', __('Sync berhasil. Data telah diperbarui.'));
+            ->with($result['ok'] ? 'status' : 'error', $result['message']);
     }
 
     public function syncAll(Event $event)
@@ -190,35 +169,11 @@ class LiveResultCategoryController extends Controller
         abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('update', $event);
 
-        $categories = LiveResultCategory::where('event_id', $event->id)
-            ->where('is_active', true)
-            ->get();
-
-        $totalSheets = 0;
-        foreach ($categories as $category) {
-            if (empty($category->selected_sheets)) {
-                continue;
-            }
-            $this->googleSheetsService->clearAllCache($category->spreadsheet_id);
-            foreach ($category->selected_sheets as $sheetName) {
-                $result = $this->googleSheetsService->getSheetData(
-                    $category->spreadsheet_id,
-                    $sheetName,
-                    null,
-                    false
-                );
-                if ($result['success']) {
-                    $totalSheets++;
-                }
-            }
-            $category->update(['last_sync' => now()]);
-        }
-
-        Cache::put("live_result:event:{$event->id}:version", (string) now()->toISOString(), now()->addDays(30));
+        $result = $this->liveResultSyncService->syncAll($event);
 
         return redirect()
             ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
-            ->with('status', __('Sync All berhasil. :count sheet telah diperbarui.', ['count' => $totalSheets]));
+            ->with('status', $result['message']);
     }
 
     /**

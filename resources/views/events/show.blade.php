@@ -332,12 +332,6 @@
 
             @canAs('manage_live_results')
                 <flux:tab.panel name="live-result" :selected="$firstTab === 'live-result'">
-                    @if (session('status'))
-                        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
-                    @endif
-                    @if (session('error'))
-                        <flux:callout variant="danger" class="rounded-lg mb-4">{{ session('error') }}</flux:callout>
-                    @endif
                     <livewire:events.live-result-category-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
