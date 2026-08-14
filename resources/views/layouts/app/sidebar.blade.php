@@ -72,6 +72,12 @@
                     {{ __('Events') }}
                 </flux:sidebar.item>
                 @endcanAs
+                @canAs('rider.read')
+                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
+                    wire:navigate>
+                    {{ __('Riders') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('access_print_center')
                 <flux:sidebar.item icon="printer" :href="route('print-center.index')" :current="request()->routeIs('print-center.*')"
                     wire:navigate>
@@ -87,12 +93,6 @@
                 <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"
                     wire:navigate>
                     {{ __('Payments') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('rider.read')
-                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
-                    wire:navigate>
-                    {{ __('Riders') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('account.read')
