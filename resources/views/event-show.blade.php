@@ -19,11 +19,6 @@
 @endpush
 
 @section('content')
-    @persist('toast')
-        <flux:toast />
-    @endpersist
-    <livewire:flash-toast />
-
     <div class="overflow-x-hidden pb-6 lg:pb-8">
                 <div
                     class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[300px_minmax(0,1fr)] lg:gap-x-8 lg:gap-y-8">
@@ -712,11 +707,6 @@
                                         <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
                                     </div>
                                     <div class="space-y-4 p-5 sm:p-6 lg:p-8">
-                                    @if (session('error'))
-                                        <div
-                                            class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-                                            {{ session('error') }}</div>
-                                    @endif
                                     <div class="rounded-2xl border border-orange-200 bg-orange-50 p-5 dark:border-orange-800 dark:bg-orange-950/30"
                                         x-data="{
                                             target: new Date('{{ $event->registration_opens_at->toIso8601String() }}'),
@@ -761,10 +751,6 @@
                                         <h2 class="text-2xl font-bold text-zinc-900 dark:text-white">{{ __('Registration') }}</h2>
                                     </div>
                                     <div class="space-y-4 p-5 sm:p-6 lg:p-8">
-                                    @if (session('error'))
-                                        <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
-                                            {{ session('error') }}</div>
-                                    @endif
                                     <p class="text-sm text-zinc-600 dark:text-zinc-400">
                                         {{ __('Registration is not open for this event.') }}</p>
                                     <p class="text-sm text-zinc-600 dark:text-zinc-400">
@@ -810,12 +796,6 @@
                                         {{ __('Enter your access code to register before registration opens.') }}
                                     </flux:subheading>
                                 </div>
-                                @if (session('error'))
-                                    <div
-                                        class="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-300">
-                                        {{ session('error') }}
-                                    </div>
-                                @endif
                                 <flux:input type="text" name="code" :label="__('Access code')"
                                     :placeholder="__('Enter code')" autofocus autocomplete="off" />
                                 <div class="flex justify-end gap-2">

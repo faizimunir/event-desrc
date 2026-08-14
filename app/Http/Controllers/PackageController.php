@@ -11,7 +11,7 @@ class PackageController extends Controller
     {
         abort_unless(auth()->user()->canAs('package.read'), 403);
 
-        return view('events.packages.index', compact('event'));
+        return redirect()->route('events.show', [$event, 'tab' => 'packages']);
     }
 
     public function create(Event $event)
@@ -38,6 +38,6 @@ class PackageController extends Controller
 
         $package->delete();
 
-        return redirect()->route('events.packages.index', $event)->with('status', __('Package deleted.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'packages'])->with('status', __('Package deleted.'));
     }
 }

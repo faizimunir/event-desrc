@@ -4,8 +4,6 @@
         :description="__('Already registered a rider? Activate your account to log in with email and password.')"
     />
 
-    <x-auth-session-status class="text-center" :status="session('status')" />
-
     @if ($errors->any())
         <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4">
             <ul class="list-disc list-inside text-sm text-red-700 dark:text-red-300 space-y-1">

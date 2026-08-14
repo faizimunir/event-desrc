@@ -17,6 +17,12 @@
         </main>
     </div>
 
+    @persist('toast')
+        <flux:toast />
+    @endpersist
+
+    <livewire:flash-toast />
+
     @fluxScripts
     @stack('scripts')
 </body>

@@ -10,6 +10,20 @@ use Illuminate\Http\Request;
 
 class EventCheckinController extends Controller
 {
+    public function index(Event $event)
+    {
+        abort_unless(auth()->user()->canAs('checkin.read'), 403);
+
+        return redirect()->route('events.show', [$event, 'tab' => 'checkin']);
+    }
+
+    public function create(Event $event)
+    {
+        abort_unless(auth()->user()->canAs('checkin.create'), 403);
+
+        return view('events.checkins.create', compact('event'));
+    }
+
     public function store(Request $request, Event $event)
     {
         abort_unless(auth()->user()->canAs('checkin.create'), 403);
@@ -35,6 +49,17 @@ class EventCheckinController extends Controller
 
         return redirect()->route('events.show', ['event' => $event, 'tab' => 'checkin'])
             ->with('checkin_success', $registration->checkinSummary());
+    }
+
+    public function edit(Event $event, EventCheckin $checkin)
+    {
+        abort_unless(auth()->user()->canAs('checkin.update'), 403);
+        $this->authorize('update', $checkin);
+        abort_if($checkin->event_id !== $event->id, 404);
+
+        $checkin->load(['registration.rider', 'registration.bracket']);
+
+        return view('events.checkins.edit', compact('event', 'checkin'));
     }
 
     public function update(Request $request, Event $event, EventCheckin $checkin)

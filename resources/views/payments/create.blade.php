@@ -49,19 +49,6 @@
             </div>
 
             <div class="px-6 py-6 sm:px-8 sm:py-8">
-                @if (session('status'))
-                    <div class="mb-6 flex gap-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/40 dark:text-emerald-100">
-                        <flux:icon name="check-circle" class="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>{{ session('status') }}</span>
-                    </div>
-                @endif
-                @if (session('error'))
-                    <div class="mb-6 flex gap-3 rounded-2xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm text-red-900 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-100">
-                        <flux:icon name="exclamation-circle" class="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" />
-                        <span>{{ session('error') }}</span>
-                    </div>
-                @endif
-
                 @if ($orderExpiredOrCancelled ?? false)
                     <div class="rounded-2xl bg-amber-50 px-5 py-5 ring-1 ring-amber-200/60 dark:bg-amber-950/30 dark:ring-amber-800/40">
                         <div class="flex gap-3">
@@ -479,6 +466,12 @@
             }, 5000);
         @endif
     </script>
+    @persist('toast')
+        <flux:toast />
+    @endpersist
+
+    <livewire:flash-toast />
+
     @fluxScripts
 </body>
 </html>

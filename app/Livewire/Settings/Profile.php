@@ -5,7 +5,6 @@ namespace App\Livewire\Settings;
 use App\Concerns\ProfileValidationRules;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
@@ -61,7 +60,11 @@ class Profile extends Component
 
         $user->sendEmailVerificationNotification();
 
-        Session::flash('status', 'verification-link-sent');
+        $this->dispatch('toast-show',
+            duration: 5000,
+            slots: ['text' => __('A new verification link has been sent to your email address.')],
+            dataset: ['variant' => 'success'],
+        );
     }
 
     #[Computed]

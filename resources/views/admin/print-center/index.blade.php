@@ -1,15 +1,7 @@
 <x-layouts::app :title="__('Cetak Hasil') . ' — Print Center'">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ __('Print Center') }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
         <flux:heading>{{ __('Cetak Hasil') }}</flux:heading>
         <flux:subheading class="mb-6">{{ __('Pilih event untuk mencetak hasil live result (semua kategori pada round final).') }}</flux:subheading>
-
-        @if (session('error'))
-            <flux:callout variant="danger" class="rounded-lg mb-4">{{ session('error') }}</flux:callout>
-        @endif
 
         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6 max-w-2xl">
             <form method="GET" class="space-y-6">

@@ -73,6 +73,8 @@ class EventForm extends Component
 
     public bool $show_participants_publicly = true;
 
+    public bool $has_live_result = false;
+
     public function mount(?Event $event = null): void
     {
         $this->locations = Location::orderBy('name')->get();
@@ -105,6 +107,7 @@ class EventForm extends Component
             $this->account_ids = $event->accounts->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
             $this->jersey_sizes = implode(', ', $event->jerseySizeOptions());
             $this->show_participants_publicly = (bool) $event->show_participants_publicly;
+            $this->has_live_result = (bool) $event->has_live_result;
         } else {
             $this->jersey_sizes = implode(', ', Event::DEFAULT_JERSEY_SIZES);
         }
@@ -170,6 +173,9 @@ class EventForm extends Component
             'jersey_sizes' => ['required', 'string', 'max:1000'],
             'show_participants_publicly' => ['boolean'],
         ];
+        if ($user->canAs('manage_live_results')) {
+            $rules['has_live_result'] = ['boolean'];
+        }
         if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
             $rules['account_ids'] = ['required', 'array', 'min:1'];
             $rules['account_ids.*'] = ['integer', 'exists:accounts,id'];
@@ -192,6 +198,9 @@ class EventForm extends Component
         $racingCommitteeId = $validated['racing_committee_id'] ? (int) $validated['racing_committee_id'] : null;
         $masterOfCeremonyId = $validated['master_of_ceremony_id'] ? (int) $validated['master_of_ceremony_id'] : null;
         $jerseySizes = Event::normalizeJerseySizes($validated['jersey_sizes']);
+        $hasLiveResult = $user->canAs('manage_live_results')
+            ? (bool) ($validated['has_live_result'] ?? false)
+            : (bool) ($this->event?->has_live_result ?? false);
 
         $posterPath = $this->event?->poster;
 
@@ -243,6 +252,7 @@ class EventForm extends Component
                 'size_chart' => $sizeChartPath ?? $this->event->size_chart,
                 'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
+                'has_live_result' => $hasLiveResult,
             ]);
             $this->event->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.show', $this->event), navigate: true);
@@ -266,6 +276,7 @@ class EventForm extends Component
                 'size_chart' => $sizeChartPath ?? null,
                 'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
+                'has_live_result' => $hasLiveResult,
             ]);
             $newEvent->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.index'), navigate: true);

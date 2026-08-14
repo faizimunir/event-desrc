@@ -65,6 +65,6 @@
         <flux:button variant="primary" type="submit">
             {{ $package ? __('Update Package') : __('Create Package') }}
         </flux:button>
-        <flux:button variant="ghost" :href="route('events.packages.index', $event)" wire:navigate>{{ __('Cancel') }}</flux:button>
+        <flux:button variant="ghost" :href="route('events.show', [$event, 'tab' => 'packages'])" wire:navigate>{{ __('Cancel') }}</flux:button>
     </div>
 </form>

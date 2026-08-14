@@ -1,14 +1,7 @@
 <x-layouts::app :title="__('Add Track')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.tracks.index', $event)" wire:navigate>{{ __('Tracks') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ __('Add Track') }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost" size="sm" :href="route('events.tracks.index', $event)" wire:navigate icon="arrow-left">
+            <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'tracks'])" wire:navigate icon="arrow-left">
                 {{ __('Back') }}
             </flux:button>
         </div>
@@ -43,7 +36,7 @@
 
             <div class="flex gap-2">
                 <flux:button variant="primary" type="submit">{{ __('Create Track') }}</flux:button>
-                <flux:button variant="ghost" :href="route('events.tracks.index', $event)" wire:navigate>{{ __('Cancel') }}</flux:button>
+                <flux:button variant="ghost" :href="route('events.show', [$event, 'tab' => 'tracks'])" wire:navigate>{{ __('Cancel') }}</flux:button>
             </div>
         </form>
     </div>

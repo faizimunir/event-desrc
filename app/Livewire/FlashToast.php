@@ -11,7 +11,7 @@ class FlashToast extends Component
         if (session()->has('status')) {
             $this->dispatch('toast-show',
                 duration: 5000,
-                slots: ['text' => session('status')],
+                slots: ['text' => $this->statusMessage(session('status'))],
                 dataset: ['variant' => 'success'],
             );
         }
@@ -23,6 +23,14 @@ class FlashToast extends Component
                 dataset: ['variant' => 'danger'],
             );
         }
+    }
+
+    private function statusMessage(mixed $status): string
+    {
+        return match ($status) {
+            'verification-link-sent' => __('A new verification link has been sent to your email address.'),
+            default => (string) $status,
+        };
     }
 
     public function render()

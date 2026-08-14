@@ -142,9 +142,10 @@ class EventRegistrationsList extends Component
 
         $this->selectedRegistrationIds = [];
 
-        session()->flash(
-            'status',
-            trans_choice(':count registration deleted.|:count registrations deleted.', $deleted, ['count' => $deleted])
+        $this->dispatch('toast-show',
+            duration: 5000,
+            slots: ['text' => trans_choice(':count registration deleted.|:count registrations deleted.', $deleted, ['count' => $deleted])],
+            dataset: ['variant' => 'success'],
         );
     }
 

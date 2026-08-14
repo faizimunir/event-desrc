@@ -311,114 +311,40 @@
 
             @canAs('package.read')
                 <flux:tab.panel name="packages" :selected="$firstTab === 'packages'">
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                        {{ __('Packages define registration price and race pack. If there is only one package, participants will not need to choose.') }}
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2 mb-4">
-                        @canAs('package.create')
-                            <flux:button variant="primary" :href="route('events.packages.create', $event)" wire:navigate icon="plus">
-                                {{ __('Add Package') }}
-                            </flux:button>
-                        @endcanAs
-                    </div>
                     <livewire:packages.package-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
 
             @canAs('track.read')
                 <flux:tab.panel name="tracks" :selected="$firstTab === 'tracks'">
-                    @if (session('status'))
-                        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
-                    @endif
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400 mb-4">
-                        {{ __('Tracks define the race circuit or route for this event (name, material, length, photo).') }}
-                    </p>
-                    <div class="flex flex-wrap items-center gap-2 mb-4">
-                        @canAs('track.create')
-                            <flux:button variant="primary" :href="route('events.tracks.create', $event)" wire:navigate icon="plus">
-                                {{ __('Add Track') }}
-                            </flux:button>
-                        @endcanAs
-                    </div>
                     <livewire:tracks.track-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
 
             @canAs('checkin.read')
                 <flux:tab.panel name="checkin" :selected="$firstTab === 'checkin'">
+                    @if (session('checkin_success'))
+                        <x-checkin-success-callout :summary="session('checkin_success')" class="mb-4" />
+                    @endif
                     <livewire:events.event-checkin-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
 
             @canAs('manage_live_results')
                 <flux:tab.panel name="live-result" :selected="$firstTab === 'live-result'">
-                    @include('admin.live-result-categories.partials.manage', ['event' => $event, 'categories' => $categories])
+                    @if (session('status'))
+                        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
+                    @endif
+                    @if (session('error'))
+                        <flux:callout variant="danger" class="rounded-lg mb-4">{{ session('error') }}</flux:callout>
+                    @endif
+                    <livewire:events.live-result-category-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
 
             @canAs('event.update')
                 <flux:tab.panel name="code-access" :selected="$firstTab === 'code-access'">
-                    <flux:subheading class="mb-4">{{ __('Share these codes to allow early registration before registration opens.') }}</flux:subheading>
-                    @if (session('status'))
-                        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
-                    @endif
-                    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 p-6 mb-6">
-                        <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mb-4">{{ __('Add code') }}</h2>
-                        <form method="POST" action="{{ route('events.code-access.store', $event) }}" class="max-w-xl space-y-4">
-                            @csrf
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input name="code" type="text" :label="__('Code')" :placeholder="__('e.g. EARLY2025')" required />
-                                <flux:input name="name" type="text" :label="__('Name (optional)')" :placeholder="__('e.g. Early Bird')" />
-                            </div>
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input name="valid_from" type="datetime-local" :label="__('Valid from (optional)')" />
-                                <flux:input name="valid_until" type="datetime-local" :label="__('Valid until (optional)')" />
-                            </div>
-                            <flux:input name="usage_limit" type="number" min="1" :label="__('Usage limit (optional)')" :placeholder="__('Max uses, leave empty for unlimited')" />
-                            <flux:button type="submit" variant="primary">{{ __('Add code') }}</flux:button>
-                        </form>
-                    </div>
-                    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 overflow-hidden">
-                        <h2 class="p-4 text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400 border-b border-zinc-200 dark:border-zinc-700">{{ __('Existing codes') }}</h2>
-                        @if ($codes->isEmpty())
-                            <p class="p-6 text-sm text-zinc-500 dark:text-zinc-400">{{ __('No access codes yet.') }}</p>
-                        @else
-                            <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
-                                <thead class="bg-zinc-50 dark:bg-zinc-800">
-                                    <tr>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Code') }}</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Name') }}</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Used') }}</th>
-                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Valid') }}</th>
-                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Actions') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-zinc-200 bg-white dark:divide-zinc-700 dark:bg-zinc-800">
-                                    @foreach ($codes as $ca)
-                                        <tr>
-                                            <td class="px-4 py-3 text-sm font-mono text-zinc-900 dark:text-zinc-100">{{ $ca->code }}</td>
-                                            <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $ca->name ?? '—' }}</td>
-                                            <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">{{ $ca->times_used }}@if($ca->usage_limit) / {{ $ca->usage_limit }}@endif</td>
-                                            <td class="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-300">
-                                                @if ($ca->valid_from || $ca->valid_until)
-                                                    {{ $ca->valid_from?->format('d/m/Y H:i') ?? '—' }} → {{ $ca->valid_until?->format('d/m/Y H:i') ?? '—' }}
-                                                @else
-                                                    {{ __('Always') }}
-                                                @endif
-                                            </td>
-                                            <td class="px-4 py-3 text-right">
-                                                <form method="POST" action="{{ route('events.code-access.destroy', [$event, $ca]) }}" class="inline" onsubmit="return confirm('{{ __('Remove this code?') }}');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <flux:button type="submit" variant="ghost" size="sm" color="red">{{ __('Remove') }}</flux:button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
-                        @endif
-                    </div>
+                    <livewire:events.event-code-access-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
         </flux:tab.group>

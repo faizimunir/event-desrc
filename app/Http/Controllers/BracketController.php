@@ -8,6 +8,13 @@ use Illuminate\Http\Request;
 
 class BracketController extends Controller
 {
+    public function index(Event $event)
+    {
+        abort_unless(auth()->user()->canAs('bracket.read'), 403);
+
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets']);
+    }
+
     public function create(Event $event)
     {
         abort_unless(auth()->user()->canAs('bracket.create'), 403);

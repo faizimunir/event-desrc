@@ -153,7 +153,11 @@ class UserList extends Component
         $this->mergePrimaryUserId = null;
         $this->resetPage();
 
-        session()->flash('status', __('Users merged successfully.'));
+        $this->dispatch('toast-show',
+            duration: 5000,
+            slots: ['text' => __('Users merged successfully.')],
+            dataset: ['variant' => 'success'],
+        );
     }
 
     #[Computed]

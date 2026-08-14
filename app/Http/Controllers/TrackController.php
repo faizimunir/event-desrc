@@ -13,7 +13,7 @@ class TrackController extends Controller
     {
         abort_unless(auth()->user()->canAs('track.read'), 403);
 
-        return view('events.tracks.index', compact('event'));
+        return redirect()->route('events.show', [$event, 'tab' => 'tracks']);
     }
 
     public function create(Event $event)
@@ -46,7 +46,7 @@ class TrackController extends Controller
             'photo_track' => $path,
         ]);
 
-        return redirect()->route('events.tracks.index', $event)->with('status', __('Track created.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'tracks'])->with('status', __('Track created.'));
     }
 
     public function edit(Event $event, Track $track)
@@ -86,7 +86,7 @@ class TrackController extends Controller
             'photo_track' => $path,
         ]);
 
-        return redirect()->route('events.tracks.index', $event)->with('status', __('Track updated.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'tracks'])->with('status', __('Track updated.'));
     }
 
     public function destroy(Event $event, Track $track)
@@ -100,6 +100,6 @@ class TrackController extends Controller
         }
         $track->delete();
 
-        return redirect()->route('events.tracks.index', $event)->with('status', __('Track deleted.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'tracks'])->with('status', __('Track deleted.'));
     }
 }

@@ -1,21 +1,9 @@
 <x-layouts::app :title="__('Payments')">
     <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ __('Payments') }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-
         <flux:heading>{{ __('Payments') }}</flux:heading>
         <p class="text-sm text-zinc-500 dark:text-zinc-400">
             {{ __('Verify transfer proofs and approve or reject payments.') }}
         </p>
-
-        @if (session('status'))
-            <flux:callout variant="success" class="rounded-lg">{{ session('status') }}</flux:callout>
-        @endif
-        @if (session('error'))
-            <flux:callout variant="danger" class="rounded-lg">{{ session('error') }}</flux:callout>
-        @endif
 
         <div class="flex flex-wrap items-center gap-2">
             <a href="{{ route('payments.index') }}"

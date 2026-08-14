@@ -21,21 +21,26 @@ class LiveResultCategoryController extends Controller
     ) {}
 
     /**
-     * Standalone page for Kelola Live Result (same content as tab panel).
+     * GET /events/{event}/live-result-categories redirects to the event tab.
      */
     public function index(Event $event)
     {
         abort_unless(auth()->user()->canAs('manage_live_results'), 403);
         $this->authorize('view', $event);
 
-        $this->reorderCategories($event);
+        return redirect()->route('events.show', [$event, 'tab' => 'live-result']);
+    }
 
-        $categories = LiveResultCategory::where('event_id', $event->id)
-            ->orderBy('order')
-            ->orderByRaw('LOWER(title) ASC')
-            ->get();
+    public function create(Event $event)
+    {
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
+        $this->authorize('update', $event);
 
-        return view('admin.live-result-categories.index', compact('event', 'categories'));
+        if (! $event->has_live_result) {
+            return redirect()->route('events.show', [$event, 'tab' => 'live-result']);
+        }
+
+        return view('events.live-result-categories.create', compact('event'));
     }
 
     public function fetchSheets(Request $request, Event $event)
@@ -89,6 +94,21 @@ class LiveResultCategoryController extends Controller
             ->with('status', __('Kategori berhasil ditambahkan.'));
     }
 
+    public function edit(Event $event, LiveResultCategory $liveResultCategory)
+    {
+        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
+        $this->authorize('update', $event);
+
+        if ($liveResultCategory->event_id !== $event->id) {
+            abort(404);
+        }
+
+        return view('events.live-result-categories.edit', [
+            'event' => $event,
+            'category' => $liveResultCategory,
+        ]);
+    }
+
     public function update(Request $request, Event $event, LiveResultCategory $liveResultCategory)
     {
         abort_unless(auth()->user()->canAs('manage_live_results'), 403);
@@ -103,8 +123,8 @@ class LiveResultCategoryController extends Controller
             'spreadsheet_id' => 'required|string|max:255',
             'selected_sheets' => 'nullable|array',
             'selected_sheets.*' => 'string',
-            'is_active' => 'boolean',
         ]);
+        $validated['is_active'] = $request->boolean('is_active');
 
         $liveResultCategory->update($validated);
         $this->reorderCategories($event);

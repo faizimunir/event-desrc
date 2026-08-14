@@ -34,6 +34,19 @@
             <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
         @enderror
 
+        @canAs('manage_live_results')
+            <flux:field variant="inline">
+                <flux:label class="mb-0">{{ __('Live Result') }}</flux:label>
+                <flux:switch wire:model="has_live_result" />
+            </flux:field>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('Jika dinonaktifkan, event ini tidak akan muncul di halaman Live Result publik.') }}
+            </p>
+            @error('has_live_result')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        @endcanAs
+
         @if ($event)
             <flux:field variant="inline">
                 <flux:label class="mb-0">{{ __('Show participants to the public') }}</flux:label>

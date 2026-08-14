@@ -73,6 +73,12 @@
 
         {{ $slot }}
 
+        @persist('toast')
+            <flux:toast />
+        @endpersist
+
+        <livewire:flash-toast />
+
         @fluxScripts
     </body>
 </html>

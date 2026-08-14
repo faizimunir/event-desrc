@@ -21,17 +21,7 @@ class EventController extends Controller
         abort_unless(auth()->user()->canAs('event.read'), 403);
         $this->authorize('view', $event);
 
-        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'liveResultCategories']);
-
-        $categories = $event->liveResultCategories()
-            ->orderBy('order')
-            ->orderByRaw('LOWER(title) ASC')
-            ->get();
-
-        $codes = collect();
-        if (auth()->user()->canAs('event.update')) {
-            $codes = $event->codeAccess()->orderBy('created_at', 'desc')->get();
-        }
+        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
 
         $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'checkin', 'live-result'];
         $requestedTab = request('tab');
@@ -39,7 +29,7 @@ class EventController extends Controller
             ? $requestedTab
             : 'overview';
 
-        return view('events.show', compact('event', 'codes', 'categories', 'firstTab'));
+        return view('events.show', compact('event', 'firstTab'));
     }
 
     /**
@@ -188,23 +178,5 @@ class EventController extends Controller
         $event->delete();
 
         return redirect()->route('events.index')->with('status', __('Event deleted.'));
-    }
-
-    public function updateLiveResultFlag(Request $request, Event $event)
-    {
-        abort_unless(auth()->user()->canAs('manage_live_results'), 403);
-        $this->authorize('update', $event);
-
-        $validated = $request->validate([
-            'has_live_result' => ['required', 'boolean'],
-        ]);
-
-        $event->update([
-            'has_live_result' => (bool) $validated['has_live_result'],
-        ]);
-
-        return redirect()
-            ->route('events.show', ['event' => $event, 'tab' => 'live-result'])
-            ->with('status', __('Live Result setting updated.'));
     }
 }

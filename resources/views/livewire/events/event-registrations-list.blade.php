@@ -1,8 +1,4 @@
 <div>
-    @if (session('status'))
-        <flux:callout variant="success" class="rounded-lg mb-4">{{ session('status') }}</flux:callout>
-    @endif
-
     <div class="mb-4 flex flex-row flex-wrap items-center gap-2">
         @canAs('event.update')
             <flux:button

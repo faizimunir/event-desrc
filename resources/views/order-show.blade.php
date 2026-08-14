@@ -5,29 +5,8 @@
 @endsection
 
 @section('content')
-    @persist('toast')
-        <flux:toast />
-    @endpersist
-    <livewire:flash-toast />
-
     <div class="mx-auto w-full max-w-2xl">
         <div class="bento-card overflow-hidden">
-            @if (session('status'))
-                <div class="border-b border-emerald-100/80 bg-emerald-50/90 px-6 py-4 dark:border-emerald-900/40 dark:bg-emerald-950/35 sm:px-8">
-                    <div class="flex gap-3 text-sm text-emerald-900 dark:text-emerald-100">
-                        <flux:icon name="check-circle" class="mt-0.5 size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span>{{ session('status') }}</span>
-                    </div>
-                </div>
-            @endif
-            @if (session('error'))
-                <div class="border-b border-red-100/80 bg-red-50/90 px-6 py-4 dark:border-red-900/40 dark:bg-red-950/35 sm:px-8">
-                    <div class="flex gap-3 text-sm text-red-900 dark:text-red-100">
-                        <flux:icon name="exclamation-circle" class="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" />
-                        <span>{{ session('error') }}</span>
-                    </div>
-                </div>
-            @endif
             @php
                 $reg = $order->registration;
                 $event = $reg->event;

@@ -105,7 +105,7 @@ class PackageForm extends Component
                 collect($rewards)->mapWithKeys(fn ($id) => [$id => ['photo_reward' => $existingPivot[$id] ?? null]])->all()
             );
             session()->flash('status', __('Package updated.'));
-            $this->redirect(route('events.packages.index', $this->event), navigate: true);
+            $this->redirect(route('events.show', [$this->event, 'tab' => 'packages']), navigate: true);
         } else {
             $pkg = $this->event->packages()->create([
                 'name' => $validated['name'],
@@ -121,7 +121,7 @@ class PackageForm extends Component
                 $pkg->rewards()->sync(collect($rewards)->mapWithKeys(fn ($id) => [$id => ['photo_reward' => null]])->all());
             }
             session()->flash('status', __('Package created.'));
-            $this->redirect(route('events.packages.index', $this->event), navigate: true);
+            $this->redirect(route('events.show', [$this->event, 'tab' => 'packages']), navigate: true);
         }
     }
 

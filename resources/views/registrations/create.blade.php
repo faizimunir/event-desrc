@@ -1,13 +1,5 @@
 <x-layouts::app :title="__('Add registration') . ' — ' . $event->title">
     <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate>{{ __('Registrations') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ __('Add registration') }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
                 {{ __('Back to event') }}

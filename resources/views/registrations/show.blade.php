@@ -168,14 +168,6 @@
 @endphp
 <x-layouts::app :title="__('Registration') . ' — ' . $event->title">
     <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate>{{ __('Registrations') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ $rider->name }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-
         <div class="flex flex-wrap items-center gap-2">
             <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
                 {{ __('Back to event') }}
@@ -197,7 +189,6 @@
             <flux:heading>{{ $rider->name }}@if ($rider->nickname) <span class="font-normal text-zinc-500 dark:text-zinc-400">({{ $rider->nickname }})</span>@endif</flux:heading>
             <flux:badge :color="$badgeColor" size="lg">{{ $registration->status_label }}</flux:badge>
         </div>
-
 
         {{-- Dokumen verifikasi: Photo KIA + Bukti Transfer (prioritas untuk admin) --}}
         <div class="grid gap-6 lg:grid-cols-2">

@@ -4,24 +4,17 @@ namespace App\Livewire\Events;
 
 use App\Models\Event;
 use App\Models\Registration;
-use App\Services\EventTicketCheckinScanService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
+use Livewire\WithPagination;
 
 class EventCheckinList extends Component
 {
+    use WithPagination;
+
     public Event $event;
 
     public string $search = '';
-
-    public int $checkinsVersion = 0;
-
-    public ?string $scanMessage = null;
-
-    public ?string $scanMessageType = null;
-
-    /** @var ?array{name: string, number_plate: ?string, teams: ?string, bracket: ?string} */
-    public ?array $scanSummary = null;
 
     public ?int $editingRegistrationId = null;
 
@@ -35,22 +28,9 @@ class EventCheckinList extends Component
         }
     }
 
-    public function processScannedCode(string $code): void
+    public function updatedSearch(): void
     {
-        abort_unless(auth()->user()->canAs('checkin.create'), 403);
-
-        $result = app(EventTicketCheckinScanService::class)->process(
-            $this->event,
-            $code,
-            checkedInByUserId: (int) auth()->id(),
-        );
-
-        $this->scanMessage = $result['type'] === 'success' ? null : $result['message'];
-        $this->scanMessageType = $result['type'] === 'success' ? null : $result['type'];
-        $this->scanSummary = $result['summary'] ?? null;
-        $this->event = $this->event->fresh();
-        $this->checkinsVersion++;
-        unset($this->registrationsAvailableForCheckin);
+        $this->resetPage();
     }
 
     public function openRegistrationEdit(int $registrationId): void
@@ -77,7 +57,8 @@ class EventCheckinList extends Component
             ->find($this->editingRegistrationId);
     }
 
-    protected function checkinsQuery()
+    #[Computed]
+    public function checkins()
     {
         return $this->event->checkins()
             ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
@@ -87,25 +68,12 @@ class EventCheckinList extends Component
                         ->orWhere('nickname', 'like', '%'.$this->search.'%');
                 });
             })
-            ->orderByDesc('checked_in_at');
-    }
-
-    /** Registrations that can be checked in (approved, no check-in yet). */
-    #[Computed]
-    public function registrationsAvailableForCheckin()
-    {
-        return $this->event->registrations()
-            ->where('status', \App\Models\Registration::STATUS_APPROVED)
-            ->whereDoesntHave('checkin')
-            ->with('rider')
-            ->orderBy('number_plate')
-            ->get();
+            ->orderByDesc('checked_in_at')
+            ->paginate(15);
     }
 
     public function render()
     {
-        return view('livewire.events.event-checkin-list', [
-            'checkins' => $this->checkinsQuery()->get(),
-        ]);
+        return view('livewire.events.event-checkin-list');
     }
 }

@@ -33,6 +33,13 @@ class RegistrationController extends Controller
         protected RiderSimilarityService $similarity
     ) {}
 
+    public function index(Event $event)
+    {
+        abort_unless(auth()->user()->canAs('event.read'), 403);
+
+        return redirect()->route('events.show', [$event, 'tab' => 'registrations']);
+    }
+
     /**
      * Public: store new registration (form di event-show). Cek rider mirip (double), lalu buat/link user + rider.
      */
