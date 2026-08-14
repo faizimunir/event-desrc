@@ -7,10 +7,6 @@
         </div>
         <flux:heading>{{ $event->title }} — {{ __('Record check-in') }}</flux:heading>
 
-        @if (session('checkin_success'))
-            <x-checkin-success-callout :summary="session('checkin_success')" />
-        @endif
-
         <livewire:events.event-checkin-form :event="$event" />
     </div>
 </x-layouts::app>

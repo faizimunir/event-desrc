@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Users;
 
+use App\Concerns\ShowsToast;
 use App\Models\User;
 use App\Services\UserMergeService;
 use Illuminate\Support\Facades\Gate;
@@ -12,6 +13,7 @@ use Spatie\Permission\Models\Role;
 
 class UserList extends Component
 {
+    use ShowsToast;
     use WithPagination;
 
     public string $search = '';
@@ -69,7 +71,7 @@ class UserList extends Component
         $ids = array_values(array_unique(array_map('intval', $this->selectedUserIds)));
 
         if (count($ids) < 2) {
-            $this->addError('merge', __('Select at least two users to merge.'));
+            $this->toast(__('Select at least two users to merge.'), 'danger');
 
             return;
         }
@@ -108,7 +110,7 @@ class UserList extends Component
         $primary = $this->mergePrimaryUserId !== null ? (int) $this->mergePrimaryUserId : null;
 
         if (count($ids) < 2 || $primary === null || ! in_array($primary, $ids, true)) {
-            $this->addError('merge', __('Invalid merge selection.'));
+            $this->toast(__('Invalid merge selection.'), 'danger');
 
             return;
         }
@@ -118,17 +120,17 @@ class UserList extends Component
         foreach ($ids as $id) {
             $user = User::query()->find($id);
             if (! $user) {
-                $this->addError('merge', __('One or more users no longer exist.'));
+                $this->toast(__('One or more users no longer exist.'), 'danger');
 
                 return;
             }
             if (! Gate::forUser($actor)->allows('update', $user)) {
-                $this->addError('merge', __('You are not allowed to update one of the selected users.'));
+                $this->toast(__('You are not allowed to update one of the selected users.'), 'danger');
 
                 return;
             }
             if ($id !== $primary && ! Gate::forUser($actor)->allows('delete', $user)) {
-                $this->addError('merge', __('You are not allowed to remove one of the selected accounts as part of this merge.'));
+                $this->toast(__('You are not allowed to remove one of the selected accounts as part of this merge.'), 'danger');
 
                 return;
             }
@@ -137,12 +139,12 @@ class UserList extends Component
         try {
             $userMergeService->mergeIntoPrimary($ids, $primary);
         } catch (\InvalidArgumentException|\RuntimeException $e) {
-            $this->addError('merge', $e->getMessage());
+            $this->toast($e->getMessage(), 'danger');
 
             return;
         } catch (\Throwable $e) {
             report($e);
-            $this->addError('merge', __('Merge failed. Please try again.'));
+            $this->toast(__('Merge failed. Please try again.'), 'danger');
 
             return;
         }
@@ -153,11 +155,7 @@ class UserList extends Component
         $this->mergePrimaryUserId = null;
         $this->resetPage();
 
-        $this->dispatch('toast-show',
-            duration: 5000,
-            slots: ['text' => __('Users merged successfully.')],
-            dataset: ['variant' => 'success'],
-        );
+        $this->toast(__('Users merged successfully.'));
     }
 
     #[Computed]

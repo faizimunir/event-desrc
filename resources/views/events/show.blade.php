@@ -323,9 +323,6 @@
 
             @canAs('checkin.read')
                 <flux:tab.panel name="checkin" :selected="$firstTab === 'checkin'">
-                    @if (session('checkin_success'))
-                        <x-checkin-success-callout :summary="session('checkin_success')" class="mb-4" />
-                    @endif
                     <livewire:events.event-checkin-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs

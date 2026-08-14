@@ -61,10 +61,10 @@
                         :aria-label="__('Sync All')"
                     >
                         <span wire:loading.remove wire:target="syncAll" class="inline-flex">
-                            <flux:icon :name="$justSyncedAll ? 'check' : 'arrow-path'" variant="mini" class="size-4" />
+                            <flux:icon :name="$justSyncedAll ? 'check' : 'arrow-path'" />
                         </span>
                         <span wire:loading wire:target="syncAll" class="inline-flex">
-                            <flux:icon name="arrow-path" variant="mini" class="size-4 animate-spin" />
+                            <flux:icon name="arrow-path" class="animate-spin" />
                         </span>
                     </flux:button>
                 @endcanAs
@@ -163,10 +163,10 @@
                                     :aria-label="__('Sync')"
                                 >
                                     <span wire:loading.remove wire:target="syncCategory({{ $category->id }})" class="inline-flex">
-                                        <flux:icon :name="$justSyncedId === $category->id ? 'check' : 'arrow-path'" variant="mini" class="size-4" />
+                                        <flux:icon :name="$justSyncedId === $category->id ? 'check' : 'arrow-path'" />
                                     </span>
                                     <span wire:loading wire:target="syncCategory({{ $category->id }})" class="inline-flex">
-                                        <flux:icon name="arrow-path" variant="mini" class="size-4 animate-spin" />
+                                        <flux:icon name="arrow-path" class="animate-spin" />
                                     </span>
                                 </flux:button>
 

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Concerns\ShowsToast;
 use Exception;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
@@ -15,6 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class TwoFactor extends Component
 {
+    use ShowsToast;
     #[Locked]
     public bool $twoFactorEnabled;
 
@@ -76,7 +78,7 @@ class TwoFactor extends Component
             $this->qrCodeSvg = $user?->twoFactorQrCodeSvg();
             $this->manualSetupKey = decrypt($user->two_factor_secret);
         } catch (Exception) {
-            $this->addError('setupData', 'Failed to fetch setup data.');
+            $this->toast(__('Failed to fetch setup data.'), 'danger');
 
             $this->reset('qrCodeSvg', 'manualSetupKey');
         }

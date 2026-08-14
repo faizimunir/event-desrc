@@ -51,10 +51,6 @@
                 <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
 
-            @error('rider_data')
-                <flux:callout variant="danger" class="rounded-lg text-sm">{{ $message }}</flux:callout>
-            @enderror
-
             <div class="flex justify-end gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                 <flux:modal.close>
                     <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>

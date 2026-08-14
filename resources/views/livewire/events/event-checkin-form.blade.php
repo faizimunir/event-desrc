@@ -1,15 +1,6 @@
 <div class="max-w-2xl space-y-6">
     @if ($scanSummary)
         <x-checkin-success-callout :summary="$scanSummary" />
-    @elseif ($scanMessage)
-        @php
-            $scanAlertVariant = match ($scanMessageType) {
-                'success' => 'success',
-                'error' => 'danger',
-                default => 'warning',
-            };
-        @endphp
-        <flux:callout :variant="$scanAlertVariant" class="rounded-lg">{{ $scanMessage }}</flux:callout>
     @endif
 
     <div class="flex flex-wrap items-end gap-3">

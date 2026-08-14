@@ -2,27 +2,34 @@
 
 namespace App\Livewire;
 
+use App\Concerns\ShowsToast;
+use Illuminate\Support\ViewErrorBag;
 use Livewire\Component;
 
 class FlashToast extends Component
 {
+    use ShowsToast;
+
     public function mount(): void
     {
         if (session()->has('status')) {
-            $this->dispatch('toast-show',
-                duration: 5000,
-                slots: ['text' => $this->statusMessage(session('status'))],
-                dataset: ['variant' => 'success'],
-            );
+            $this->toast($this->statusMessage(session('status')));
         }
 
         if (session()->has('error')) {
-            $this->dispatch('toast-show',
-                duration: 5000,
-                slots: ['text' => session('error')],
-                dataset: ['variant' => 'danger'],
-            );
+            $this->toast((string) session('error'), 'danger');
+        } elseif ($message = $this->firstValidationError()) {
+            $this->toast($message, 'danger');
         }
+
+        if (session()->has('checkin_success')) {
+            $this->toast($this->checkinSuccessMessage(session('checkin_success')));
+        }
+    }
+
+    public function render()
+    {
+        return view('livewire.flash-toast');
     }
 
     private function statusMessage(mixed $status): string
@@ -33,8 +40,32 @@ class FlashToast extends Component
         };
     }
 
-    public function render()
+    private function firstValidationError(): ?string
     {
-        return view('livewire.flash-toast');
+        $errors = session('errors');
+
+        if (! $errors instanceof ViewErrorBag || $errors->isEmpty()) {
+            return null;
+        }
+
+        $message = $errors->first();
+
+        return is_string($message) && $message !== '' ? $message : null;
+    }
+
+    private function checkinSuccessMessage(mixed $summary): string
+    {
+        if (! is_array($summary)) {
+            return __('Check-in recorded.');
+        }
+
+        $parts = array_filter([
+            $summary['name'] ?? null,
+            filled($summary['number_plate'] ?? null) ? '#'.$summary['number_plate'] : null,
+            $summary['teams'] ?? null,
+            $summary['bracket'] ?? null,
+        ]);
+
+        return $parts !== [] ? implode(' · ', $parts) : __('Check-in recorded.');
     }
 }

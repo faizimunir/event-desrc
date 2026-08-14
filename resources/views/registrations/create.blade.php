@@ -8,16 +8,6 @@
 
         <flux:heading>{{ __('Add registration') }} — {{ $event->title }}</flux:heading>
 
-        @if ($errors->isNotEmpty())
-            <flux:callout variant="danger" class="rounded-lg">
-                <ul class="list-disc list-inside text-sm space-y-1">
-                    @foreach ($errors->all() as $message)
-                        <li>{{ $message }}</li>
-                    @endforeach
-                </ul>
-            </flux:callout>
-        @endif
-
         <div class="max-w-xl rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 overflow-hidden">
             <form action="{{ route('events.registrations.store', $event) }}" method="post" class="p-6 space-y-4">
                 @csrf

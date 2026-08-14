@@ -126,10 +126,6 @@
     </div>
 
     <div class="users-hero-content">
-        @error('merge')
-            <flux:callout variant="danger" class="mb-3 mt-3">{{ $message }}</flux:callout>
-        @enderror
-
         <div class="flex items-center justify-between gap-3 py-3">
             <div class="min-w-0">
                 <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -306,9 +302,6 @@
                             </div>
                         </flux:field>
                     @endif
-                    @error('merge')
-                        <flux:callout variant="danger" size="sm">{{ $message }}</flux:callout>
-                    @enderror
                     <div class="flex justify-end gap-2">
                         <flux:modal.close>
                             <flux:button type="button" variant="filled">{{ __('Cancel') }}</flux:button>

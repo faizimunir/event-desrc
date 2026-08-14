@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Events;
 
+use App\Concerns\ShowsToast;
 use App\Models\Event;
 use App\Models\Registration;
 use App\Services\EventTicketCheckinScanService;
@@ -10,11 +11,9 @@ use Livewire\Component;
 
 class EventCheckinForm extends Component
 {
+    use ShowsToast;
+
     public Event $event;
-
-    public ?string $scanMessage = null;
-
-    public ?string $scanMessageType = null;
 
     /** @var ?array{name: string, number_plate: ?string, teams: ?string, bracket: ?string} */
     public ?array $scanSummary = null;
@@ -40,6 +39,10 @@ class EventCheckinForm extends Component
         $this->scanSummary = $result['summary'] ?? null;
         $this->event = $this->event->fresh();
         unset($this->registrationsAvailableForCheckin);
+
+        if ($result['type'] !== 'success' && filled($result['message'] ?? null)) {
+            $this->toast($result['message'], $result['type'] === 'error' ? 'danger' : 'warning');
+        }
     }
 
     /** Registrations that can be checked in (approved, no check-in yet). */
