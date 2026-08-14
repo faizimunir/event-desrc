@@ -131,18 +131,55 @@
                                     {{ implode(' · ', $metaParts) }}
                                 </p>
                             </div>
-
-                            @if ($canUpdate)
-                                <flux:icon
-                                    name="chevron-right"
-                                    variant="mini"
-                                    class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
-                                />
-                            @endif
                         @if ($canUpdate)
                             </a>
                         @else
                             </div>
+                        @endif
+
+                        @if ($sheetCount > 0)
+                            @canAs('manage_live_results')
+                                <form method="POST" action="{{ route('events.live-result-categories.sync', [$event, $category]) }}" class="shrink-0">
+                                    @csrf
+                                    <flux:button
+                                        type="submit"
+                                        variant="ghost"
+                                        icon="arrow-path"
+                                        square
+                                        class="!text-green-600 hover:!text-green-700 dark:!text-green-400"
+                                        :aria-label="__('Sync')"
+                                    />
+                                </form>
+
+                                <flux:dropdown position="bottom" align="end">
+                                    <flux:button
+                                        type="button"
+                                        variant="ghost"
+                                        icon="printer"
+                                        square
+                                        class="!text-orange-600 hover:!text-orange-700 dark:!text-orange-400"
+                                        :aria-label="__('Print')"
+                                    />
+                                    <flux:menu>
+                                        @foreach ($category->selected_sheets as $sheet)
+                                            <flux:menu.item
+                                                href="{{ route('events.live-result-categories.print', [$event, $category, 'round' => $sheet]) }}"
+                                                target="_blank"
+                                            >
+                                                {{ $sheet }}
+                                            </flux:menu.item>
+                                        @endforeach
+                                    </flux:menu>
+                                </flux:dropdown>
+                            @endcanAs
+                        @endif
+
+                        @if ($canUpdate)
+                            <flux:icon
+                                name="chevron-right"
+                                variant="mini"
+                                class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
+                            />
                         @endif
                     </div>
                 @endforeach
