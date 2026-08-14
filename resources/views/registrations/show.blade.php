@@ -355,13 +355,59 @@
                                 </p>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <flux:button variant="outline" size="sm" href="{{ $eTicketUrl }}" target="_blank" icon="arrow-top-right-on-square">
-                                        {{ __('Open e-ticket') }}
+                                        {{ __('E-ticket') }}
                                     </flux:button>
                                     @if ($canResendEticketWhatsapp)
+                                        <div
+                                            x-data="{
+                                                count: {{ (int) $ticket->manual_wa_send_count }},
+                                                loading: false,
+                                                async send() {
+                                                    if (this.loading) return;
+                                                    this.loading = true;
+                                                    const popup = window.open('about:blank', '_blank');
+                                                    try {
+                                                        const res = await fetch(@js(route('events.registrations.send-ticket-wa-me', [$event, $registration])), {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Accept': 'application/json',
+                                                                'X-CSRF-TOKEN': @js(csrf_token()),
+                                                                'X-Requested-With': 'XMLHttpRequest',
+                                                            },
+                                                        });
+                                                        const data = await res.json().catch(() => ({}));
+                                                        if (! res.ok) {
+                                                            popup?.close();
+                                                            alert(data.message || @js(__('Unable to open WhatsApp.')));
+                                                            return;
+                                                        }
+                                                        this.count = data.count ?? this.count + 1;
+                                                        if (data.url && popup) {
+                                                            popup.location = data.url;
+                                                        } else if (data.url) {
+                                                            window.location.href = data.url;
+                                                        } else {
+                                                            popup?.close();
+                                                        }
+                                                    } catch (e) {
+                                                        popup?.close();
+                                                        alert(@js(__('Unable to open WhatsApp.')));
+                                                    } finally {
+                                                        this.loading = false;
+                                                    }
+                                                }
+                                            }"
+                                            class="inline"
+                                        >
+                                            <flux:button type="button" variant="primary" color="green" size="sm" icon="chat-bubble-left-right" x-on:click="send()" x-bind:disabled="loading">
+                                                {{ __('Whatsapp') }}
+                                                <flux:badge color="zinc" size="xs" class="ml-1" x-text="count"></flux:badge>
+                                            </flux:button>
+                                        </div>
                                         <form action="{{ route('events.registrations.resend-ticket-whatsapp', [$event, $registration]) }}" method="post" class="inline" onsubmit="return confirm({{ json_encode(__('Send the e-ticket WhatsApp message again? It uses the same template as the first notification.')) }});">
                                             @csrf
-                                            <flux:button type="submit" variant="outline" size="sm" icon="chat-bubble-left-right">
-                                                {{ __('Resend e-ticket via WhatsApp') }}
+                                            <flux:button type="submit" variant="outline" size="sm" icon="paper-airplane">
+                                                {{ __('Resend e-ticket') }}
                                             </flux:button>
                                         </form>
                                     @endif

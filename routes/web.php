@@ -98,6 +98,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('events/{event}/registrations/{registration}/reopen-payment', [RegistrationController::class, 'reopenPayment'])->name('events.registrations.reopen-payment');
     Route::post('events/{event}/registrations/{registration}/generate-payment', [RegistrationController::class, 'generatePayment'])->name('events.registrations.generate-payment');
     Route::post('events/{event}/registrations/{registration}/resend-ticket-whatsapp', [RegistrationController::class, 'resendTicketWhatsapp'])->name('events.registrations.resend-ticket-whatsapp');
+    Route::post('events/{event}/registrations/{registration}/send-ticket-wa-me', [RegistrationController::class, 'sendTicketViaWaMe'])->name('events.registrations.send-ticket-wa-me');
     Route::post('events/{event}/registrations/{registration}/rider-user-whatsapp', [RegistrationController::class, 'updateRiderUserWhatsapp'])->name('events.registrations.update-rider-user-whatsapp');
     Route::post('events/{event}/registrations/{registration}/rider-data', [RegistrationController::class, 'updateRegistrationRider'])->name('events.registrations.update-rider-data');
     Route::post('events/{event}/registrations/{registration}/bracket', [RegistrationController::class, 'updateRegistrationBracket'])->name('events.registrations.update-bracket');

@@ -510,6 +510,36 @@ class RegistrationController extends Controller
     }
 
     /**
+     * Admin: catat klik tombol kirim tiket manual (wa.me) dan kembalikan URL.
+     */
+    public function sendTicketViaWaMe(Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        [$count, $url, $error] = TicketService::recordManualWaMeTicketClick($registration);
+        if ($error || ! $url) {
+            if (request()->wantsJson()) {
+                return response()->json(['message' => $error ?? __('Unable to open WhatsApp.')], 422);
+            }
+
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', $error ?? __('Unable to open WhatsApp.'));
+        }
+
+        if (request()->wantsJson()) {
+            return response()->json([
+                'url' => $url,
+                'count' => $count,
+            ]);
+        }
+
+        return redirect()->away($url);
+    }
+
+    /**
      * Admin: perbarui nomor WhatsApp akun user rider (dari halaman registrasi).
      */
     public function updateRiderUserWhatsapp(Request $request, Event $event, Registration $registration)

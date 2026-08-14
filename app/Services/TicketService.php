@@ -79,9 +79,53 @@ class TicketService
     }
 
     /**
+     * URL wa.me berisi pesan e-ticket (tanpa menambah click count).
+     *
+     * @return array{0: ?string, 1: ?string} [wa.me URL, error message]
+     */
+    public static function ticketWaMeUrl(Registration $registration): array
+    {
+        $registration->loadMissing(['ticket', 'rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
+        $ticket = $registration->ticket;
+        if (! $ticket) {
+            return [null, __('No e-ticket exists for this registration yet.')];
+        }
+
+        $user = $registration->rider?->user;
+        if (! $user?->whatsapp) {
+            return [null, __('This rider has no WhatsApp number on file.')];
+        }
+
+        $number = WhacenterService::normalizeWhatsApp($user->whatsapp);
+        $message = self::buildPaymentSuccessWhatsAppBody($registration, $ticket);
+        $url = 'https://wa.me/'.$number.'?text='.rawurlencode($message);
+
+        return [$url, null];
+    }
+
+    /**
+     * Naikkan click count tombol kirim tiket manual (wa.me).
+     *
+     * @return array{0: ?int, 1: ?string, 2: ?string} [count, wa.me URL, error]
+     */
+    public static function recordManualWaMeTicketClick(Registration $registration): array
+    {
+        [$url, $error] = self::ticketWaMeUrl($registration);
+        if ($error || ! $url) {
+            return [null, null, $error ?? __('Unable to open WhatsApp.')];
+        }
+
+        $ticket = $registration->ticket;
+        $ticket->increment('manual_wa_send_count');
+        $ticket->refresh();
+
+        return [(int) $ticket->manual_wa_send_count, $url, null];
+    }
+
+    /**
      * Isi teks WhatsApp untuk e-ticket (view `whatsapp.payment-success`).
      */
-    protected static function buildPaymentSuccessWhatsAppBody(Registration $registration, Ticket $ticket): string
+    public static function buildPaymentSuccessWhatsAppBody(Registration $registration, Ticket $ticket): string
     {
         $registration->loadMissing(['rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
         $user = $registration->rider?->user;

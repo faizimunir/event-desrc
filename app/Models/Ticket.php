@@ -11,7 +11,15 @@ class Ticket extends Model
     protected $fillable = [
         'registration_id',
         'ticket_code',
+        'manual_wa_send_count',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'manual_wa_send_count' => 'integer',
+        ];
+    }
 
     protected static function booted(): void
     {

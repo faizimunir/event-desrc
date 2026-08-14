@@ -50,13 +50,42 @@ class WhacenterService
         $baseUrl = rtrim(config('services.whacenter.base_url', 'https://app.whacenter.com'), '/');
         $url = $baseUrl.'/api/send';
 
-        $response = Http::asForm()->post($url, [
-            'device_id' => $deviceId,
+        try {
+            $response = Http::asForm()
+                ->timeout(30)
+                ->post($url, [
+                    'device_id' => $deviceId,
+                    'number' => $normalized,
+                    'message' => $message,
+                ]);
+        } catch (\Throwable $e) {
+            Log::error('Whacenter: HTTP request failed', [
+                'number' => $normalized,
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        if (! $response->successful()) {
+            Log::warning('Whacenter: API non-success', [
+                'number' => $normalized,
+                'url' => $url,
+                'status' => $response->status(),
+                'body' => Str::limit($response->body(), 500),
+            ]);
+
+            return false;
+        }
+
+        Log::info('Whacenter: API ok', [
             'number' => $normalized,
-            'message' => $message,
+            'status' => $response->status(),
+            'body' => Str::limit($response->body(), 300),
         ]);
 
-        return $response->successful();
+        return true;
     }
 
     /**
