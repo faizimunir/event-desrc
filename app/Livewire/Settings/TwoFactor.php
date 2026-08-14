@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 class TwoFactor extends Component
 {
     use ShowsToast;
+
     #[Locked]
     public bool $twoFactorEnabled;
 

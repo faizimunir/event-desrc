@@ -54,9 +54,6 @@
         <flux:icon name="arrow-path" class="size-4 animate-spin" />
         <span>{{ __('Mengambil daftar sheet...') }}</span>
     </div>
-    <div id="fetch-error" class="hidden">
-        <flux:callout variant="danger" class="rounded-lg"><span id="fetch-error-text"></span></flux:callout>
-    </div>
 
     <div id="sheets-container" class="{{ $selectedSheets !== [] ? '' : 'hidden' }}">
         <flux:label class="mb-2 block">{{ __('Pilih sheet yang akan ditampilkan (round):') }}</flux:label>
@@ -91,23 +88,30 @@ document.addEventListener('DOMContentLoaded', function() {
     const fetchBtn = document.getElementById('fetch-sheets-btn');
     const spreadsheetInput = document.getElementById('spreadsheet_id');
     const loadingEl = document.getElementById('fetch-loading');
-    const errorEl = document.getElementById('fetch-error');
-    const errorText = document.getElementById('fetch-error-text');
     const container = document.getElementById('sheets-container');
     const checkboxesEl = document.getElementById('sheets-checkboxes');
     const previouslySelected = @json($selectedSheets);
 
     if (!fetchBtn || !spreadsheetInput) return;
 
+    const toast = function(text, variant) {
+        if (window.Livewire) {
+            Livewire.dispatch('toast-show', {
+                duration: 5000,
+                slots: { text: text },
+                dataset: { variant: variant },
+            });
+        }
+    };
+
     fetchBtn.addEventListener('click', function() {
         const spreadsheetId = spreadsheetInput.value.trim();
         if (!spreadsheetId) {
-            alert(@json(__('Silakan masukkan Spreadsheet ID terlebih dahulu')));
+            toast(@json(__('Silakan masukkan Spreadsheet ID terlebih dahulu')), 'danger');
             return;
         }
 
         loadingEl?.classList.remove('hidden');
-        errorEl?.classList.add('hidden');
         fetchBtn.disabled = true;
 
         fetch(@json(route('events.live-result-categories.fetch-sheets', $event)), {
@@ -143,15 +147,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
                 container?.classList.remove('hidden');
             } else {
-                errorText.textContent = data.error || @json(__('Tidak ada sheet ditemukan di spreadsheet ini.'));
-                errorEl?.classList.remove('hidden');
+                toast(data.error || @json(__('Tidak ada sheet ditemukan di spreadsheet ini.')), 'danger');
             }
         })
         .catch(function() {
             loadingEl?.classList.add('hidden');
             fetchBtn.disabled = false;
-            errorText.textContent = @json(__('Terjadi kesalahan saat mengambil data.'));
-            errorEl?.classList.remove('hidden');
+            toast(@json(__('Terjadi kesalahan saat mengambil data.')), 'danger');
         });
     });
 });

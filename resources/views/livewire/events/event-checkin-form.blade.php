@@ -1,8 +1,4 @@
 <div class="max-w-2xl space-y-6">
-    @if ($scanSummary)
-        <x-checkin-success-callout :summary="$scanSummary" />
-    @endif
-
     <div class="flex flex-wrap items-end gap-3">
         @php
             $scannerRegionId = 'event-checkin-scanner-' . $event->id;

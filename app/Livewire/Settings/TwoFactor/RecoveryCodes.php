@@ -11,6 +11,7 @@ use Livewire\Component;
 class RecoveryCodes extends Component
 {
     use ShowsToast;
+
     #[Locked]
     public array $recoveryCodes = [];
 

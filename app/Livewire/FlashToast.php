@@ -44,7 +44,7 @@ class FlashToast extends Component
     {
         $errors = session('errors');
 
-        if (! $errors instanceof ViewErrorBag || $errors->isEmpty()) {
+        if (! $errors instanceof ViewErrorBag || ! $errors->any()) {
             return null;
         }
 
