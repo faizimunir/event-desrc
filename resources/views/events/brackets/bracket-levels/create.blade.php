@@ -4,7 +4,7 @@
             <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.brackets.index', $event)" wire:navigate>{{ __('Brackets') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item :href="route('events.show', [$event, 'tab' => 'brackets'])" wire:navigate>{{ __('Brackets') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('events.brackets.bracket-levels.index', [$event, $bracket])" wire:navigate>{{ $bracket->name }} — {{ __('Levels') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>{{ __('Add Bracket Level') }}</flux:breadcrumbs.item>
         </flux:breadcrumbs>

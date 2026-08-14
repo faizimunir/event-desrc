@@ -24,6 +24,9 @@ class EventRegistrationsList extends Component
     /** @var list<string> Bracket IDs (from pillbox) */
     public array $bracketFilter = [];
 
+    /** @var list<int|string> */
+    public array $selectedRegistrationIds = [];
+
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
@@ -34,21 +37,25 @@ class EventRegistrationsList extends Component
 
     public function updatedSearch(): void
     {
+        $this->selectedRegistrationIds = [];
         $this->resetPage();
     }
 
     public function updatedStatusFilter(): void
     {
+        $this->selectedRegistrationIds = [];
         $this->resetPage();
     }
 
     public function updatedPaymentStatusFilter(): void
     {
+        $this->selectedRegistrationIds = [];
         $this->resetPage();
     }
 
     public function updatedBracketFilter(): void
     {
+        $this->selectedRegistrationIds = [];
         $this->resetPage();
     }
 
@@ -58,6 +65,7 @@ class EventRegistrationsList extends Component
         $this->statusFilter = [];
         $this->paymentStatusFilter = [];
         $this->bracketFilter = [];
+        $this->selectedRegistrationIds = [];
         $this->resetPage();
     }
 
@@ -117,18 +125,27 @@ class EventRegistrationsList extends Component
         return route('events.registrations.export', $this->event).(empty($params) ? '' : '?'.http_build_query($params));
     }
 
-    public function deleteRegistration(int $registrationId): void
+    public function deleteSelectedRegistrations(): void
     {
         auth()->user()->authorizeAs('registration.delete');
 
-        $registration = Registration::query()
-            ->where('id', $registrationId)
+        $ids = array_values(array_unique(array_map('intval', $this->selectedRegistrationIds)));
+
+        if ($ids === []) {
+            return;
+        }
+
+        $deleted = Registration::query()
             ->where('event_id', $this->event->id)
-            ->firstOrFail();
+            ->whereIn('id', $ids)
+            ->delete();
 
-        $registration->delete();
+        $this->selectedRegistrationIds = [];
 
-        session()->flash('status', __('Registration deleted.'));
+        session()->flash(
+            'status',
+            trans_choice(':count registration deleted.|:count registrations deleted.', $deleted, ['count' => $deleted])
+        );
     }
 
     public function render()

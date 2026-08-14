@@ -8,13 +8,6 @@ use Illuminate\Http\Request;
 
 class BracketController extends Controller
 {
-    public function index(Event $event)
-    {
-        abort_unless(auth()->user()->canAs('bracket.read'), 403);
-
-        return view('events.brackets.index', compact('event'));
-    }
-
     public function create(Event $event)
     {
         abort_unless(auth()->user()->canAs('bracket.create'), 403);
@@ -55,7 +48,7 @@ class BracketController extends Controller
         $validated['hide_quota'] = $request->boolean('hide_quota');
         $event->brackets()->create($validated);
 
-        return redirect()->route('events.brackets.index', $event)->with('status', __('Bracket created.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket created.'));
     }
 
     public function edit(Event $event, Bracket $bracket)
@@ -102,7 +95,7 @@ class BracketController extends Controller
         $validated['hide_quota'] = $request->boolean('hide_quota');
         $bracket->update($validated);
 
-        return redirect()->route('events.brackets.index', $event)->with('status', __('Bracket updated.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket updated.'));
     }
 
     public function destroy(Event $event, Bracket $bracket)
@@ -113,7 +106,7 @@ class BracketController extends Controller
 
         $bracket->delete();
 
-        return redirect()->route('events.brackets.index', $event)->with('status', __('Bracket deleted.'));
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket deleted.'));
     }
 
     private function normalizeBracketRules(array $validated): array

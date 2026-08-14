@@ -1,18 +1,107 @@
-<x-layouts::app :title="$event->title">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <flux:breadcrumbs class="mb-2">
-            <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ $event->title }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-        <div class="flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-                <flux:button variant="ghost" size="sm" :href="route('events.index')" wire:navigate icon="arrow-left">
-                    {{ __('Back') }}
-                </flux:button>
+<x-layouts::app :title="$event->title" :unified-header="true">
+    <div class="flex h-full w-full flex-1 flex-col">
+        <div class="users-hero-shell relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4">
+            <div class="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl" aria-hidden="true"></div>
+
+            <div class="relative space-y-3 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4 lg:space-y-3.5 lg:pt-4">
+                <div class="flex items-center gap-2.5 lg:hidden">
+                    <flux:sidebar.toggle
+                        icon="bars-2"
+                        inset="left"
+                        class="!size-9 !rounded-xl !border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                    />
+
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-xs text-orange-100/80">
+                            {{ __('Events') }}
+                        </p>
+                        <h1 class="truncate text-sm font-semibold text-white">
+                            {{ $event->title }}
+                        </h1>
+                    </div>
+
+                    <flux:dropdown position="bottom" align="end">
+                        <button
+                            type="button"
+                            class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-xs font-semibold text-white transition hover:bg-white/25"
+                            aria-label="{{ __('Account menu') }}"
+                        >
+                            {{ auth()->user()->initials() }}
+                        </button>
+
+                        @include('partials.mobile-user-menu')
+                    </flux:dropdown>
+                </div>
+
+                <div class="hidden items-center justify-between gap-3 lg:flex">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-100/90">
+                            {{ __('Events') }}
+                        </p>
+                        <h1 class="truncate text-xl font-semibold tracking-tight text-white">
+                            {{ $event->title }}
+                        </h1>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                        <flux:button
+                            variant="ghost"
+                            size="sm"
+                            :href="route('events.index')"
+                            wire:navigate
+                            icon="arrow-left"
+                            class="!border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                        >
+                            {{ __('Back') }}
+                        </flux:button>
+
+                        @canAs('event.update')
+                            @can('update', $event)
+                                <flux:button
+                                    variant="primary"
+                                    size="sm"
+                                    :href="route('events.edit', $event)"
+                                    wire:navigate
+                                    icon="pencil"
+                                    class="!border-0 !bg-white !text-orange-600 shadow-sm hover:!bg-orange-50"
+                                >
+                                    {{ __('Edit Event') }}
+                                </flux:button>
+                            @endcan
+                        @endcanAs
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 lg:hidden">
+                    <flux:button
+                        variant="ghost"
+                        size="sm"
+                        :href="route('events.index')"
+                        wire:navigate
+                        icon="arrow-left"
+                        class="users-hero-action shrink-0"
+                        :aria-label="__('Back')"
+                    />
+
+                    @canAs('event.update')
+                        @can('update', $event)
+                            <flux:button
+                                variant="primary"
+                                size="sm"
+                                :href="route('events.edit', $event)"
+                                wire:navigate
+                                icon="pencil"
+                                class="min-w-0 flex-1 !border-0 !bg-white !text-orange-600 shadow-sm hover:!bg-orange-50"
+                            >
+                                {{ __('Edit Event') }}
+                            </flux:button>
+                        @endcan
+                    @endcanAs
+                </div>
             </div>
         </div>
 
+        <div class="users-hero-content flex flex-1 flex-col gap-4 pt-4">
         <flux:tab.group>
             <flux:tabs variant="segmented" scrollable scrollable:fade>
                 <flux:tab name="overview" :selected="$firstTab === 'overview'" icon="list-bullet">{{ __('Overview') }}</flux:tab>
@@ -35,21 +124,14 @@
                     <flux:tab name="checkin" :selected="$firstTab === 'checkin'" icon="check-badge">{{ __('Check-in') }}</flux:tab>
                 @endcanAs
                 @canAs('manage_live_results')
-                    <flux:tab name="live-result" :selected="$firstTab === 'live-result'" icon="chart-bar">{{ __('Kelola Live Result') }}</flux:tab>
+                    <flux:tab name="live-result" :selected="$firstTab === 'live-result'" icon="chart-bar">{{ __('Live Result') }}</flux:tab>
                 @endcanAs
             </flux:tabs>
 
             <flux:tab.panel name="overview" :selected="$firstTab === 'overview'">
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-[30%_1fr]">
                     <div class="lg:min-w-0">
-                        @canAs('event.update')
-                            @can('update', $event)
-                                <flux:button class="w-full" variant="primary" :href="route('events.edit', $event)" wire:navigate icon="pencil">
-                                    {{ __('Edit Event') }}
-                                </flux:button>
-                            @endcan
-                        @endcanAs
-                        <div class="mt-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 lg:sticky lg:top-4">
+                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 lg:sticky lg:top-4">
                             @if ($event->posterUrl())
                                 <img src="{{ $event->posterUrl() }}" alt="{{ $event->title }}" class="w-full rounded-lg object-contain" />
                             @else
@@ -223,13 +305,6 @@
 
             @canAs('bracket.read')
                 <flux:tab.panel name="brackets" :selected="$firstTab === 'brackets'">
-                    <div class="flex flex-wrap items-center gap-2 mb-4">
-                        @canAs('bracket.create')
-                            <flux:button variant="primary" :href="route('events.brackets.create', $event)" wire:navigate icon="plus">
-                                {{ __('Add Bracket') }}
-                            </flux:button>
-                        @endcanAs
-                    </div>
                     <livewire:brackets.bracket-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
@@ -347,5 +422,6 @@
                 </flux:tab.panel>
             @endcanAs
         </flux:tab.group>
+        </div>
     </div>
 </x-layouts::app>

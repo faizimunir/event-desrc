@@ -4,11 +4,11 @@
             <flux:breadcrumbs.item :href="route('dashboard')">{{ __('Dashboard') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('events.index')" wire:navigate>{{ __('Events') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('events.show', $event)" wire:navigate>{{ $event->title }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item :href="route('events.brackets.index', $event)" wire:navigate>{{ __('Brackets') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item :href="route('events.show', [$event, 'tab' => 'brackets'])" wire:navigate>{{ __('Brackets') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>{{ $bracket->name }} — {{ __('Edit') }}</flux:breadcrumbs.item>
         </flux:breadcrumbs>
         <div class="flex items-center gap-2">
-            <flux:button variant="ghost" size="sm" :href="route('events.brackets.index', $event)" wire:navigate icon="arrow-left">
+            <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'brackets'])" wire:navigate icon="arrow-left">
                 {{ __('Back') }}
             </flux:button>
         </div>
@@ -86,7 +86,7 @@
 
             <div class="flex flex-wrap items-center gap-2">
                 <flux:button variant="primary" type="submit">{{ __('Update Bracket') }}</flux:button>
-                <flux:button variant="ghost" :href="route('events.brackets.index', $event)" wire:navigate>{{ __('Cancel') }}</flux:button>
+                <flux:button variant="ghost" :href="route('events.show', [$event, 'tab' => 'brackets'])" wire:navigate>{{ __('Cancel') }}</flux:button>
             </div>
         </form>
         @canAs('bracket.delete')

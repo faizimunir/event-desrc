@@ -64,7 +64,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['show', 'store', 'update'])->scoped();
     Route::resource('events.tracks', TrackController::class)->except(['show'])->scoped();
-    Route::resource('events.brackets', BracketController::class)->except(['show'])->scoped();
+    Route::resource('events.brackets', BracketController::class)->except(['show', 'index'])->scoped();
     Route::resource('events.brackets.bracket-levels', BracketLevelController::class)->except(['show'])->scoped();
     Route::get('events/{event}/registrations/create', [RegistrationController::class, 'create'])->name('events.registrations.create');
     Route::get('events/{event}/registrations/export', [RegistrationController::class, 'export'])->name('events.registrations.export');
