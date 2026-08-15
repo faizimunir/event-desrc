@@ -196,7 +196,23 @@ class LiveResultCategoryList extends Component
             ->orderedByRundown()
             ->get();
 
-        return LiveResultCategory::groupByRundown($this->event, $categories);
+        $groups = LiveResultCategory::groupByRundown($this->event, $categories, includeEmptyRundowns: true);
+
+        if ($this->search !== '') {
+            $term = mb_strtolower($this->search);
+            $groups = $groups->filter(function (array $group) use ($term) {
+                if ($group['categories']->isNotEmpty()) {
+                    return true;
+                }
+
+                $header = mb_strtolower((string) ($group['header'] ?? ''));
+                $title = mb_strtolower((string) ($group['rundown']?->title ?? ''));
+
+                return str_contains($header, $term) || str_contains($title, $term);
+            })->values();
+        }
+
+        return $groups;
     }
 
     public function render()

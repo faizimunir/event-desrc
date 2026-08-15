@@ -86,15 +86,19 @@ class LiveResultCategory extends Model
      * Group categories under rundown spacers (time + label).
      *
      * @param  Collection<int, self>  $categories
-     * @return Collection<int, array{key: string, header: ?string, categories: Collection<int, self>}>
+     * @return Collection<int, array{key: string, header: ?string, rundown: ?Rundown, categories: Collection<int, self>}>
      */
-    public static function groupByRundown(Event $event, Collection $categories): Collection
+    public static function groupByRundown(Event $event, Collection $categories, bool $includeEmptyRundowns = false): Collection
     {
-        if ($categories->isEmpty()) {
+        $rundowns = $event->rundowns()->with(['brackets', 'event'])->get();
+
+        if ($categories->isEmpty() && ! $includeEmptyRundowns) {
             return collect();
         }
 
-        $rundowns = $event->rundowns()->with(['brackets', 'event'])->get();
+        if ($categories->isEmpty() && $includeEmptyRundowns && $rundowns->isEmpty()) {
+            return collect();
+        }
 
         /** @var array<int, Rundown> $bracketToRundown */
         $bracketToRundown = [];
@@ -126,7 +130,7 @@ class LiveResultCategory extends Model
                 ])
                 ->values();
 
-            if ($groupCategories->isEmpty()) {
+            if ($groupCategories->isEmpty() && ! $includeEmptyRundowns) {
                 continue;
             }
 

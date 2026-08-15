@@ -441,7 +441,11 @@ select:focus[data-flux-control] {
 }
 
 .live-result-chip {
-    @apply flex min-h-11 w-full cursor-pointer appearance-none items-center justify-center rounded-xl border border-zinc-200/80 bg-white px-2.5 py-2.5 text-center text-sm font-semibold leading-snug text-zinc-700 transition-all duration-200 hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-sm disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800;
+    @apply flex min-h-12 w-full cursor-pointer appearance-none items-center justify-center rounded-xl border border-zinc-200/80 bg-white px-3 py-3 text-center text-sm font-semibold leading-snug text-zinc-700 transition-all duration-200 hover:-translate-y-px hover:border-zinc-300 hover:bg-zinc-50 hover:shadow-sm disabled:cursor-wait disabled:opacity-60 dark:border-zinc-700/80 dark:bg-zinc-800/40 dark:text-zinc-200 dark:hover:border-zinc-600 dark:hover:bg-zinc-800;
+}
+
+.live-result-chip--block {
+    @apply min-h-12 sm:min-h-14;
 }
 
 .live-result-chip--active {

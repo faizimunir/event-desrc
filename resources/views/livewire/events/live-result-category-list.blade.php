@@ -293,7 +293,7 @@
                         @endif
 
                         <div class="users-list-panel !rounded-none !border-0 !bg-transparent dark:!bg-transparent">
-                            @foreach ($group['categories'] as $category)
+                            @forelse ($group['categories'] as $category)
                                 @php
                                     $canUpdate = auth()->user()->canAs('manage_live_results') && auth()->user()->can('update', $event);
                                     $sheetCount = is_array($category->selected_sheets) ? count($category->selected_sheets) : 0;
@@ -395,7 +395,11 @@
                                         />
                                     @endif
                                 </div>
-                            @endforeach
+                            @empty
+                                <div class="px-4 py-4 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Di luar lomba — tidak ada kategori live result.') }}
+                                </div>
+                            @endforelse
                         </div>
                     </div>
                 @endforeach

@@ -4,6 +4,7 @@ namespace App\Livewire;
 
 use App\Models\Event;
 use App\Models\LiveResultCategory;
+use App\Models\Rundown;
 use App\Services\GoogleSheetsService;
 use App\Services\LiveResultSheetParser;
 use Illuminate\Contracts\View\View;
@@ -42,21 +43,20 @@ class LiveResultPanel extends Component
         $this->round = $round;
     }
 
-    public function checkForUpdates(): void
+    /** Refresh board + sheet data when sync version changes. */
+    public function tick(): void
     {
         $version = $this->resolveVersion();
 
-        if ($this->knownVersion === $version) {
-            $this->skipRender();
-
-            return;
+        if ($this->knownVersion !== $version) {
+            $this->knownVersion = $version;
         }
-
-        $this->knownVersion = $version;
     }
 
     public function render(GoogleSheetsService $googleSheetsService): View
     {
+        $now = now();
+
         $categories = LiveResultCategory::where('event_id', $this->event->id)
             ->where('is_active', true)
             ->whereNotNull('selected_sheets')
@@ -77,12 +77,36 @@ class LiveResultPanel extends Component
             }
         }
 
+        $summary = [
+            'live' => 0,
+            'due' => 0,
+            'overdue' => 0,
+            'delayed' => 0,
+            'ontime' => 0,
+            'upcoming' => 0,
+        ];
+
+        foreach ($categoryGroups as $group) {
+            /** @var Rundown|null $rundown */
+            $rundown = $group['rundown'] ?? null;
+            if (! $rundown) {
+                continue;
+            }
+            $status = $rundown->monitorStatus($now);
+            if (array_key_exists($status, $summary)) {
+                $summary[$status]++;
+            }
+        }
+
         return view('livewire.live-result-panel', [
             'categories' => $categories,
             'categoryGroups' => $categoryGroups,
             'selectedCategory' => $selectedCategory,
             'selectedRound' => $this->round,
             'sheetData' => $sheetData,
+            'now' => $now,
+            'clockIso' => $now->toIso8601String(),
+            'monitorSummary' => $summary,
         ]);
     }
 
