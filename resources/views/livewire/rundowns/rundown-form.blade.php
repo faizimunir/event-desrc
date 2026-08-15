@@ -130,41 +130,24 @@
             <div>
                 <flux:label>{{ __('Bracket sort order') }}</flux:label>
                 <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ __('Urutan tampil mengikuti arah baca: kiri → kanan, lalu baris berikutnya (atas → bawah). Angka lebih kecil muncul lebih dulu.') }}
+                    {{ __('Lower numbers appear first in the rundown label and live result list.') }}
                 </p>
             </div>
-
-            <div class="rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
-                <p class="mb-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
-                    {{ __('Preview tampilan') }}
-                </p>
-                <div class="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    @foreach ($selectedBrackets as $index => $bracket)
-                        <div class="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-800/50">
-                            <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-orange-500 text-[11px] font-bold text-white">
-                                {{ $index + 1 }}
-                            </span>
-                            <span class="min-w-0 truncate font-medium text-zinc-800 dark:text-zinc-100">{{ $bracket->name }}</span>
+            <div class="space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                @foreach ($selectedBrackets as $bracket)
+                    <div wire:key="bracket-order-{{ $bracket->id }}" class="flex items-center gap-3">
+                        <div class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ $bracket->name }}
                         </div>
-                    @endforeach
-                </div>
-
-                <div class="space-y-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                    @foreach ($selectedBrackets as $bracket)
-                        <div wire:key="bracket-order-{{ $bracket->id }}" class="flex items-center gap-3">
-                            <div class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                                {{ $bracket->name }}
-                            </div>
-                            <flux:input
-                                wire:model.live="bracketOrders.{{ $bracket->id }}"
-                                type="number"
-                                min="0"
-                                class="w-24!"
-                                :aria-label="__('Sort order for :name', ['name' => $bracket->name])"
-                            />
-                        </div>
-                    @endforeach
-                </div>
+                        <flux:input
+                            wire:model="bracketOrders.{{ $bracket->id }}"
+                            type="number"
+                            min="0"
+                            class="w-24!"
+                            :aria-label="__('Sort order for :name', ['name' => $bracket->name])"
+                        />
+                    </div>
+                @endforeach
             </div>
             @error('bracketOrders')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
