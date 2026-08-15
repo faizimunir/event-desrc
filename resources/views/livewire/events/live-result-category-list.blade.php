@@ -101,14 +101,80 @@
         @else
             <div class="space-y-4" wire:key="live-result-groups">
                 @foreach ($this->categoryGroups as $group)
+                    @php
+                        /** @var \App\Models\Rundown|null $rundown */
+                        $rundown = $group['rundown'] ?? null;
+                        $timingStatus = $rundown?->timingStatus();
+                        $actualRange = $rundown?->formattedActualTimeRange();
+                    @endphp
                     <div wire:key="live-result-group-{{ $group['key'] }}" class="space-y-2">
                         @if ($group['header'])
-                            <div class="flex items-center gap-3 px-1">
-                                <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
-                                <p class="shrink-0 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                    {{ $group['header'] }}
-                                </p>
-                                <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+                            <div class="flex flex-wrap items-center gap-2 px-1">
+                                <div class="flex min-w-0 flex-1 items-center gap-3">
+                                    <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+                                    <div class="shrink-0 text-center">
+                                        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                            {{ $group['header'] }}
+                                        </p>
+                                        @if ($actualRange)
+                                            <p class="mt-0.5 text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
+                                                {{ __('Actual') }}: {{ $actualRange }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+                                </div>
+
+                                @if ($rundown)
+                                    <div class="flex shrink-0 items-center gap-1.5">
+                                        @if ($timingStatus && $timingStatus !== \App\Models\Rundown::TIMING_PENDING)
+                                            @php
+                                                $badgeClass = match ($timingStatus) {
+                                                    \App\Models\Rundown::TIMING_LIVE => 'bg-green-500/10 text-green-600 dark:bg-green-500/15 dark:text-green-400',
+                                                    \App\Models\Rundown::TIMING_ONTIME => 'bg-sky-500/10 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+                                                    \App\Models\Rundown::TIMING_DELAYED => 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
+                                                    default => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
+                                                };
+                                            @endphp
+                                            <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $badgeClass }}">
+                                                {{ $rundown->timingStatusLabel() }}
+                                            </span>
+                                        @endif
+
+                                        @canAs('manage_live_results')
+                                            @can('update', $event)
+                                                @if ($rundown->isPlaying())
+                                                    <flux:button
+                                                        type="button"
+                                                        variant="danger"
+                                                        size="sm"
+                                                        icon="stop"
+                                                        wire:click="stopRundown({{ $rundown->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="stopRundown({{ $rundown->id }})"
+                                                    >
+                                                        {{ __('Stop') }}
+                                                    </flux:button>
+                                                @else
+                                                    <flux:button
+                                                        type="button"
+                                                        variant="primary"
+                                                        size="sm"
+                                                        icon="play"
+                                                        wire:click="playRundown({{ $rundown->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="playRundown({{ $rundown->id }})"
+                                                        @if ($rundown->isCompleted())
+                                                            wire:confirm="{{ __('Start this rundown again? Previous actual times will be replaced.') }}"
+                                                        @endif
+                                                    >
+                                                        {{ __('Play') }}
+                                                    </flux:button>
+                                                @endif
+                                            @endcan
+                                        @endcanAs
+                                    </div>
+                                @endif
                             </div>
                         @endif
 

@@ -94,7 +94,7 @@ class LiveResultCategory extends Model
             return collect();
         }
 
-        $rundowns = $event->rundowns()->with('brackets')->get();
+        $rundowns = $event->rundowns()->with(['brackets', 'event'])->get();
 
         /** @var array<int, Rundown> $bracketToRundown */
         $bracketToRundown = [];
@@ -135,6 +135,7 @@ class LiveResultCategory extends Model
             $groups->push([
                 'key' => 'rundown-'.$rundown->id,
                 'header' => $rundown->formattedTimeRange().' '.$rundown->displayLabel(),
+                'rundown' => $rundown,
                 'categories' => $groupCategories,
             ]);
         }
@@ -145,6 +146,7 @@ class LiveResultCategory extends Model
             $groups->push([
                 'key' => 'other',
                 'header' => $groups->isNotEmpty() ? __('Lainnya') : null,
+                'rundown' => null,
                 'categories' => $ungrouped,
             ]);
         }

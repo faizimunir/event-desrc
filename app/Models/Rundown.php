@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,6 +14,14 @@ class Rundown extends Model
 {
     use HasFactory;
 
+    public const TIMING_PENDING = 'pending';
+
+    public const TIMING_LIVE = 'live';
+
+    public const TIMING_ONTIME = 'ontime';
+
+    public const TIMING_DELAYED = 'delayed';
+
     protected $table = 'event_rundowns';
 
     protected $fillable = [
@@ -20,7 +29,17 @@ class Rundown extends Model
         'start_time',
         'end_time',
         'title',
+        'actual_started_at',
+        'actual_ended_at',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'actual_started_at' => 'datetime',
+            'actual_ended_at' => 'datetime',
+        ];
+    }
 
     public function event(): BelongsTo
     {
@@ -44,6 +63,18 @@ class Rundown extends Model
     public function formattedTimeRange(): string
     {
         return $this->formatTime($this->start_time).' - '.$this->formatTime($this->end_time);
+    }
+
+    public function formattedActualTimeRange(): ?string
+    {
+        if (! $this->actual_started_at) {
+            return null;
+        }
+
+        $start = $this->formatTime($this->actual_started_at);
+        $end = $this->actual_ended_at ? $this->formatTime($this->actual_ended_at) : '…';
+
+        return $start.' - '.$end;
     }
 
     /** Label for schedule display: custom title, or compacted bracket names (by sort order). */
@@ -71,10 +102,6 @@ class Rundown extends Model
 
     /**
      * Shorten bracket labels that share year + gender patterns.
-     *
-     * Examples:
-     * - 2018 Boys, 2018 Girls → 2018 Boys & Girls
-     * - 2018 Boys, 2018 Girls, 2019 Boys, 2019 Girls → 2018 - 2019 Boys & Girls
      *
      * @param  Collection<int, string>|array<int, string>  $names
      */
@@ -133,7 +160,6 @@ class Rundown extends Model
             }
         }
 
-        // Only compact when every year×gender combination exists (rectangular set).
         if ($pairs->count() !== $expected->count() || $pairs->diff($expected)->isNotEmpty()) {
             return $names->implode(' & ');
         }
@@ -175,5 +201,114 @@ class Rundown extends Model
     public function timeInputValue(mixed $time): string
     {
         return Carbon::parse($time)->format('H:i');
+    }
+
+    public function scheduledStartAt(): ?CarbonInterface
+    {
+        return $this->scheduleDateTime($this->start_time);
+    }
+
+    public function scheduledEndAt(): ?CarbonInterface
+    {
+        return $this->scheduleDateTime($this->end_time);
+    }
+
+    protected function scheduleDateTime(mixed $time): ?CarbonInterface
+    {
+        if ($time === null || $time === '') {
+            return null;
+        }
+
+        $this->loadMissing('event');
+        $clock = Carbon::parse($time);
+
+        if ($this->event?->start_at) {
+            return $this->event->start_at->copy()->setTime(
+                $clock->hour,
+                $clock->minute,
+                $clock->second
+            );
+        }
+
+        return now()->copy()->setTime(
+            $clock->hour,
+            $clock->minute,
+            $clock->second
+        );
+    }
+
+    public function isPlaying(): bool
+    {
+        return $this->actual_started_at !== null && $this->actual_ended_at === null;
+    }
+
+    public function isCompleted(): bool
+    {
+        return $this->actual_started_at !== null && $this->actual_ended_at !== null;
+    }
+
+    public function isStartDelayed(): bool
+    {
+        $scheduled = $this->scheduledStartAt();
+
+        return $scheduled !== null
+            && $this->actual_started_at !== null
+            && $this->actual_started_at->gt($scheduled);
+    }
+
+    public function isEndDelayed(): bool
+    {
+        $scheduled = $this->scheduledEndAt();
+
+        return $scheduled !== null
+            && $this->actual_ended_at !== null
+            && $this->actual_ended_at->gt($scheduled);
+    }
+
+    /** Overall timing status vs schedule: pending, live, ontime, delayed. */
+    public function timingStatus(): string
+    {
+        if (! $this->actual_started_at) {
+            return self::TIMING_PENDING;
+        }
+
+        if (! $this->actual_ended_at) {
+            return self::TIMING_LIVE;
+        }
+
+        if ($this->isStartDelayed() || $this->isEndDelayed()) {
+            return self::TIMING_DELAYED;
+        }
+
+        return self::TIMING_ONTIME;
+    }
+
+    public function timingStatusLabel(): string
+    {
+        return match ($this->timingStatus()) {
+            self::TIMING_LIVE => __('Live'),
+            self::TIMING_ONTIME => __('Ontime'),
+            self::TIMING_DELAYED => __('Delayed'),
+            default => __('Pending'),
+        };
+    }
+
+    public function play(): void
+    {
+        $this->forceFill([
+            'actual_started_at' => now(),
+            'actual_ended_at' => null,
+        ])->save();
+    }
+
+    public function stop(): void
+    {
+        if (! $this->actual_started_at) {
+            return;
+        }
+
+        $this->forceFill([
+            'actual_ended_at' => now(),
+        ])->save();
     }
 }

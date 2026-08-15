@@ -4,6 +4,7 @@ namespace App\Livewire\Events;
 
 use App\Models\Event;
 use App\Models\LiveResultCategory;
+use App\Models\Rundown;
 use App\Services\LiveResultSyncService;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -68,6 +69,37 @@ class LiveResultCategoryList extends Component
         $this->js('setTimeout(() => $wire.clearSyncedState(), 700)');
     }
 
+    public function playRundown(int $rundownId): void
+    {
+        $this->authorizeSync();
+
+        $rundown = $this->findEventRundown($rundownId);
+        $rundown->play();
+
+        unset($this->categoryGroups, $this->categoryTotal);
+        $this->toast(__('Rundown started.'));
+    }
+
+    public function stopRundown(int $rundownId): void
+    {
+        $this->authorizeSync();
+
+        $rundown = $this->findEventRundown($rundownId);
+
+        if (! $rundown->isPlaying()) {
+            $this->toast(__('Rundown is not playing.'), 'danger');
+
+            return;
+        }
+
+        $rundown->stop();
+
+        unset($this->categoryGroups, $this->categoryTotal);
+
+        $status = $rundown->fresh(['event', 'brackets'])->timingStatusLabel();
+        $this->toast(__('Rundown stopped (:status).', ['status' => $status]));
+    }
+
     public function clearSyncedState(): void
     {
         $this->justSyncedId = null;
@@ -77,6 +109,14 @@ class LiveResultCategoryList extends Component
     public function updatedSearch(): void
     {
         unset($this->categoryGroups, $this->categoryTotal);
+    }
+
+    private function findEventRundown(int $rundownId): Rundown
+    {
+        return Rundown::query()
+            ->where('event_id', $this->event->id)
+            ->whereKey($rundownId)
+            ->firstOrFail();
     }
 
     private function authorizeSync(): void
@@ -101,7 +141,7 @@ class LiveResultCategoryList extends Component
     }
 
     /**
-     * @return Collection<int, array{key: string, header: ?string, categories: Collection<int, LiveResultCategory>}>
+     * @return Collection<int, array{key: string, header: ?string, rundown: ?Rundown, categories: Collection<int, LiveResultCategory>}>
      */
     #[Computed]
     public function categoryGroups(): Collection
