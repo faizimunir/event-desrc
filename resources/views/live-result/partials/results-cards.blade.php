@@ -8,8 +8,10 @@
 @endphp
 
 @foreach($sheetData['groups'] as $groupIndex => $group)
-    <div class="mb-8 {{ $groupIndex > 0 ? 'mt-8 border-t border-zinc-200 pt-8 dark:border-zinc-700' : '' }}">
-        <h3 class="live-result-group-title mb-4">{{ $group['name'] }}</h3>
+    <section class="live-result-group" wire:key="live-result-group-card-{{ $groupIndex }}">
+        <div class="live-result-group-sticky">
+            <h3 class="live-result-group-title">{{ $group['name'] }}</h3>
+        </div>
         @php
             $isFinal = stripos($selectedRound ?? '', 'final') !== false;
             $showKeterangan = ! empty($sheetData['keterangan']) && (! $isFinal || $groupIndex === 0);
@@ -90,7 +92,7 @@
                 <p class="text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('Tidak ada data') }}</p>
             </div>
         @endif
-    </div>
+    </section>
 @endforeach
 @if(empty($sheetData['groups']))
     <div class="bento-empty-state !py-12">

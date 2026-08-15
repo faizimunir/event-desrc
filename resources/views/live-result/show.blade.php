@@ -58,7 +58,7 @@
         </div>
     </div>
 
-    <div class="bento-card bento-section-shell">
+    <div class="bento-card bento-section-shell !overflow-visible">
         <livewire:live-result-panel :event="$event" />
     </div>
 @endsection
