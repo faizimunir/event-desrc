@@ -257,7 +257,6 @@
                                                         wire:loading.attr="disabled"
                                                         wire:target="stopRundown({{ $rundown->id }})"
                                                     >
-                                                        {{ __('Stop') }}
                                                     </flux:button>
                                                 @elseif ($rundown->isCompleted())
                                                     <flux:button
@@ -270,7 +269,6 @@
                                                         wire:target="playRundown({{ $rundown->id }})"
                                                         wire:confirm="{{ __('Start this rundown again? Previous actual times will be replaced.') }}"
                                                     >
-                                                        {{ __('Play') }}
                                                     </flux:button>
                                                 @else
                                                     <flux:button
@@ -282,7 +280,6 @@
                                                         wire:loading.attr="disabled"
                                                         wire:target="playRundown({{ $rundown->id }})"
                                                     >
-                                                        {{ __('Play') }}
                                                     </flux:button>
                                                 @endif
                                             @endcan
