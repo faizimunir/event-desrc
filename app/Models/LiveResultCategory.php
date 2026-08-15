@@ -136,7 +136,7 @@ class LiveResultCategory extends Model
 
             $groups->push([
                 'key' => 'rundown-'.$rundown->id,
-                'header' => $rundown->formattedTimeRange().' '.$rundown->displayLabel(),
+                'header' => $rundown->formattedHeader(),
                 'rundown' => $rundown,
                 'categories' => $groupCategories,
             ]);

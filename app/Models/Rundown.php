@@ -65,6 +65,12 @@ class Rundown extends Model
         return $this->formatTime($this->start_time).' - '.$this->formatTime($this->end_time);
     }
 
+    /** Time range + label for live-result / monitor headers, e.g. "08.00 - 08.50 | 2021 Boys & Girls". */
+    public function formattedHeader(): string
+    {
+        return $this->formattedTimeRange().' | '.$this->displayLabel();
+    }
+
     public function formattedActualTimeRange(): ?string
     {
         if (! $this->actual_started_at) {
