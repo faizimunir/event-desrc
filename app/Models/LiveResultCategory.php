@@ -120,14 +120,12 @@ class LiveResultCategory extends Model
                     && isset($bracketToRundown[$category->bracket_id])
                     && $bracketToRundown[$category->bracket_id]->id === $rundown->id;
             })
-                ->sortBy([
-                    function (self $category) use ($rundown) {
-                        $bracket = $rundown->brackets->firstWhere('id', $category->bracket_id);
+                ->sortBy(function (self $category) use ($rundown) {
+                    $bracket = $rundown->brackets->firstWhere('id', $category->bracket_id);
+                    $sort = (int) ($bracket?->pivot->sort_order ?? 999);
 
-                        return (int) ($bracket?->pivot->sort_order ?? 999);
-                    },
-                    fn (self $category) => mb_strtolower($category->title),
-                ])
+                    return sprintf('%05d-%s', $sort, mb_strtolower($category->title));
+                })
                 ->values();
 
             if ($groupCategories->isEmpty() && ! $includeEmptyRundowns) {

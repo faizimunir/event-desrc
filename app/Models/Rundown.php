@@ -85,10 +85,7 @@ class Rundown extends Model
         }
 
         $names = $this->brackets
-            ->sortBy([
-                fn ($b) => (int) ($b->pivot->sort_order ?? 0),
-                fn ($b) => $b->id,
-            ])
+            ->sortBy(fn ($b) => sprintf('%05d-%020d', (int) ($b->pivot->sort_order ?? 0), (int) $b->id))
             ->pluck('name')
             ->filter()
             ->values();
