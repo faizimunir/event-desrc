@@ -11,6 +11,7 @@
     x-init="setInterval(() => tickClock(), 1000)"
 >
     @include('live-result.partials.content', [
+        'event' => $event,
         'categories' => $categories,
         'categoryGroups' => $categoryGroups,
         'selectedCategory' => $selectedCategory,

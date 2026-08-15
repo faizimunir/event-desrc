@@ -20,6 +20,15 @@ class Event extends Model
 
     public const CATEGORY_TAHUN = 'tahun';
 
+    public const LIVE_RESULT_LAYOUT_TABLE = 'table';
+
+    public const LIVE_RESULT_LAYOUT_CARDS = 'cards';
+
+    public const LIVE_RESULT_LAYOUTS = [
+        self::LIVE_RESULT_LAYOUT_TABLE,
+        self::LIVE_RESULT_LAYOUT_CARDS,
+    ];
+
     /** Draft: default, belum terlihat di halaman utama */
     public const STATUS_DRAFT = 'draft';
 
@@ -75,6 +84,7 @@ class Event extends Model
         'jersey_sizes',
         'status',
         'has_live_result',
+        'live_result_layout',
         'show_participants_publicly',
         'registration_opens_at',
         'registration_closes_at',
@@ -175,6 +185,11 @@ class Event extends Model
             'payment_methods' => 'array',
             'jersey_sizes' => 'array',
         ];
+    }
+
+    public function usesLiveResultCards(): bool
+    {
+        return $this->live_result_layout === self::LIVE_RESULT_LAYOUT_CARDS;
     }
 
     protected static function booted(): void

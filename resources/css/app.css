@@ -528,6 +528,70 @@ select:focus[data-flux-control] {
     @apply text-orange-600 dark:text-orange-400;
 }
 
+.live-result-card-list {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3;
+}
+
+.live-result-card {
+    @apply flex flex-col gap-3 rounded-2xl border border-zinc-200/80 bg-white p-4 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900/50;
+}
+
+.live-result-card__top {
+    @apply flex items-start gap-3;
+}
+
+.live-result-card__plate {
+    @apply flex size-12 shrink-0 items-center justify-center rounded-xl bg-zinc-900 text-base font-bold tabular-nums text-white dark:bg-orange-500;
+}
+
+.live-result-card__name {
+    @apply truncate text-sm font-bold text-zinc-900 dark:text-white;
+}
+
+.live-result-card__nick {
+    @apply truncate text-xs text-zinc-600 dark:text-zinc-400;
+}
+
+.live-result-card__team {
+    @apply truncate text-xs italic text-zinc-500 dark:text-zinc-400;
+}
+
+.live-result-card__rank-block {
+    @apply flex shrink-0 flex-col items-end;
+}
+
+.live-result-card__rank {
+    @apply text-xl font-bold tabular-nums text-orange-600 dark:text-orange-400;
+}
+
+.live-result-card__meta-label {
+    @apply text-[10px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500;
+}
+
+.live-result-card__stats {
+    @apply grid grid-cols-2 gap-2 sm:grid-cols-3;
+}
+
+.live-result-card__stat {
+    @apply rounded-xl border border-zinc-100 bg-zinc-50 px-2.5 py-2 dark:border-zinc-700/60 dark:bg-zinc-800/50;
+}
+
+.live-result-card__stat--accent {
+    @apply border-orange-200/80 bg-orange-50/70 dark:border-orange-800/50 dark:bg-orange-950/30;
+}
+
+.live-result-card__stat-value {
+    @apply mt-0.5 block text-sm font-bold tabular-nums text-zinc-900 dark:text-white;
+}
+
+.live-result-card__stat--accent .live-result-card__stat-value {
+    @apply text-orange-600 dark:text-orange-400;
+}
+
+.live-result-card__ket {
+    @apply flex items-center gap-2 rounded-xl border border-zinc-100 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-800 dark:border-zinc-700/60 dark:bg-zinc-800/40 dark:text-zinc-100;
+}
+
 .order-list-item {
     @apply flex items-center gap-4 rounded-2xl border border-zinc-200/70 bg-zinc-50/50 px-4 py-3.5 transition duration-200 hover:border-zinc-300 hover:bg-white hover:shadow-sm dark:border-zinc-700/70 dark:bg-zinc-800/30 dark:hover:border-zinc-600 dark:hover:bg-zinc-900/60;
 }

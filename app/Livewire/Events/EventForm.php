@@ -75,6 +75,9 @@ class EventForm extends Component
 
     public bool $has_live_result = false;
 
+    /** When true, public live result uses card list instead of table. */
+    public bool $live_result_use_cards = false;
+
     public function mount(?Event $event = null): void
     {
         $this->locations = Location::orderBy('name')->get();
@@ -108,6 +111,7 @@ class EventForm extends Component
             $this->jersey_sizes = implode(', ', $event->jerseySizeOptions());
             $this->show_participants_publicly = (bool) $event->show_participants_publicly;
             $this->has_live_result = (bool) $event->has_live_result;
+            $this->live_result_use_cards = $event->usesLiveResultCards();
         } else {
             $this->jersey_sizes = implode(', ', Event::DEFAULT_JERSEY_SIZES);
         }
@@ -175,6 +179,7 @@ class EventForm extends Component
         ];
         if ($user->canAs('manage_live_results')) {
             $rules['has_live_result'] = ['boolean'];
+            $rules['live_result_use_cards'] = ['boolean'];
         }
         if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
             $rules['account_ids'] = ['required', 'array', 'min:1'];
@@ -201,6 +206,13 @@ class EventForm extends Component
         $hasLiveResult = $user->canAs('manage_live_results')
             ? (bool) ($validated['has_live_result'] ?? false)
             : (bool) ($this->event?->has_live_result ?? false);
+        $liveResultLayout = $user->canAs('manage_live_results')
+            ? (
+                $hasLiveResult && (bool) ($validated['live_result_use_cards'] ?? false)
+                    ? Event::LIVE_RESULT_LAYOUT_CARDS
+                    : Event::LIVE_RESULT_LAYOUT_TABLE
+            )
+            : (string) ($this->event?->live_result_layout ?? Event::LIVE_RESULT_LAYOUT_TABLE);
 
         $posterPath = $this->event?->poster;
 
@@ -253,6 +265,7 @@ class EventForm extends Component
                 'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
                 'has_live_result' => $hasLiveResult,
+                'live_result_layout' => $liveResultLayout,
             ]);
             $this->event->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.show', $this->event), navigate: true);
@@ -277,6 +290,7 @@ class EventForm extends Component
                 'jersey_sizes' => $jerseySizes,
                 'show_participants_publicly' => $validated['show_participants_publicly'] ?? true,
                 'has_live_result' => $hasLiveResult,
+                'live_result_layout' => $liveResultLayout,
             ]);
             $newEvent->accounts()->sync($syncAccountIds);
             $this->redirect(route('events.index'), navigate: true);

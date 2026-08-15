@@ -31,7 +31,7 @@
         @canAs('manage_live_results')
             <flux:field variant="inline">
                 <flux:label class="mb-0">{{ __('Live Result') }}</flux:label>
-                <flux:switch wire:model="has_live_result" />
+                <flux:switch wire:model.live="has_live_result" />
             </flux:field>
             <p class="text-xs text-zinc-500 dark:text-zinc-400">
                 {{ __('Jika dinonaktifkan, event ini tidak akan muncul di halaman Live Result publik.') }}
@@ -39,6 +39,19 @@
             @error('has_live_result')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
             @enderror
+
+            @if ($has_live_result)
+                <flux:field variant="inline">
+                    <flux:label class="mb-0">{{ __('Tampilan Card List') }}</flux:label>
+                    <flux:switch wire:model="live_result_use_cards" />
+                </flux:field>
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ __('Aktifkan untuk menampilkan hasil live sebagai kartu (lebih ramah mobile). Nonaktif = tampilan tabel.') }}
+                </p>
+                @error('live_result_use_cards')
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                @enderror
+            @endif
         @endcanAs
 
         @if ($event)
