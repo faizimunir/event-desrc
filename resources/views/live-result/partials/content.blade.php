@@ -125,10 +125,22 @@
                             type="button"
                             wire:click="selectRound(@js($round))"
                             wire:loading.attr="disabled"
-                            wire:target="selectCategory,selectRound"
-                            class="live-result-chip live-result-chip--block live-result-chip--round {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
+                            wire:target="selectRound(@js($round))"
+                            class="live-result-chip live-result-chip--block live-result-chip--round relative {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
                         >
-                            {{ $round }}
+                            <span
+                                wire:loading.remove
+                                wire:target="selectRound(@js($round))"
+                                class="line-clamp-2"
+                            >{{ $round }}</span>
+                            <span
+                                wire:loading.flex
+                                wire:target="selectRound(@js($round))"
+                                class="hidden items-center justify-center gap-2"
+                            >
+                                <flux:icon name="arrow-path" variant="mini" class="size-4 shrink-0 animate-spin" />
+                                <span>{{ __('Memuat...') }}</span>
+                            </span>
                         </button>
                     @endforeach
                 </div>
