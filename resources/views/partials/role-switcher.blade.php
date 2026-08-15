@@ -5,13 +5,7 @@
             @foreach(auth()->user()->roles()->orderBy('name')->get() as $role)
                 @php
                     $isActive = auth()->user()->activeRole()?->name === $role->name;
-                    $label = match($role->name) {
-                        'super_admin' => __('Super Admin'),
-                        'admin' => __('Admin'),
-                        'coach' => __('Coach'),
-                        'member' => __('Member'),
-                        default => Str::title(str_replace('_', ' ', $role->name)),
-                    };
+                    $label = \App\Models\User::roleDisplayLabel($role->name);
                 @endphp
                 <form method="POST" action="{{ route('switch-role') }}" class="w-full">
                     @csrf

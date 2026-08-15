@@ -9,7 +9,7 @@
 
 <body class="app-shell min-h-screen bg-white dark:bg-zinc-800 antialiased">
     <flux:sidebar sticky collapsible
-        class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+        class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 max-lg:z-[70]!">
         <flux:sidebar.header>
             <flux:sidebar.brand href="{{ route('home') }}" class="flex items-center">
                 <x-slot name="logo">
@@ -78,27 +78,9 @@
                     {{ __('Riders') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @canAs('access_print_center')
-                <flux:sidebar.item icon="printer" :href="route('print-center.index')" :current="request()->routeIs('print-center.*')"
-                    wire:navigate>
-                    {{ __('Print Center') }}
-                </flux:sidebar.item>
-                @endcanAs
                 @canAs('access_drag_race_timer')
                 <flux:sidebar.item icon="clock" :href="route('drag-race-timer.index')" :current="request()->routeIs('drag-race-timer.*')">
                     {{ __('Drag Race Timer') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('payment.read')
-                <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"
-                    wire:navigate>
-                    {{ __('Payments') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('account.read')
-                <flux:sidebar.item icon="building-library" :href="route('accounts.index')" :current="request()->routeIs('accounts.*')"
-                    wire:navigate>
-                    {{ __('Accounts') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('location.read')
@@ -119,28 +101,28 @@
                     {{ __('Levels') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @canAs('organizer.read')
-                <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
-                    wire:navigate>
-                    {{ __('Organizers') }}
-                </flux:sidebar.item>
-                @endcanAs
                 @canAs('team.read')
                 <flux:sidebar.item icon="user-group" :href="route('teams.index')" :current="request()->routeIs('teams.*')"
                     wire:navigate>
                     {{ __('Teams') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @canAs('mc.read')
-                <flux:sidebar.item icon="mic" :href="route('master-of-ceremonies.index')" :current="request()->routeIs('master-of-ceremonies.*')"
+                @canAs('organizer.read')
+                <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
                     wire:navigate>
-                    {{ __('Master of Ceremonies') }}
+                    {{ __('Organizers') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('rc.read')
                 <flux:sidebar.item icon="award" :href="route('racing-committees.index')" :current="request()->routeIs('racing-committees.*')"
                     wire:navigate>
                     {{ __('Racing Committees') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('mc.read')
+                <flux:sidebar.item icon="mic" :href="route('master-of-ceremonies.index')" :current="request()->routeIs('master-of-ceremonies.*')"
+                    wire:navigate>
+                    {{ __('Master of Ceremonies') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @if (auth()->user()->hasRole('super_admin'))
@@ -154,8 +136,29 @@
                     </flux:sidebar.item>
                 @endif
             </div>
+
+            @if (auth()->user()->canAs('payment.read') || auth()->user()->canAs('account.read'))
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Finance') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
+                @canAs('payment.read')
+                <flux:sidebar.item icon="banknotes" :href="route('payments.index')" :current="request()->routeIs('payments.*')"
+                    wire:navigate>
+                    {{ __('Payments') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('account.read')
+                <flux:sidebar.item icon="building-library" :href="route('accounts.index')" :current="request()->routeIs('accounts.*')"
+                    wire:navigate>
+                    {{ __('Accounts') }}
+                </flux:sidebar.item>
+                @endcanAs
+            </div>
+            @endif
         </flux:sidebar.nav>
-<flux:sidebar.spacer />
+
+        <flux:sidebar.spacer />
         <flux:radio.group
             x-data
             variant="segmented"

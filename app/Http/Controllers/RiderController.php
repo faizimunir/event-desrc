@@ -61,6 +61,22 @@ class RiderController extends Controller
         return redirect()->route('riders.index')->with('status', __('Rider created.'));
     }
 
+    public function show(Rider $rider)
+    {
+        abort_unless(auth()->user()->canAs('rider.read'), 403);
+        $this->authorize('view', $rider);
+
+        $rider->load([
+            'user.roles',
+            'teams',
+            'registrations' => fn ($query) => $query
+                ->with(['event', 'bracket', 'order'])
+                ->latest(),
+        ]);
+
+        return view('riders.show', compact('rider'));
+    }
+
     public function edit(Rider $rider)
     {
         abort_unless(auth()->user()->canAs('rider.update'), 403);
@@ -104,7 +120,7 @@ class RiderController extends Controller
             $rider->update(['photo_kia' => $rider->getFirstMediaUrl('photo_kia')]);
         }
 
-        return redirect()->route('riders.index')->with('status', __('Rider updated.'));
+        return redirect()->route('riders.show', $rider)->with('status', __('Rider updated.'));
     }
 
     public function destroy(Rider $rider)

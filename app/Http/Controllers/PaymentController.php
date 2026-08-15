@@ -434,20 +434,11 @@ class PaymentController extends Controller
     /**
      * Admin: daftar pembayaran (filter status).
      */
-    public function index(Request $request)
+    public function index()
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
 
-        $query = Payment::with(['registration.event', 'registration.rider', 'registration.bracket', 'registration.package', 'reviewedByUser']);
-
-        $status = $request->query('status');
-        if ($status && in_array($status, Payment::STATUSES, true)) {
-            $query->where('status', $status);
-        }
-
-        $payments = $query->latest()->paginate(20)->withQueryString();
-
-        return view('payments.index', compact('payments'));
+        return view('payments.index');
     }
 
     /**

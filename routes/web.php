@@ -60,7 +60,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::get('my-rider', [MyRiderController::class, 'index'])->name('my-rider.index');
     Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
-    Route::resource('users', UserController::class)->except(['show']);
+    Route::resource('users', UserController::class);
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['show', 'store', 'update'])->scoped();
     Route::resource('events.tracks', TrackController::class)->except(['show'])->scoped();
@@ -115,7 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('organizers', OrganizerController::class)->except(['show', 'store', 'update']);
     Route::resource('racing-committees', RacingCommitteeController::class)->except(['show']);
     Route::resource('teams', TeamController::class)->except(['show']);
-    Route::resource('riders', RiderController::class)->except(['show']);
+    Route::resource('riders', RiderController::class);
     Route::post('riders/{rider}/avatar', [RiderController::class, 'updateAvatar'])->name('riders.avatar');
     Route::resource('rewards', RewardController::class)->except(['show']);
     Route::resource('levels', LevelController::class)->except(['show']);

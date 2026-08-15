@@ -1,5 +1,9 @@
 <?php
 
+use App\Models\Bracket;
+use App\Models\Event;
+use App\Models\Package;
+use App\Models\Registration;
 use App\Models\Rider;
 use App\Models\User;
 use App\Services\UserMergeService;
@@ -93,4 +97,70 @@ test('user merge reassigns riders and deletes secondary account', function () {
     expect(User::query()->find($secondary->id))->toBeNull();
     expect($rider->fresh()->user_id)->toBe($primary->id);
     expect($primary->fresh()->hasRole('member'))->toBeTrue();
+});
+
+test('super_admin can view user show page with riders and registrations', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+    $admin->setActiveRole('super_admin');
+
+    $member = User::factory()->create(['name' => 'Show Member', 'whatsapp' => '08111111111']);
+    $member->assignRole('member');
+
+    $rider = Rider::query()->create([
+        'user_id' => $member->id,
+        'name' => 'Andi Rider',
+        'nickname' => 'Andi',
+        'number_plate' => 'B 1234 ABC',
+    ]);
+
+    $event = Event::query()->create([
+        'title' => 'Championship Night',
+        'start_at' => now()->addDay(),
+        'end_at' => now()->addDays(2),
+        'status' => Event::STATUS_OPEN_REGIST,
+    ]);
+
+    $bracket = Bracket::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Open Class',
+        'quota' => 32,
+    ]);
+
+    $package = Package::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Regular',
+        'price' => 100_000,
+        'status' => Package::STATUS_ACTIVE,
+    ]);
+
+    Registration::query()->create([
+        'event_id' => $event->id,
+        'rider_id' => $rider->id,
+        'bracket_id' => $bracket->id,
+        'package_id' => $package->id,
+        'status' => Registration::STATUS_PENDING,
+    ]);
+
+    $response = $this->actingAs($admin)->get(route('users.show', $member));
+
+    $response->assertOk();
+    $response->assertSee('Show Member', false);
+    $response->assertSee('Andi Rider', false);
+    $response->assertSee('Championship Night', false);
+    $response->assertSee(__('Riders'), false);
+    $response->assertSee(__('Events'), false);
+});
+
+test('user without user.read cannot view user show page', function () {
+    $member = Role::firstOrCreate(['name' => 'member', 'guard_name' => 'web']);
+    $viewer = User::factory()->create();
+    $viewer->assignRole($member);
+    $viewer->setActiveRole('member');
+
+    $target = User::factory()->create(['name' => 'Hidden User']);
+
+    $response = $this->actingAs($viewer)->get(route('users.show', $target));
+
+    $response->assertForbidden();
 });

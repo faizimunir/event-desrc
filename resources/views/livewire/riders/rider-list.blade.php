@@ -1,6 +1,8 @@
 <div>
-    <div class="users-hero-shell relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4">
-        <div class="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl" aria-hidden="true"></div>
+    <div class="users-hero-shell sticky top-0 z-10 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4">
+        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            <div class="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl"></div>
+        </div>
 
         <div class="relative space-y-3 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4 lg:space-y-3.5 lg:pt-4">
             <div class="flex items-center gap-2.5 lg:hidden">
@@ -10,13 +12,20 @@
                     class="!size-9 !rounded-xl !border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
                 />
 
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-xs text-orange-100/80">
-                        {{ __('Admin') }}
-                    </p>
-                    <h1 class="truncate text-sm font-semibold text-white">
-                        {{ __('Riders Management') }}
-                    </h1>
+                <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                    <img
+                        src="{{ asset('logo-mini-dark.webp') }}"
+                        alt="{{ config('app.name') }}"
+                        class="h-9 w-auto shrink-0 object-contain"
+                    >
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-xs text-orange-100/80">
+                            {{ auth()->user()->activeRoleLabel() }}
+                        </p>
+                        <h1 class="truncate text-sm font-semibold text-white">
+                            {{ __('Riders Management') }}
+                        </h1>
+                    </div>
                 </div>
 
                 <flux:dropdown position="bottom" align="end">
@@ -35,7 +44,7 @@
             <div class="hidden items-center justify-between gap-3 lg:flex">
                 <div class="min-w-0">
                     <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-100/90">
-                        {{ __('Admin') }}
+                        {{ auth()->user()->activeRoleLabel() }}
                     </p>
                     <h1 class="truncate text-xl font-semibold tracking-tight text-white">
                         {{ __('Riders Management') }}
@@ -97,19 +106,11 @@
             <div class="users-list-panel" wire:key="riders-paged-p{{ $this->riders->currentPage() }}">
                 @foreach ($this->riders as $rider)
                     <div wire:key="rider-{{ $rider->id }}" class="users-list-row group">
-                        @canAs('rider.update')
-                            @can('update', $rider)
-                                <a
-                                    href="{{ route('riders.edit', $rider) }}"
-                                    wire:navigate
-                                    class="flex min-w-0 flex-1 items-center gap-2.5"
-                                >
-                            @else
-                                <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                            @endcan
-                        @else
-                            <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                        @endcanAs
+                        <a
+                            href="{{ route('riders.show', $rider) }}"
+                            wire:navigate
+                            class="flex min-w-0 flex-1 items-center gap-2.5"
+                        >
                             <div class="users-list-avatar">
                                 {{ strtoupper(mb_substr($rider->name, 0, 1)) }}
                             </div>
@@ -139,37 +140,20 @@
                             </div>
 
                             <div class="flex shrink-0 items-center gap-1.5">
-                                @if ($rider->nickname)
-                                    <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500 sm:hidden dark:bg-zinc-700 dark:text-zinc-400">
-                                        {{ $rider->nickname }}
-                                    </span>
-                                @endif
 
                                 @if ($rider->number_plate && ($rider->dob || $rider->gender))
-                                    <span class="hidden text-xs text-zinc-500 sm:inline dark:text-zinc-400">
+                                    <span class="text-xs text-zinc-500 sm:inline dark:text-zinc-400">
                                         {{ trim(($rider->birthYear() ?? '').' '.($rider->gender_label ?? '')) }}
                                     </span>
                                 @endif
 
-                                @canAs('rider.update')
-                                    @can('update', $rider)
-                                        <flux:icon
-                                            name="chevron-right"
-                                            variant="mini"
-                                            class="size-4 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
-                                        />
-                                    @endcan
-                                @endcanAs
+                                <flux:icon
+                                    name="chevron-right"
+                                    variant="mini"
+                                    class="size-4 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
+                                />
                             </div>
-                        @canAs('rider.update')
-                            @can('update', $rider)
-                                </a>
-                            @else
-                                </div>
-                            @endcan
-                        @else
-                            </div>
-                        @endcanAs
+                        </a>
                     </div>
                 @endforeach
             </div>

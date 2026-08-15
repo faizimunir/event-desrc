@@ -65,8 +65,23 @@
     @apply !px-0 !pt-0 lg:!px-4 lg:!pt-0;
 }
 
+.app-shell [data-flux-main] {
+    isolation: isolate;
+}
+
+@media (width < 64rem) {
+    .app-shell [data-flux-sidebar],
+    .app-shell [data-flux-sidebar-backdrop] {
+        z-index: 70 !important;
+    }
+}
+
 .users-hero-content {
     @apply px-4 lg:px-0;
+}
+
+.users-hero-shell {
+    @apply sticky top-0 z-10;
 }
 
 .users-hero-shell [data-flux-control] {

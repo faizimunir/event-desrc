@@ -62,6 +62,11 @@ class User extends Authenticatable
         return $this->hasMany(Rider::class);
     }
 
+    public function registrations(): \Illuminate\Database\Eloquent\Relations\HasManyThrough
+    {
+        return $this->hasManyThrough(Registration::class, Rider::class);
+    }
+
     public function orders(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Order::class);
@@ -108,6 +113,30 @@ class User extends Authenticatable
         }
 
         return $this->roles->first(fn (Role $r) => $r->name === $name);
+    }
+
+    /**
+     * Human-readable label for a role name.
+     */
+    public static function roleDisplayLabel(string $roleName): string
+    {
+        return match ($roleName) {
+            'super_admin' => __('Super Admin'),
+            'admin' => __('Admin'),
+            'coach' => __('Coach'),
+            'member' => __('Member'),
+            default => Str::title(str_replace('_', ' ', $roleName)),
+        };
+    }
+
+    /**
+     * Label for the currently active role (header subheading, etc.).
+     */
+    public function activeRoleLabel(): string
+    {
+        $name = $this->activeRole()?->name;
+
+        return $name ? self::roleDisplayLabel($name) : __('Admin');
     }
 
     /**

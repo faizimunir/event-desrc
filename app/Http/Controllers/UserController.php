@@ -52,6 +52,22 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('status', __('User created.'));
     }
 
+    public function show(User $user)
+    {
+        abort_unless(auth()->user()->canAs('user.read'), 403);
+        $this->authorize('view', $user);
+
+        $user->load([
+            'roles',
+            'riders' => fn ($query) => $query->orderBy('name'),
+            'registrations' => fn ($query) => $query
+                ->with(['event', 'rider', 'bracket', 'order'])
+                ->latest(),
+        ]);
+
+        return view('users.show', compact('user'));
+    }
+
     public function edit(User $user)
     {
         abort_unless(auth()->user()->canAs('user.update'), 403);
@@ -93,7 +109,7 @@ class UserController extends Controller
             $user->syncRoles($validated['roles'] ?? []);
         }
 
-        return redirect()->route('users.index')->with('status', __('User updated.'));
+        return redirect()->route('users.show', $user)->with('status', __('User updated.'));
     }
 
     public function destroy(User $user)

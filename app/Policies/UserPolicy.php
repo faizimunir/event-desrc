@@ -6,6 +6,11 @@ use App\Models\User;
 
 class UserPolicy
 {
+    public function view(User $user, User $model): bool
+    {
+        return $user->canAs('user.read');
+    }
+
     public function update(User $user, User $model): bool
     {
         return $user->canAs('user.update');

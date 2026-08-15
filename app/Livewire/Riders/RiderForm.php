@@ -127,9 +127,22 @@ class RiderForm extends Component
         }
 
         $this->redirect(
-            $this->forMyRider ? route('my-rider.index') : route('riders.index'),
+            $this->returnUrl(),
             navigate: true
         );
+    }
+
+    public function returnUrl(): string
+    {
+        if ($this->forMyRider) {
+            return route('my-rider.index');
+        }
+
+        if ($this->rider?->exists) {
+            return route('riders.show', $this->rider);
+        }
+
+        return route('riders.index');
     }
 
     public function render()
