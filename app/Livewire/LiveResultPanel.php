@@ -64,6 +64,8 @@ class LiveResultPanel extends Component
             ->orderedByRundown()
             ->get();
 
+        $categoryGroups = LiveResultCategory::groupByRundown($this->event, $categories);
+
         $selectedCategory = null;
         $sheetData = null;
 
@@ -77,6 +79,7 @@ class LiveResultPanel extends Component
 
         return view('livewire.live-result-panel', [
             'categories' => $categories,
+            'categoryGroups' => $categoryGroups,
             'selectedCategory' => $selectedCategory,
             'selectedRound' => $this->round,
             'sheetData' => $sheetData,

@@ -18,17 +18,32 @@
 @if($categories->count() > 0)
     <div class="mb-6">
         <span class="live-result-filter-label">{{ __('Pilih Kategori') }}</span>
-        <div class="live-result-filter-grid">
-            @foreach($categories as $category)
-                <button
-                    type="button"
-                    wire:click="selectCategory({{ $category->id }})"
-                    wire:loading.attr="disabled"
-                    wire:target="selectCategory,selectRound"
-                    class="live-result-chip {{ $selectedCategory && $selectedCategory->id == $category->id ? 'live-result-chip--active' : '' }}"
-                >
-                    {{ $category->title }}
-                </button>
+        <div class="space-y-4">
+            @foreach($categoryGroups as $group)
+                <div>
+                    @if ($group['header'])
+                        <div class="mb-2 flex items-center gap-3">
+                            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+                            <p class="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                {{ $group['header'] }}
+                            </p>
+                            <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
+                        </div>
+                    @endif
+                    <div class="live-result-filter-grid">
+                        @foreach($group['categories'] as $category)
+                            <button
+                                type="button"
+                                wire:click="selectCategory({{ $category->id }})"
+                                wire:loading.attr="disabled"
+                                wire:target="selectCategory,selectRound"
+                                class="live-result-chip {{ $selectedCategory && $selectedCategory->id == $category->id ? 'live-result-chip--active' : '' }}"
+                            >
+                                {{ $category->title }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
             @endforeach
         </div>
     </div>

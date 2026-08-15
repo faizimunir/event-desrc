@@ -4,7 +4,6 @@ namespace App\Livewire\Events;
 
 use App\Models\Event;
 use App\Models\LiveResultCategory;
-use App\Models\Rundown;
 use App\Services\LiveResultSyncService;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
@@ -119,57 +118,7 @@ class LiveResultCategoryList extends Component
             ->orderedByRundown()
             ->get();
 
-        if ($categories->isEmpty()) {
-            return collect();
-        }
-
-        $rundowns = $this->event->rundowns()->with('brackets')->get();
-
-        /** @var array<int, Rundown> $bracketToRundown */
-        $bracketToRundown = [];
-        foreach ($rundowns as $rundown) {
-            foreach ($rundown->brackets as $bracket) {
-                $existing = $bracketToRundown[$bracket->id] ?? null;
-                if (! $existing || (string) $rundown->start_time < (string) $existing->start_time) {
-                    $bracketToRundown[$bracket->id] = $rundown;
-                }
-            }
-        }
-
-        $groups = collect();
-        $assignedIds = [];
-
-        foreach ($rundowns as $rundown) {
-            $groupCategories = $categories->filter(function (LiveResultCategory $category) use ($rundown, $bracketToRundown) {
-                return $category->bracket_id
-                    && isset($bracketToRundown[$category->bracket_id])
-                    && $bracketToRundown[$category->bracket_id]->id === $rundown->id;
-            })->values();
-
-            if ($groupCategories->isEmpty()) {
-                continue;
-            }
-
-            $assignedIds = array_merge($assignedIds, $groupCategories->pluck('id')->all());
-
-            $groups->push([
-                'key' => 'rundown-'.$rundown->id,
-                'header' => $rundown->formattedTimeRange().' '.$rundown->displayLabel(),
-                'categories' => $groupCategories,
-            ]);
-        }
-
-        $ungrouped = $categories->reject(fn (LiveResultCategory $category) => in_array($category->id, $assignedIds, true))->values();
-
-        if ($ungrouped->isNotEmpty()) {
-            $groups->push([
-                'key' => 'other',
-                'header' => $groups->isNotEmpty() ? __('Lainnya') : null,
-                'categories' => $ungrouped,
-            ]);
-        }
-
-        return $groups;
+        return LiveResultCategory::groupByRundown($this->event, $categories);
     }
 
     public function render()
