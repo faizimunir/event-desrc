@@ -34,6 +34,58 @@
         </p>
     @endif
 
+    @if ($rundown?->exists)
+        <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <flux:heading size="sm">{{ __('Actual time (realtime)') }}</flux:heading>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Recorded from Play/Stop on Live Result, or edit manually here.') }}
+                    </p>
+                </div>
+                @if ($previewRundown && $previewRundown->timingStatus() !== \App\Models\Rundown::TIMING_PENDING)
+                    @php
+                        $badgeClass = match ($previewRundown->timingStatus()) {
+                            \App\Models\Rundown::TIMING_LIVE => 'bg-green-500/10 text-green-600 dark:bg-green-500/15 dark:text-green-400',
+                            \App\Models\Rundown::TIMING_ONTIME => 'bg-sky-500/10 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
+                            \App\Models\Rundown::TIMING_DELAYED => 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
+                            default => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
+                        };
+                    @endphp
+                    <span class="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide {{ $badgeClass }}">
+                        {{ $previewRundown->timingStatusLabel() }}
+                    </span>
+                @endif
+            </div>
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                    <flux:input
+                        wire:model.live="actual_started_at"
+                        type="time"
+                        :label="__('Actual start')"
+                    />
+                    @error('actual_started_at')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <flux:input
+                        wire:model.live="actual_ended_at"
+                        type="time"
+                        :label="__('Actual end')"
+                    />
+                    @error('actual_ended_at')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                {{ __('Leave empty to clear the recorded actual times.') }}
+            </p>
+        </div>
+    @endif
+
     <div>
         <flux:input
             wire:model="title"

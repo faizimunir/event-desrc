@@ -293,6 +293,151 @@ class Rundown extends Model
         };
     }
 
+    /**
+     * Monitoring status for the live-result board (includes schedule vs now for pending slots).
+     */
+    public function monitorStatus(?CarbonInterface $now = null): string
+    {
+        $now ??= now();
+
+        if ($this->isPlaying()) {
+            return self::TIMING_LIVE;
+        }
+
+        if ($this->isCompleted()) {
+            return $this->timingStatus();
+        }
+
+        $start = $this->scheduledStartAt();
+        $end = $this->scheduledEndAt();
+
+        if ($end && $now->gte($end)) {
+            return 'overdue';
+        }
+
+        if ($start && $now->gte($start)) {
+            return 'due';
+        }
+
+        return 'upcoming';
+    }
+
+    public function monitorStatusLabel(?CarbonInterface $now = null): string
+    {
+        return match ($this->monitorStatus($now)) {
+            self::TIMING_LIVE => __('Live'),
+            self::TIMING_ONTIME => __('Ontime'),
+            self::TIMING_DELAYED => __('Delayed'),
+            'due' => __('Due'),
+            'overdue' => __('Overdue'),
+            default => __('Upcoming'),
+        };
+    }
+
+    /** @return array{card: string, badge: string, accent: string, pulse: bool} */
+    public function monitorAppearance(?CarbonInterface $now = null): array
+    {
+        return match ($this->monitorStatus($now)) {
+            self::TIMING_LIVE => [
+                'card' => 'border-green-400/70 bg-green-50/80 shadow-[0_0_0_1px_rgba(34,197,94,0.15)] dark:border-green-500/50 dark:bg-green-950/30',
+                'badge' => 'bg-green-500 text-white',
+                'accent' => 'text-green-700 dark:text-green-300',
+                'pulse' => true,
+            ],
+            self::TIMING_ONTIME => [
+                'card' => 'border-sky-300/80 bg-sky-50/70 dark:border-sky-500/40 dark:bg-sky-950/25',
+                'badge' => 'bg-sky-500/15 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+                'accent' => 'text-sky-700 dark:text-sky-300',
+                'pulse' => false,
+            ],
+            self::TIMING_DELAYED => [
+                'card' => 'border-amber-400/80 bg-amber-50/80 dark:border-amber-500/45 dark:bg-amber-950/30',
+                'badge' => 'bg-amber-500/15 text-amber-800 dark:bg-amber-500/20 dark:text-amber-300',
+                'accent' => 'text-amber-800 dark:text-amber-300',
+                'pulse' => false,
+            ],
+            'due' => [
+                'card' => 'border-orange-400/80 bg-orange-50/80 dark:border-orange-500/45 dark:bg-orange-950/30',
+                'badge' => 'bg-orange-500 text-white',
+                'accent' => 'text-orange-700 dark:text-orange-300',
+                'pulse' => true,
+            ],
+            'overdue' => [
+                'card' => 'border-red-400/80 bg-red-50/80 dark:border-red-500/45 dark:bg-red-950/30',
+                'badge' => 'bg-red-500/15 text-red-700 dark:bg-red-500/20 dark:text-red-300',
+                'accent' => 'text-red-700 dark:text-red-300',
+                'pulse' => false,
+            ],
+            default => [
+                'card' => 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900/40',
+                'badge' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+                'accent' => 'text-zinc-600 dark:text-zinc-300',
+                'pulse' => false,
+            ],
+        };
+    }
+
+    public function startDelayMinutes(): ?int
+    {
+        $scheduled = $this->scheduledStartAt();
+        if (! $scheduled || ! $this->actual_started_at) {
+            return null;
+        }
+
+        return (int) $scheduled->diffInMinutes($this->actual_started_at, false);
+    }
+
+    public function endDelayMinutes(): ?int
+    {
+        $scheduled = $this->scheduledEndAt();
+        if (! $scheduled || ! $this->actual_ended_at) {
+            return null;
+        }
+
+        return (int) $scheduled->diffInMinutes($this->actual_ended_at, false);
+    }
+
+    public function elapsedSeconds(?CarbonInterface $now = null): ?int
+    {
+        if (! $this->actual_started_at) {
+            return null;
+        }
+
+        $end = $this->actual_ended_at ?? ($now ?? now());
+
+        return max(0, (int) $this->actual_started_at->diffInSeconds($end));
+    }
+
+    public function formattedElapsed(?CarbonInterface $now = null): ?string
+    {
+        $seconds = $this->elapsedSeconds($now);
+        if ($seconds === null) {
+            return null;
+        }
+
+        $hours = intdiv($seconds, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $secs = $seconds % 60;
+
+        if ($hours > 0) {
+            return sprintf('%d:%02d:%02d', $hours, $minutes, $secs);
+        }
+
+        return sprintf('%02d:%02d', $minutes, $secs);
+    }
+
+    public function secondsUntilStart(?CarbonInterface $now = null): ?int
+    {
+        $start = $this->scheduledStartAt();
+        if (! $start) {
+            return null;
+        }
+
+        $now ??= now();
+
+        return (int) $now->diffInSeconds($start, false);
+    }
+
     public function play(): void
     {
         $this->forceFill([

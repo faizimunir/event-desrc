@@ -21,6 +21,10 @@ class RundownForm extends Component
 
     public string $title = '';
 
+    public string $actual_started_at = '';
+
+    public string $actual_ended_at = '';
+
     /** @var array<int|string> */
     public array $bracketsSelected = [];
 
@@ -40,6 +44,12 @@ class RundownForm extends Component
             $this->start_time = $this->rundown->timeInputValue($this->rundown->start_time);
             $this->end_time = $this->rundown->timeInputValue($this->rundown->end_time);
             $this->title = (string) ($this->rundown->title ?? '');
+            $this->actual_started_at = $this->rundown->actual_started_at
+                ? $this->rundown->actual_started_at->format('H:i')
+                : '';
+            $this->actual_ended_at = $this->rundown->actual_ended_at
+                ? $this->rundown->actual_ended_at->format('H:i')
+                : '';
 
             $orderedBrackets = $this->rundown->brackets()
                 ->orderByPivot('sort_order')
@@ -165,11 +175,32 @@ class RundownForm extends Component
                         __('End time must be within the event window (:window).', ['window' => $window])
                     );
                 }
+
+                if ($this->rundown?->exists) {
+                    $actualStart = trim($this->actual_started_at);
+                    $actualEnd = trim($this->actual_ended_at);
+
+                    if ($actualEnd !== '' && $actualStart === '') {
+                        $validator->errors()->add(
+                            'actual_started_at',
+                            __('Actual start time is required when actual end time is set.')
+                        );
+                    }
+
+                    if ($actualStart !== '' && $actualEnd !== '' && $actualEnd <= $actualStart) {
+                        $validator->errors()->add(
+                            'actual_ended_at',
+                            __('Actual end time must be after actual start time.')
+                        );
+                    }
+                }
             });
         })->validate([
             'start_time' => ['required', 'date_format:H:i'],
             'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
             'title' => ['nullable', 'string', 'max:255'],
+            'actual_started_at' => ['nullable', 'date_format:H:i'],
+            'actual_ended_at' => ['nullable', 'date_format:H:i'],
             'bracketsSelected' => ['nullable', 'array'],
             'bracketsSelected.*' => [
                 'integer',
@@ -196,6 +227,9 @@ class RundownForm extends Component
         ];
 
         if ($this->rundown?->exists) {
+            $payload['actual_started_at'] = $this->resolveActualDateTime(trim($this->actual_started_at));
+            $payload['actual_ended_at'] = $this->resolveActualDateTime(trim($this->actual_ended_at));
+
             $this->rundown->update($payload);
             $this->rundown->brackets()->sync($sync);
             session()->flash('status', __('Rundown updated.'));
@@ -212,6 +246,18 @@ class RundownForm extends Component
         $this->redirect(route('events.show', [$this->event, 'tab' => 'rundown']), navigate: true);
     }
 
+    private function resolveActualDateTime(string $time): ?\Carbon\CarbonInterface
+    {
+        if ($time === '') {
+            return null;
+        }
+
+        $clock = \Carbon\Carbon::parse($time);
+        $base = $this->event->start_at?->copy() ?? now();
+
+        return $base->copy()->setTime($clock->hour, $clock->minute, 0);
+    }
+
     public function render()
     {
         $selectedIds = collect($this->bracketsSelected)->map(fn ($id) => (string) $id)->all();
@@ -221,12 +267,24 @@ class RundownForm extends Component
             ->sortBy(fn ($bracket) => (int) ($this->bracketOrders[(string) $bracket->id] ?? 0))
             ->values();
 
+        $previewRundown = null;
+        if ($this->rundown?->exists) {
+            $previewRundown = $this->rundown->replicate();
+            $previewRundown->setRelation('event', $this->event);
+            $previewRundown->setRelation('brackets', $this->rundown->brackets);
+            $previewRundown->start_time = $this->start_time !== '' ? $this->start_time : $this->rundown->start_time;
+            $previewRundown->end_time = $this->end_time !== '' ? $this->end_time : $this->rundown->end_time;
+            $previewRundown->actual_started_at = $this->resolveActualDateTime(trim($this->actual_started_at));
+            $previewRundown->actual_ended_at = $this->resolveActualDateTime(trim($this->actual_ended_at));
+        }
+
         return view('livewire.rundowns.rundown-form', [
             'brackets' => $this->event->brackets_sorted_for_display,
             'selectedBrackets' => $selectedBrackets,
             'minTime' => $this->eventMinTime(),
             'maxTime' => $this->eventMaxTime(),
             'timeWindowLabel' => $this->eventTimeWindowLabel(),
+            'previewRundown' => $previewRundown,
         ]);
     }
 }

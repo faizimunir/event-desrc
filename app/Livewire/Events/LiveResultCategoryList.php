@@ -40,7 +40,7 @@ class LiveResultCategoryList extends Component
 
         $result = app(LiveResultSyncService::class)->syncCategory($this->event, $category);
 
-        unset($this->categoryGroups, $this->categoryTotal);
+        $this->refreshBoard();
 
         if (! $result['ok']) {
             $this->toast($result['message'], 'danger');
@@ -62,7 +62,7 @@ class LiveResultCategoryList extends Component
 
         $result = app(LiveResultSyncService::class)->syncAll($this->event);
 
-        unset($this->categoryGroups, $this->categoryTotal);
+        $this->refreshBoard();
 
         $this->justSyncedAll = true;
         $this->toast($result['message']);
@@ -76,7 +76,7 @@ class LiveResultCategoryList extends Component
         $rundown = $this->findEventRundown($rundownId);
         $rundown->play();
 
-        unset($this->categoryGroups, $this->categoryTotal);
+        $this->refreshBoard();
         $this->toast(__('Rundown started.'));
     }
 
@@ -94,10 +94,16 @@ class LiveResultCategoryList extends Component
 
         $rundown->stop();
 
-        unset($this->categoryGroups, $this->categoryTotal);
+        $this->refreshBoard();
 
         $status = $rundown->fresh(['event', 'brackets'])->timingStatusLabel();
         $this->toast(__('Rundown stopped (:status).', ['status' => $status]));
+    }
+
+    /** Keep board in sync with Play/Stop from other tabs/users. */
+    public function refreshBoard(): void
+    {
+        unset($this->categoryGroups, $this->categoryTotal, $this->monitorSummary);
     }
 
     public function clearSyncedState(): void
@@ -108,7 +114,7 @@ class LiveResultCategoryList extends Component
 
     public function updatedSearch(): void
     {
-        unset($this->categoryGroups, $this->categoryTotal);
+        $this->refreshBoard();
     }
 
     private function findEventRundown(int $rundownId): Rundown
@@ -141,6 +147,38 @@ class LiveResultCategoryList extends Component
     }
 
     /**
+     * @return array{live: int, due: int, overdue: int, delayed: int, ontime: int, upcoming: int}
+     */
+    #[Computed]
+    public function monitorSummary(): array
+    {
+        $now = now();
+        $summary = [
+            'live' => 0,
+            'due' => 0,
+            'overdue' => 0,
+            'delayed' => 0,
+            'ontime' => 0,
+            'upcoming' => 0,
+        ];
+
+        foreach ($this->categoryGroups as $group) {
+            /** @var Rundown|null $rundown */
+            $rundown = $group['rundown'] ?? null;
+            if (! $rundown) {
+                continue;
+            }
+
+            $status = $rundown->monitorStatus($now);
+            if (array_key_exists($status, $summary)) {
+                $summary[$status]++;
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
      * @return Collection<int, array{key: string, header: ?string, rundown: ?Rundown, categories: Collection<int, LiveResultCategory>}>
      */
     #[Computed]
@@ -163,6 +201,9 @@ class LiveResultCategoryList extends Component
 
     public function render()
     {
-        return view('livewire.events.live-result-category-list');
+        return view('livewire.events.live-result-category-list', [
+            'now' => now(),
+            'clockIso' => now()->toIso8601String(),
+        ]);
     }
 }

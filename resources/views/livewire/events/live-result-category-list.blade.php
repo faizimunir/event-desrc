@@ -1,4 +1,28 @@
-<div>
+<div
+    wire:poll.5s="refreshBoard"
+    x-data="{
+        nowMs: Date.parse(@js($clockIso)),
+        tick() { this.nowMs = Date.now() },
+        clock() {
+            const d = new Date(this.nowMs)
+            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+        },
+        elapsed(iso) {
+            if (!iso) return '—'
+            const start = Date.parse(iso)
+            if (Number.isNaN(start)) return '—'
+            let sec = Math.max(0, Math.floor((this.nowMs - start) / 1000))
+            const h = Math.floor(sec / 3600)
+            sec %= 3600
+            const m = Math.floor(sec / 60)
+            const s = sec % 60
+            return h > 0
+                ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+                : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+        }
+    }"
+    x-init="setInterval(() => tick(), 1000)"
+>
     @if (! $event->has_live_result)
         <div class="mb-3 flex items-center justify-between gap-3">
             <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
@@ -81,13 +105,48 @@
             @endif
         </div>
 
-        <div class="mb-3 flex items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {{ __('Live Result') }}
-            </h2>
-            <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                {{ number_format($this->categoryTotal) }}
-            </span>
+        {{-- Realtime monitor bar --}}
+        <div class="mb-4 overflow-hidden rounded-2xl border border-zinc-200 bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 p-4 text-white shadow-sm dark:border-zinc-700">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                        <span class="relative flex size-2.5">
+                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                            <span class="relative inline-flex size-2.5 rounded-full bg-green-400"></span>
+                        </span>
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-400">
+                            {{ __('Rundown Monitor') }}
+                        </p>
+                    </div>
+                    <p class="mt-1 font-mono text-2xl font-semibold tabular-nums tracking-tight" x-text="clock()"></p>
+                    <p class="mt-0.5 text-xs text-zinc-400">
+                        {{ __('Auto-refresh every 5s') }} · {{ number_format($this->categoryTotal) }} {{ __('categories') }}
+                    </p>
+                </div>
+
+                @php $summary = $this->monitorSummary; @endphp
+                <div class="flex flex-wrap gap-2">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-green-500/20 px-2.5 py-1 text-[11px] font-semibold text-green-300">
+                        <span class="size-1.5 rounded-full bg-green-400"></span>
+                        {{ __('Live') }} {{ $summary['live'] }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-orange-500/20 px-2.5 py-1 text-[11px] font-semibold text-orange-300">
+                        {{ __('Due') }} {{ $summary['due'] }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-2.5 py-1 text-[11px] font-semibold text-red-300">
+                        {{ __('Overdue') }} {{ $summary['overdue'] }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-300">
+                        {{ __('Delayed') }} {{ $summary['delayed'] }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-sky-500/20 px-2.5 py-1 text-[11px] font-semibold text-sky-300">
+                        {{ __('Ontime') }} {{ $summary['ontime'] }}
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-500/20 px-2.5 py-1 text-[11px] font-semibold text-zinc-300">
+                        {{ __('Upcoming') }} {{ $summary['upcoming'] }}
+                    </span>
+                </div>
+            </div>
         </div>
 
         @if ($this->categoryGroups->isEmpty())
@@ -104,43 +163,88 @@
                     @php
                         /** @var \App\Models\Rundown|null $rundown */
                         $rundown = $group['rundown'] ?? null;
-                        $timingStatus = $rundown?->timingStatus();
+                        $appearance = $rundown?->monitorAppearance($now) ?? [
+                            'card' => 'border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900/40',
+                            'badge' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+                            'accent' => 'text-zinc-600 dark:text-zinc-300',
+                            'pulse' => false,
+                        ];
+                        $monitorStatus = $rundown?->monitorStatus($now);
                         $actualRange = $rundown?->formattedActualTimeRange();
+                        $startDelay = $rundown?->startDelayMinutes();
+                        $endDelay = $rundown?->endDelayMinutes();
                     @endphp
-                    <div wire:key="live-result-group-{{ $group['key'] }}" class="space-y-2">
+                    <div
+                        wire:key="live-result-group-{{ $group['key'] }}"
+                        class="overflow-hidden rounded-2xl border {{ $appearance['card'] }}"
+                    >
                         @if ($group['header'])
-                            <div class="flex flex-wrap items-center gap-2 px-1">
-                                <div class="flex min-w-0 flex-1 items-center gap-3">
-                                    <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
-                                    <div class="shrink-0 text-center">
-                                        <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            <div class="flex flex-wrap items-start justify-between gap-3 border-b border-black/5 px-4 py-3 dark:border-white/5">
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        @if ($rundown)
+                                            <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide {{ $appearance['badge'] }}">
+                                                @if ($appearance['pulse'])
+                                                    <span class="relative flex size-1.5">
+                                                        <span class="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60"></span>
+                                                        <span class="relative inline-flex size-1.5 rounded-full bg-current"></span>
+                                                    </span>
+                                                @endif
+                                                {{ $rundown->monitorStatusLabel($now) }}
+                                            </span>
+                                        @endif
+                                        <h3 class="text-sm font-semibold uppercase tracking-wide {{ $appearance['accent'] }}">
                                             {{ $group['header'] }}
-                                        </p>
+                                        </h3>
+                                    </div>
+
+                                    <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs tabular-nums text-zinc-600 dark:text-zinc-300">
+                                        @if ($rundown)
+                                            <span>
+                                                <span class="text-zinc-400">{{ __('Schedule') }}:</span>
+                                                {{ $rundown->formattedTimeRange() }}
+                                            </span>
+                                        @endif
                                         @if ($actualRange)
-                                            <p class="mt-0.5 text-[11px] tabular-nums text-zinc-400 dark:text-zinc-500">
-                                                {{ __('Actual') }}: {{ $actualRange }}
-                                            </p>
+                                            <span>
+                                                <span class="text-zinc-400">{{ __('Actual') }}:</span>
+                                                {{ $actualRange }}
+                                            </span>
+                                        @endif
+                                        @if ($rundown?->isPlaying() && $rundown->actual_started_at)
+                                            <span class="font-semibold {{ $appearance['accent'] }}">
+                                                <span class="font-normal text-zinc-400">{{ __('Elapsed') }}:</span>
+                                                <span x-text="elapsed(@js($rundown->actual_started_at->toIso8601String()))"></span>
+                                            </span>
+                                        @elseif ($rundown?->isCompleted() && $rundown->formattedElapsed())
+                                            <span>
+                                                <span class="text-zinc-400">{{ __('Duration') }}:</span>
+                                                {{ $rundown->formattedElapsed() }}
+                                            </span>
+                                        @endif
+                                        @if ($startDelay !== null && $startDelay > 0)
+                                            <span class="font-medium text-amber-700 dark:text-amber-300">
+                                                {{ __('Start + :min m', ['min' => $startDelay]) }}
+                                            </span>
+                                        @endif
+                                        @if ($endDelay !== null && $endDelay > 0)
+                                            <span class="font-medium text-amber-700 dark:text-amber-300">
+                                                {{ __('End + :min m', ['min' => $endDelay]) }}
+                                            </span>
+                                        @endif
+                                        @if ($monitorStatus === 'upcoming' && $rundown)
+                                            @php $until = $rundown->secondsUntilStart($now); @endphp
+                                            @if ($until !== null && $until > 0)
+                                                <span class="text-zinc-500">
+                                                    {{ __('Starts in :min m', ['min' => (int) ceil($until / 60)]) }}
+                                                </span>
+                                            @endif
                                         @endif
                                     </div>
-                                    <div class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></div>
                                 </div>
 
                                 @if ($rundown)
                                     <div class="flex shrink-0 items-center gap-1.5">
-                                        @if ($timingStatus && $timingStatus !== \App\Models\Rundown::TIMING_PENDING)
-                                            @php
-                                                $badgeClass = match ($timingStatus) {
-                                                    \App\Models\Rundown::TIMING_LIVE => 'bg-green-500/10 text-green-600 dark:bg-green-500/15 dark:text-green-400',
-                                                    \App\Models\Rundown::TIMING_ONTIME => 'bg-sky-500/10 text-sky-600 dark:bg-sky-500/15 dark:text-sky-400',
-                                                    \App\Models\Rundown::TIMING_DELAYED => 'bg-amber-500/10 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
-                                                    default => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400',
-                                                };
-                                            @endphp
-                                            <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $badgeClass }}">
-                                                {{ $rundown->timingStatusLabel() }}
-                                            </span>
-                                        @endif
-
                                         @canAs('manage_live_results')
                                             @can('update', $event)
                                                 @if ($rundown->isPlaying())
@@ -188,7 +292,7 @@
                             </div>
                         @endif
 
-                        <div class="users-list-panel">
+                        <div class="users-list-panel !rounded-none !border-0 !bg-transparent dark:!bg-transparent">
                             @foreach ($group['categories'] as $category)
                                 @php
                                     $canUpdate = auth()->user()->canAs('manage_live_results') && auth()->user()->can('update', $event);
@@ -201,7 +305,7 @@
                                     ]));
                                 @endphp
 
-                                <div wire:key="live-result-category-{{ $category->id }}" class="users-list-row group">
+                                <div wire:key="live-result-category-{{ $category->id }}" class="users-list-row group !bg-transparent">
                                     @if ($canUpdate)
                                         <a
                                             href="{{ route('events.live-result-categories.edit', [$event, $category]) }}"
