@@ -50,10 +50,9 @@
     </div>
 
     <div>
-        <flux:checkbox.group :label="__('Brackets')" variant="buttons">
+        <flux:checkbox.group wire:model.live="bracketsSelected" :label="__('Brackets')" variant="buttons">
             @foreach ($brackets as $bracket)
                 <flux:checkbox
-                    wire:model="bracketsSelected"
                     value="{{ $bracket->id }}"
                     :label="$bracket->name"
                     icon="trophy"
@@ -73,6 +72,39 @@
             <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
         @enderror
     </div>
+
+    @if ($selectedBrackets->isNotEmpty())
+        <div class="space-y-3">
+            <div>
+                <flux:label>{{ __('Bracket sort order') }}</flux:label>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ __('Lower numbers appear first in the rundown label and live result list.') }}
+                </p>
+            </div>
+            <div class="space-y-2 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                @foreach ($selectedBrackets as $bracket)
+                    <div wire:key="bracket-order-{{ $bracket->id }}" class="flex items-center gap-3">
+                        <div class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                            {{ $bracket->name }}
+                        </div>
+                        <flux:input
+                            wire:model="bracketOrders.{{ $bracket->id }}"
+                            type="number"
+                            min="0"
+                            class="w-24!"
+                            :aria-label="__('Sort order for :name', ['name' => $bracket->name])"
+                        />
+                    </div>
+                @endforeach
+            </div>
+            @error('bracketOrders')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+            @error('bracketOrders.*')
+                <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+            @enderror
+        </div>
+    @endif
 
     <div class="flex flex-wrap items-center gap-2">
         <flux:button variant="primary" type="submit">

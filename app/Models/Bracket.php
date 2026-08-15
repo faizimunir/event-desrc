@@ -78,7 +78,9 @@ class Bracket extends Model
     public function rundowns(): BelongsToMany
     {
         return $this->belongsToMany(Rundown::class, 'event_rundown_bracket', 'event_bracket_id', 'event_rundown_id')
-            ->withTimestamps();
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
     }
 
     /** Slot terpakai: registrasi pending/approved dengan order pending (hold) atau confirmed. Draft tidak mengikat. */

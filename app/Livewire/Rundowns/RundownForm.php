@@ -24,6 +24,9 @@ class RundownForm extends Component
     /** @var array<int|string> */
     public array $bracketsSelected = [];
 
+    /** @var array<string, int|string> bracket_id => sort_order */
+    public array $bracketOrders = [];
+
     public function mount(Event $event, ?Rundown $rundown = null): void
     {
         $this->event = $event;
@@ -37,10 +40,44 @@ class RundownForm extends Component
             $this->start_time = $this->rundown->timeInputValue($this->rundown->start_time);
             $this->end_time = $this->rundown->timeInputValue($this->rundown->end_time);
             $this->title = (string) ($this->rundown->title ?? '');
-            $this->bracketsSelected = $this->rundown->brackets->pluck('id')->map(fn ($id) => (string) $id)->all();
+
+            $orderedBrackets = $this->rundown->brackets()
+                ->orderByPivot('sort_order')
+                ->orderBy('event_brackets.id')
+                ->get();
+
+            $this->bracketsSelected = $orderedBrackets->pluck('id')->map(fn ($id) => (string) $id)->all();
+            $this->bracketOrders = $orderedBrackets
+                ->mapWithKeys(fn ($bracket, $index) => [
+                    (string) $bracket->id => (int) ($bracket->pivot->sort_order ?? $index),
+                ])
+                ->all();
         } else {
             abort_unless(auth()->user()->canAs('rundown.create'), 403);
         }
+    }
+
+    public function updatedBracketsSelected(): void
+    {
+        $selected = collect($this->bracketsSelected)->map(fn ($id) => (string) $id)->unique()->values();
+        $this->bracketsSelected = $selected->all();
+
+        $next = collect($this->bracketOrders)
+            ->only($selected->all())
+            ->map(fn ($order) => (int) $order)
+            ->max();
+        $next = is_int($next) ? $next + 1 : 0;
+
+        $orders = [];
+        foreach ($selected as $id) {
+            if (array_key_exists($id, $this->bracketOrders) && $this->bracketOrders[$id] !== '' && $this->bracketOrders[$id] !== null) {
+                $orders[$id] = (int) $this->bracketOrders[$id];
+            } else {
+                $orders[$id] = $next++;
+            }
+        }
+
+        $this->bracketOrders = $orders;
     }
 
     public function eventMinTime(): ?string
@@ -138,13 +175,18 @@ class RundownForm extends Component
                 'integer',
                 Rule::exists('event_brackets', 'id')->where('event_id', $this->event->id),
             ],
+            'bracketOrders' => ['nullable', 'array'],
+            'bracketOrders.*' => ['nullable', 'integer', 'min:0'],
         ]);
 
         $title = trim($this->title) !== '' ? trim($this->title) : null;
-        $brackets = collect($this->bracketsSelected)
+        $sync = collect($this->bracketsSelected)
             ->map(fn ($id) => (int) $id)
             ->unique()
             ->values()
+            ->mapWithKeys(fn ($id) => [
+                $id => ['sort_order' => (int) ($this->bracketOrders[(string) $id] ?? 0)],
+            ])
             ->all();
 
         $payload = [
@@ -155,12 +197,12 @@ class RundownForm extends Component
 
         if ($this->rundown?->exists) {
             $this->rundown->update($payload);
-            $this->rundown->brackets()->sync($brackets);
+            $this->rundown->brackets()->sync($sync);
             session()->flash('status', __('Rundown updated.'));
         } else {
             $rundown = $this->event->rundowns()->create($payload);
-            if (! empty($brackets)) {
-                $rundown->brackets()->sync($brackets);
+            if (! empty($sync)) {
+                $rundown->brackets()->sync($sync);
             }
             session()->flash('status', __('Rundown created.'));
         }
@@ -172,8 +214,16 @@ class RundownForm extends Component
 
     public function render()
     {
+        $selectedIds = collect($this->bracketsSelected)->map(fn ($id) => (string) $id)->all();
+
+        $selectedBrackets = $this->event->brackets_sorted_for_display
+            ->filter(fn ($bracket) => in_array((string) $bracket->id, $selectedIds, true))
+            ->sortBy(fn ($bracket) => (int) ($this->bracketOrders[(string) $bracket->id] ?? 0))
+            ->values();
+
         return view('livewire.rundowns.rundown-form', [
             'brackets' => $this->event->brackets_sorted_for_display,
+            'selectedBrackets' => $selectedBrackets,
             'minTime' => $this->eventMinTime(),
             'maxTime' => $this->eventMaxTime(),
             'timeWindowLabel' => $this->eventTimeWindowLabel(),

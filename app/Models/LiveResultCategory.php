@@ -53,9 +53,20 @@ class LiveResultCategory extends Model
               AND r.event_id = live_result_categories.event_id
         )';
 
+        $rundownSortSub = '(
+            SELECT MIN(erb.sort_order)
+            FROM event_rundown_bracket AS erb
+            INNER JOIN event_rundowns AS r ON r.id = erb.event_rundown_id
+            WHERE erb.event_bracket_id = live_result_categories.bracket_id
+              AND r.event_id = live_result_categories.event_id
+              AND r.start_time = '.$rundownStartSub.'
+        )';
+
         return $query
             ->orderByRaw("{$rundownStartSub} IS NULL ASC")
             ->orderByRaw("{$rundownStartSub} ASC")
+            ->orderByRaw("{$rundownSortSub} IS NULL ASC")
+            ->orderByRaw("{$rundownSortSub} ASC")
             ->orderByRaw('LOWER(live_result_categories.title) ASC');
     }
 
@@ -104,7 +115,16 @@ class LiveResultCategory extends Model
                 return $category->bracket_id
                     && isset($bracketToRundown[$category->bracket_id])
                     && $bracketToRundown[$category->bracket_id]->id === $rundown->id;
-            })->values();
+            })
+                ->sortBy([
+                    function (self $category) use ($rundown) {
+                        $bracket = $rundown->brackets->firstWhere('id', $category->bracket_id);
+
+                        return (int) ($bracket?->pivot->sort_order ?? 999);
+                    },
+                    fn (self $category) => mb_strtolower($category->title),
+                ])
+                ->values();
 
             if ($groupCategories->isEmpty()) {
                 continue;
