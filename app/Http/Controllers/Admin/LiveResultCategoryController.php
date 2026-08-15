@@ -11,6 +11,7 @@ use App\Services\LiveResultSyncService;
 use App\Services\PrintCenterExcelExportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class LiveResultCategoryController extends Controller
@@ -78,10 +79,17 @@ class LiveResultCategoryController extends Controller
             'spreadsheet_id' => 'required|string|max:255',
             'selected_sheets' => 'nullable|array',
             'selected_sheets.*' => 'string',
+            'bracket_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('event_brackets', 'id')->where('event_id', $event->id),
+                Rule::unique('live_result_categories', 'bracket_id')->where('event_id', $event->id),
+            ],
         ]);
 
         LiveResultCategory::create([
             'event_id' => $event->id,
+            'bracket_id' => $validated['bracket_id'] ?? null,
             'title' => $validated['title'],
             'spreadsheet_id' => $validated['spreadsheet_id'],
             'selected_sheets' => $validated['selected_sheets'] ?? [],
@@ -124,8 +132,17 @@ class LiveResultCategoryController extends Controller
             'spreadsheet_id' => 'required|string|max:255',
             'selected_sheets' => 'nullable|array',
             'selected_sheets.*' => 'string',
+            'bracket_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('event_brackets', 'id')->where('event_id', $event->id),
+                Rule::unique('live_result_categories', 'bracket_id')
+                    ->where('event_id', $event->id)
+                    ->ignore($liveResultCategory->id),
+            ],
         ]);
         $validated['is_active'] = $request->boolean('is_active');
+        $validated['bracket_id'] = $validated['bracket_id'] ?? null;
 
         $liveResultCategory->update($validated);
         $this->reorderCategories($event);
@@ -237,8 +254,7 @@ class LiveResultCategoryController extends Controller
             $query->where('is_active', true)
                 ->whereNotNull('selected_sheets')
                 ->whereJsonLength('selected_sheets', '>', 0)
-                ->orderBy('order')
-                ->orderByRaw('LOWER(title) ASC');
+                ->orderedByRundown();
         }])->visibleOnHomePage()->orderBy('start_at', 'desc')->get();
 
         return view('admin.print-center.index', compact('events'));
@@ -328,8 +344,7 @@ class LiveResultCategoryController extends Controller
             ->where('is_active', true)
             ->whereNotNull('selected_sheets')
             ->whereJsonLength('selected_sheets', '>', 0)
-            ->orderBy('order')
-            ->orderByRaw('LOWER(title) ASC')
+            ->orderedByRundown()
             ->get();
 
         $categoriesData = [];
@@ -439,16 +454,6 @@ class LiveResultCategoryController extends Controller
 
     protected function reorderCategories(Event $event): void
     {
-        $categories = LiveResultCategory::where('event_id', $event->id)
-            ->orderByRaw('LOWER(title) ASC')
-            ->get();
-
-        $order = 1;
-        foreach ($categories as $category) {
-            if ($category->order != $order) {
-                $category->update(['order' => $order]);
-            }
-            $order++;
-        }
+        LiveResultCategory::syncOrderForEvent($event);
     }
 }

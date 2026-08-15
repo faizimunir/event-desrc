@@ -120,6 +120,9 @@
                 @canAs('bracket.read')
                     <flux:tab name="brackets" :selected="$firstTab === 'brackets'" icon="trophy">{{ __('Brackets') }}</flux:tab>
                 @endcanAs
+                @canAs('rundown.read')
+                    <flux:tab name="rundown" :selected="$firstTab === 'rundown'" icon="clock">{{ __('Rundown') }}</flux:tab>
+                @endcanAs
                 @canAs('package.read')
                     <flux:tab name="packages" :selected="$firstTab === 'packages'" icon="cube">{{ __('Packages') }}</flux:tab>
                 @endcanAs
@@ -205,6 +208,13 @@
                                 <div class="mt-3 text-sm text-zinc-700 whitespace-pre-line dark:text-zinc-300">{{ trim($event->description) }}</div>
                             </div>
                         @endif
+
+                        <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
+                            <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Rundown') }}</h2>
+                            <div class="mt-4">
+                                <x-event-rundown-table :rundowns="$event->rundowns" />
+                            </div>
+                        </div>
 
                         <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/50 p-6">
                             <h2 class="text-sm font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Brackets') }}</h2>
@@ -315,6 +325,12 @@
             @canAs('bracket.read')
                 <flux:tab.panel name="brackets" :selected="$firstTab === 'brackets'">
                     <livewire:brackets.bracket-list :event="$event" />
+                </flux:tab.panel>
+            @endcanAs
+
+            @canAs('rundown.read')
+                <flux:tab.panel name="rundown" :selected="$firstTab === 'rundown'">
+                    <livewire:rundowns.rundown-list :event="$event" />
                 </flux:tab.panel>
             @endcanAs
 

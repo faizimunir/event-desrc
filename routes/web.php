@@ -23,6 +23,7 @@ use App\Http\Controllers\RegistrationController;
 use App\Http\Controllers\RewardController;
 use App\Http\Controllers\RiderController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\RundownController;
 use App\Http\Controllers\SwitchRoleController;
 use App\Http\Controllers\TeamController;
 use App\Http\Controllers\TicketController;
@@ -63,6 +64,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('users', UserController::class);
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['store', 'update'])->scoped();
+    Route::resource('events.rundowns', RundownController::class)->except(['store', 'update'])->scoped();
     Route::resource('events.tracks', TrackController::class)->scoped();
     Route::resource('events.brackets', BracketController::class)->scoped();
     Route::resource('events.brackets.bracket-levels', BracketLevelController::class)->scoped();

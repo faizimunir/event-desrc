@@ -61,7 +61,7 @@ class LiveResultPanel extends Component
             ->where('is_active', true)
             ->whereNotNull('selected_sheets')
             ->whereJsonLength('selected_sheets', '>', 0)
-            ->orderByRaw('LOWER(title) ASC')
+            ->orderedByRundown()
             ->get();
 
         $selectedCategory = null;

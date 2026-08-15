@@ -21,9 +21,9 @@ class EventController extends Controller
         abort_unless(auth()->user()->canAs('event.read'), 403);
         $this->authorize('view', $event);
 
-        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+        $event->load(['location', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'rundowns.brackets']);
 
-        $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'checkin', 'live-result'];
+        $validTabs = ['overview', 'code-access', 'packages', 'tracks', 'registrations', 'brackets', 'rundown', 'checkin', 'live-result'];
         $requestedTab = request('tab');
         $firstTab = in_array($requestedTab, $validTabs, true)
             ? $requestedTab
@@ -42,7 +42,7 @@ class EventController extends Controller
             abort(404);
         }
 
-        $event->load(['location', 'organizer.user', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks']);
+        $event->load(['location', 'organizer.user', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'rundowns.brackets']);
 
         Order::enforceExpiredDraftsForEvent($event->id);
         Order::enforceExpiredPaymentWindowsForEvent($event->id);

@@ -2,6 +2,14 @@
     $category = $category ?? null;
     $selectedSheets = old('selected_sheets', $category?->selected_sheets ?? []);
     $selectedSheets = is_array($selectedSheets) ? $selectedSheets : [];
+    $usedBracketIds = $event->liveResultCategories()
+        ->whereNotNull('bracket_id')
+        ->when($category?->id, fn ($q) => $q->where('id', '!=', $category->id))
+        ->pluck('bracket_id')
+        ->all();
+    $availableBrackets = $event->brackets_sorted_for_display
+        ->reject(fn ($bracket) => in_array($bracket->id, $usedBracketIds, true))
+        ->values();
 @endphp
 
 <form
@@ -27,6 +35,28 @@
     @error('title')
         <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
     @enderror
+
+    <div>
+        <flux:select
+            name="bracket_id"
+            :label="__('Bracket (optional)')"
+            :placeholder="__('Pilih bracket…')"
+        >
+            <option value="">{{ __('— Tanpa bracket —') }}</option>
+            @forelse ($availableBrackets as $bracket)
+                <option value="{{ $bracket->id }}" @selected((string) old('bracket_id', $category?->bracket_id) === (string) $bracket->id)>
+                    {{ $bracket->name }}
+                </option>
+            @empty
+            @endforelse
+        </flux:select>
+        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+            {{ __('Jika dipilih dan bracket ada di rundown, urutan tampilan live result mengikuti jadwal rundown. Bracket yang sudah dipakai kategori lain tidak ditampilkan.') }}
+        </p>
+        @error('bracket_id')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+    </div>
 
     <div>
         <flux:label class="mb-2 block">{{ __('Spreadsheet ID') }} <span class="text-red-500">*</span></flux:label>

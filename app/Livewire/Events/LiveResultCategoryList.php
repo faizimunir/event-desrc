@@ -100,14 +100,15 @@ class LiveResultCategoryList extends Component
     public function categories()
     {
         return $this->event->liveResultCategories()
+            ->with('bracket')
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('title', 'like', '%'.$this->search.'%')
-                        ->orWhere('spreadsheet_id', 'like', '%'.$this->search.'%');
+                        ->orWhere('spreadsheet_id', 'like', '%'.$this->search.'%')
+                        ->orWhereHas('bracket', fn ($b) => $b->where('name', 'like', '%'.$this->search.'%'));
                 });
             })
-            ->orderBy('order')
-            ->orderByRaw('LOWER(title) ASC')
+            ->orderedByRundown()
             ->paginate(15);
     }
 

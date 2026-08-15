@@ -253,6 +253,11 @@ class Event extends Model
         return $this->hasMany(Package::class, 'event_id')->orderBy('sort_order')->orderBy('id');
     }
 
+    public function rundowns(): HasMany
+    {
+        return $this->hasMany(Rundown::class, 'event_id')->orderBy('start_time')->orderBy('id');
+    }
+
     public function tracks(): HasMany
     {
         return $this->hasMany(Track::class, 'event_id');

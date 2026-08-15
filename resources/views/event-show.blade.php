@@ -331,6 +331,15 @@
                         </div>
                         @endif
 
+                        @if ($event->rundowns->isNotEmpty())
+                        <div class="event-section-card">
+                            <h2 class="text-base font-bold text-zinc-900 dark:text-white">{{ __('Rundown') }}</h2>
+                            <p class="mt-1 mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Susunan acara race pada hari event.') }}</p>
+                            <x-event-rundown-table :rundowns="$event->rundowns" />
+                        </div>
+                        @endif
+
                         <div class="event-section-card">
                             <h2 class="text-base font-bold text-zinc-900 dark:text-white">
                                 {{ __('Rewards by package') }}</h2>

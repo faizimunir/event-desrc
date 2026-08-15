@@ -105,6 +105,7 @@
                         $canUpdate = auth()->user()->canAs('manage_live_results') && auth()->user()->can('update', $event);
                         $sheetCount = is_array($category->selected_sheets) ? count($category->selected_sheets) : 0;
                         $metaParts = array_values(array_filter([
+                            $category->bracket?->name,
                             $sheetCount > 0 ? $sheetCount.' '.__('sheets') : __('Belum dipilih'),
                             $category->last_sync ? $category->last_sync->format('d M Y H:i') : __('Belum pernah'),
                             \Illuminate\Support\Str::limit($category->spreadsheet_id, 22),
