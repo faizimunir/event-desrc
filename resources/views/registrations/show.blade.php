@@ -166,29 +166,133 @@
         ->sortBy(fn (array $row) => $row['at']->timestamp)
         ->values();
 @endphp
-<x-layouts::app :title="__('Registration') . ' — ' . $event->title">
-    <div class="flex h-full w-full flex-1 flex-col gap-6 rounded-xl">
-        <div class="flex flex-wrap items-center gap-2">
-            <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'registrations'])" wire:navigate icon="arrow-left">
-                {{ __('Back to event') }}
-            </flux:button>
-            @if ($registration->order)
-                <flux:button variant="ghost" size="sm" :href="route('orders.show', $registration->order)" wire:navigate icon="document-text">
-                    {{ __('View order') }}
-                </flux:button>
-            @endif
-            @if ($payment && ($payment->isPending() || $payment->isSubmitted()))
-                <flux:button variant="ghost" size="sm" :href="route('payments.index', ['status' => 'pending'])" wire:navigate icon="banknotes">
-                    {{ __('Payments') }}
-                </flux:button>
-            @endif
+<x-layouts::app :title="__('Registration') . ' — ' . $event->title" :unified-header="true">
+    <div class="flex h-full w-full flex-1 flex-col">
+        <div class="users-hero-shell sticky top-0 z-10 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4">
+            <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <div class="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl"></div>
+            </div>
+
+            <div class="relative space-y-3 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4 lg:space-y-3.5 lg:pt-4">
+                <div class="flex items-center gap-2.5 lg:hidden">
+                    <flux:sidebar.toggle
+                        icon="bars-2"
+                        inset="left"
+                        class="!size-9 !rounded-xl !border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                    />
+
+                    <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                        <img
+                            src="{{ asset('logo-mini-dark.webp') }}"
+                            alt="{{ config('app.name') }}"
+                            class="h-9 w-auto shrink-0 object-contain"
+                        >
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs text-orange-100/80">
+                                {{ $event->title }}
+                            </p>
+                            <h1 class="truncate text-sm font-semibold text-white">
+                                {{ $rider->name }}
+                            </h1>
+                        </div>
+                    </div>
+
+                    <flux:dropdown position="bottom" align="end">
+                        <button
+                            type="button"
+                            class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-xs font-semibold text-white transition hover:bg-white/25"
+                            aria-label="{{ __('Account menu') }}"
+                        >
+                            {{ auth()->user()->initials() }}
+                        </button>
+
+                        @include('partials.mobile-user-menu')
+                    </flux:dropdown>
+                </div>
+
+                <div class="hidden items-center justify-between gap-3 lg:flex">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-100/90">
+                            {{ $event->title }}
+                        </p>
+                        <h1 class="truncate text-xl font-semibold tracking-tight text-white">
+                            {{ $rider->name }}
+                        </h1>
+                    </div>
+
+                    <div class="flex shrink-0 items-center gap-2">
+                        <flux:button
+                            variant="ghost"
+                            size="sm"
+                            :href="route('events.show', [$event, 'tab' => 'registrations'])"
+                            wire:navigate
+                            icon="arrow-left"
+                            class="!border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                        >
+                            {{ __('Back') }}
+                        </flux:button>
+
+                        @if ($nextRegistration)
+                            <flux:button
+                                variant="primary"
+                                size="sm"
+                                :href="route('events.registrations.show', [$event, $nextRegistration])"
+                                wire:navigate
+                                icon="arrow-right"
+                                class="!border-0 !bg-white !text-orange-600 shadow-sm hover:!bg-orange-50"
+                            >
+                                {{ __('Next') }}
+                            </flux:button>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2 lg:hidden">
+                    <flux:button
+                        variant="ghost"
+                        size="sm"
+                        :href="route('events.show', [$event, 'tab' => 'registrations'])"
+                        wire:navigate
+                        icon="arrow-left"
+                        class="users-hero-action shrink-0"
+                        :aria-label="__('Back')"
+                    />
+
+                    @if ($nextRegistration)
+                        <flux:button
+                            variant="primary"
+                            size="sm"
+                            :href="route('events.registrations.show', [$event, $nextRegistration])"
+                            wire:navigate
+                            icon="arrow-right"
+                            class="min-w-0 flex-1 !border-0 !bg-white !text-orange-600 shadow-sm hover:!bg-orange-50"
+                        >
+                            {{ __('Next') }}
+                        </flux:button>
+                    @endif
+                </div>
+            </div>
         </div>
 
-        {{-- Header: nama + status --}}
-        <div class="flex flex-wrap items-center justify-between gap-4">
-            <flux:heading>{{ $rider->name }}@if ($rider->nickname) <span class="font-normal text-zinc-500 dark:text-zinc-400">({{ $rider->nickname }})</span>@endif</flux:heading>
-            <flux:badge :color="$badgeColor" size="lg">{{ $registration->status_label }}</flux:badge>
-        </div>
+        <div class="users-hero-content flex flex-1 flex-col gap-6 pt-4 pb-6">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <flux:badge :color="$badgeColor" size="lg">{{ $registration->status_label }}</flux:badge>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($registration->order)
+                        <flux:button size="sm" :href="route('orders.show', $registration->order)" wire:navigate icon="document-text">
+                            {{ __('View order') }}
+                        </flux:button>
+                    @endif
+                    @if ($payment && ($payment->isPending() || $payment->isSubmitted()))
+                        <flux:button size="sm" :href="route('payments.index', ['status' => 'pending'])" wire:navigate icon="banknotes">
+                            {{ __('Payments') }}
+                        </flux:button>
+                    @endif
+                </div>
+            </div>
 
         {{-- Dokumen verifikasi: Photo KIA + Bukti Transfer (prioritas untuk admin) --}}
         <div class="grid gap-6 lg:grid-cols-2">
@@ -524,14 +628,16 @@
                             <img src="{{ $photoKiaUrl }}" alt="{{ __('Photo KIA') }}" class="w-full max-h-[320px] object-contain object-top" />
                         </button>
                         <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Click image for full preview') }}</p>
-                        <div x-show="previewOpen" x-transition.opacity x-cloak
-                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-                            @click.self="previewOpen = false"
-                            role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
-                            <img src="{{ $photoKiaUrl }}" alt="{{ __('Photo KIA') }}"
-                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
-                                @click.stop />
-                        </div>
+                        <template x-teleport="body">
+                            <div x-show="previewOpen" x-transition.opacity x-cloak
+                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+                                @click.self="previewOpen = false"
+                                role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
+                                <img src="{{ $photoKiaUrl }}" alt="{{ __('Photo KIA') }}"
+                                    class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
+                                    @click.stop />
+                            </div>
+                        </template>
                     @else
                         <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 py-12 text-center">
                             <span class="text-zinc-400 dark:text-zinc-500 text-4xl mb-2">🖼️</span>
@@ -659,14 +765,16 @@
                             <img src="{{ $transferProofUrl }}" alt="{{ __('Bukti transfer') }}" class="w-full max-h-[320px] object-contain object-top" />
                         </button>
                         <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Click image for full preview') }}</p>
-                        <div x-show="previewOpen" x-transition.opacity x-cloak
-                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-                            @click.self="previewOpen = false"
-                            role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
-                            <img src="{{ $transferProofUrl }}" alt="{{ __('Bukti transfer') }}"
-                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
-                                @click.stop />
-                        </div>
+                        <template x-teleport="body">
+                            <div x-show="previewOpen" x-transition.opacity x-cloak
+                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+                                @click.self="previewOpen = false"
+                                role="dialog" aria-modal="true" :aria-hidden="!previewOpen">
+                                <img src="{{ $transferProofUrl }}" alt="{{ __('Bukti transfer') }}"
+                                    class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-2xl"
+                                    @click.stop />
+                            </div>
+                        </template>
                     @else
                         <div class="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-800/50 py-12 text-center">
                             <span class="text-zinc-400 dark:text-zinc-500 text-4xl mb-2">📄</span>
@@ -745,6 +853,7 @@
                     @endforeach
                 </ol>
             </div>
+        </div>
         </div>
     </div>
 </x-layouts::app>

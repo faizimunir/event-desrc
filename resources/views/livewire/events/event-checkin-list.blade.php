@@ -5,102 +5,268 @@
                 variant="primary"
                 :href="route('events.checkins.create', $event)"
                 wire:navigate
-                icon="plus"
+                icon="camera"
                 square
                 class="shrink-0"
-                :aria-label="__('Record check-in')"
+                :aria-label="__('Scan check-in')"
             />
         @endcanAs
 
         <flux:input
             wire:model.live.debounce.500ms="search"
             type="search"
-            :placeholder="__('Search by name…')"
+            :placeholder="__('Search by name or nickname…')"
             class="min-w-0 flex-1"
         />
     </div>
 
-    <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {{ __('Check-in') }}
-        </h2>
-        <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-            {{ number_format($this->checkins->total()) }}
-        </span>
-    </div>
-
-    @if ($this->checkins->isEmpty())
-        <div class="users-list-panel px-4 py-12 text-center">
-            <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
-                <flux:icon name="check-badge" class="size-5 text-zinc-400" />
-            </div>
-            <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('No check-ins yet.') }}</p>
-            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Try adjusting your search or record a new check-in.') }}</p>
+    @if (trim($search) !== '')
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ __('Registrations') }}
+            </h2>
+            <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+                {{ number_format($this->registrationSearchResults->count()) }}
+            </span>
         </div>
-    @else
-        <div class="users-list-panel" wire:key="checkins-paged-p{{ $this->checkins->currentPage() }}">
-            @foreach ($this->checkins as $checkin)
-                @php
-                    $canUpdate = auth()->user()->canAs('checkin.update') && auth()->user()->can('update', $checkin);
-                    $summary = $checkin->registration->checkinSummary();
-                    $rider = $checkin->registration->rider;
-                    $metaParts = array_values(array_filter([
-                        $summary['teams'] ?? null,
-                        $summary['bracket'] ?? null,
-                        $checkin->checked_in_at?->format('d/m/Y H:i'),
-                        $checkin->checkedInByUser?->name,
-                        $checkin->notes,
-                    ]));
-                @endphp
 
-                <div wire:key="checkin-{{ $checkin->id }}" class="users-list-row group">
-                    @if ($canUpdate)
-                        <a
-                            href="{{ route('events.checkins.edit', [$event, $checkin]) }}"
-                            wire:navigate
-                            class="flex min-w-0 flex-1 items-center gap-2.5"
-                        >
-                    @else
+        @if ($this->registrationSearchResults->isEmpty())
+            <div class="users-list-panel px-4 py-12 text-center">
+                <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                    <flux:icon name="magnifying-glass" class="size-5 text-zinc-400" />
+                </div>
+                <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('No registrations found.') }}</p>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Try a different name or nickname.') }}</p>
+            </div>
+        @else
+            <div class="users-list-panel" wire:key="registration-search-{{ md5($search) }}">
+                @foreach ($this->registrationSearchResults as $registration)
+                    @php
+                        $summary = $registration->checkinSummary();
+                        $rider = $registration->rider;
+                        $alreadyCheckedIn = $registration->checkin !== null;
+                        $metaParts = array_values(array_filter([
+                            $summary['teams'] ?? null,
+                            $summary['bracket'] ?? null,
+                            $registration->status_label,
+                            $alreadyCheckedIn ? __('Checked in') : null,
+                        ]));
+                    @endphp
+
+                    <button
+                        type="button"
+                        wire:key="registration-search-{{ $registration->id }}"
+                        wire:click="openRegistrationCheckin({{ $registration->id }})"
+                        class="users-list-row group w-full text-left"
+                    >
                         <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                    @endif
-                        <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 px-1 font-mono text-[10px] font-semibold uppercase leading-none text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                            <span class="truncate">{{ $checkin->registration->number_plate ?? '—' }}</span>
-                        </div>
-
-                        <div class="min-w-0 flex-1">
-                            <div class="flex items-center gap-2">
-                                <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
-                                    {{ $rider?->name ?? __('Rider') }}
-                                </p>
-                                <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                            <div @class([
+                                'flex size-9 shrink-0 items-center justify-center rounded-xl px-1 font-mono text-[10px] font-semibold uppercase leading-none',
+                                'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' => $alreadyCheckedIn,
+                                'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' => ! $alreadyCheckedIn,
+                            ])>
+                                <span class="truncate">{{ $summary['number_plate'] ?? '—' }}</span>
                             </div>
-                            <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
-                            </p>
-                        </div>
 
-                        @if ($canUpdate)
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
+                                        {{ $rider?->name ?? __('Rider') }}
+                                    </p>
+                                    @if ($alreadyCheckedIn)
+                                        <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                                    @endif
+                                </div>
+                                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
+                                </p>
+                            </div>
+
                             <flux:icon
                                 name="chevron-right"
                                 variant="mini"
                                 class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
                             />
-                        @endif
-                    @if ($canUpdate)
-                        </a>
-                    @else
                         </div>
-                    @endif
-                </div>
-            @endforeach
+                    </button>
+                @endforeach
+            </div>
+        @endif
+    @else
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                {{ __('Check-in') }}
+            </h2>
+            <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+                {{ number_format($this->checkins->total()) }}
+            </span>
         </div>
+
+        @if ($this->checkins->isEmpty())
+            <div class="users-list-panel px-4 py-12 text-center">
+                <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                    <flux:icon name="check-badge" class="size-5 text-zinc-400" />
+                </div>
+                <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('No check-ins yet.') }}</p>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Search a registration above or scan a ticket to check in.') }}</p>
+            </div>
+        @else
+            <div class="users-list-panel" wire:key="checkins-paged-p{{ $this->checkins->currentPage() }}">
+                @foreach ($this->checkins as $checkin)
+                    @php
+                        $canUpdate = auth()->user()->canAs('checkin.update') && auth()->user()->can('update', $checkin);
+                        $summary = $checkin->registration->checkinSummary();
+                        $rider = $checkin->registration->rider;
+                        $metaParts = array_values(array_filter([
+                            $summary['teams'] ?? null,
+                            $summary['bracket'] ?? null,
+                            $checkin->checked_in_at?->format('d/m/Y H:i'),
+                            $checkin->checkedInByUser?->name,
+                            $checkin->notes,
+                        ]));
+                    @endphp
+
+                    <div wire:key="checkin-{{ $checkin->id }}" class="users-list-row group">
+                        @if ($canUpdate)
+                            <a
+                                href="{{ route('events.checkins.edit', [$event, $checkin]) }}"
+                                wire:navigate
+                                class="flex min-w-0 flex-1 items-center gap-2.5"
+                            >
+                        @else
+                            <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                        @endif
+                            <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 px-1 font-mono text-[10px] font-semibold uppercase leading-none text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                                <span class="truncate">{{ $checkin->registration->number_plate ?? '—' }}</span>
+                            </div>
+
+                            <div class="min-w-0 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
+                                        {{ $rider?->name ?? __('Rider') }}
+                                    </p>
+                                    <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                                </div>
+                                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
+                                </p>
+                            </div>
+
+                            @if ($canUpdate)
+                                <flux:icon
+                                    name="chevron-right"
+                                    variant="mini"
+                                    class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
+                                />
+                            @endif
+                        @if ($canUpdate)
+                            </a>
+                        @else
+                            </div>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
+        @if ($this->checkins->hasPages())
+            <div class="mt-4 pb-2">
+                {{ $this->checkins->links() }}
+            </div>
+        @endif
     @endif
 
-    @if ($this->checkins->hasPages())
-        <div class="mt-4 pb-2">
-            {{ $this->checkins->links() }}
-        </div>
-    @endif
+    <flux:modal
+        name="checkin-registration-modal"
+        class="max-w-lg"
+        wire:model="checkinModalOpen"
+        @close="closeCheckinModal"
+        focusable
+        dismissible
+    >
+        @if ($this->selectedRegistration)
+            @php
+                $selected = $this->selectedRegistration;
+                $selectedSummary = $selected->checkinSummary();
+                $selectedAlreadyCheckedIn = $selected->checkin !== null;
+                $canCheckIn = auth()->user()->canAs('checkin.create')
+                    && ! $selectedAlreadyCheckedIn;
+            @endphp
+
+            <div class="space-y-4">
+                <div>
+                    <flux:heading size="lg">{{ __('Registration') }}</flux:heading>
+                    <flux:text class="mt-1">
+                        {{ $selectedSummary['name'] }}
+                        @if ($selectedSummary['number_plate'])
+                            · #{{ $selectedSummary['number_plate'] }}
+                        @endif
+                    </flux:text>
+                </div>
+
+                <dl class="grid gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Status') }}</dt>
+                        <dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selected->status_label }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Number plate') }}</dt>
+                        <dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedSummary['number_plate'] ?? '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Team') }}</dt>
+                        <dd class="text-right font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedSummary['teams'] ?? '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Bracket') }}</dt>
+                        <dd class="font-medium text-zinc-900 dark:text-zinc-100">{{ $selectedSummary['bracket'] ?? '—' }}</dd>
+                    </div>
+                    @if ($selectedAlreadyCheckedIn)
+                        <div class="flex justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                            <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Checked in') }}</dt>
+                            <dd class="text-right font-medium text-emerald-600 dark:text-emerald-400">
+                                {{ $selected->checkin->checked_in_at?->format('d/m/Y H:i') }}
+                                @if ($selected->checkin->checkedInByUser?->name)
+                                    <span class="block text-xs font-normal text-zinc-500 dark:text-zinc-400">
+                                        {{ $selected->checkin->checkedInByUser->name }}
+                                    </span>
+                                @endif
+                            </dd>
+                        </div>
+                    @endif
+                </dl>
+
+                @if ($canCheckIn)
+                    <flux:input
+                        wire:model="checkinNotes"
+                        type="text"
+                        :label="__('Notes (optional)')"
+                        :placeholder="__('e.g. Gate A')"
+                    />
+                    @error('checkinNotes')
+                        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                    @enderror
+                @endif
+
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button type="button" variant="filled">{{ __('Close') }}</flux:button>
+                    </flux:modal.close>
+                    @if ($canCheckIn)
+                        <flux:button
+                            type="button"
+                            variant="primary"
+                            icon="check"
+                            wire:click="confirmCheckin"
+                            wire:loading.attr="disabled"
+                        >
+                            {{ __('Check in') }}
+                        </flux:button>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </flux:modal>
 
     @if ($this->editingRegistration)
         @include('registrations.partials.edit-rider-data-modal', [

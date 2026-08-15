@@ -49,6 +49,19 @@ class BracketLevelController extends Controller
             ->with('status', __('Bracket level created.'));
     }
 
+    public function show(Event $event, Bracket $bracket, BracketLevel $bracketLevel)
+    {
+        abort_unless(auth()->user()->canAs('bracket_level.read'), 403);
+        abort_if($bracket->event_id !== $event->id, 404);
+        abort_if($bracketLevel->event_bracket_id !== $bracket->id, 404);
+
+        if (auth()->user()->canAs('bracket_level.update') && auth()->user()->can('update', $bracketLevel)) {
+            return redirect()->route('events.brackets.bracket-levels.edit', [$event, $bracket, $bracketLevel]);
+        }
+
+        return redirect()->route('events.brackets.bracket-levels.index', [$event, $bracket]);
+    }
+
     public function edit(Event $event, Bracket $bracket, BracketLevel $bracketLevel)
     {
         abort_unless(auth()->user()->canAs('bracket_level.update'), 403);

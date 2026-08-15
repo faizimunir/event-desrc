@@ -1,11 +1,4 @@
-<div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-    <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="route('racing-committees.index')" wire:navigate icon="arrow-left">
-            {{ __('Back') }}
-        </flux:button>
-    </div>
-    <flux:heading>{{ $racingCommittee ? __('Edit Racing Committee') : __('Add Racing Committee') }}</flux:heading>
-
+<div class="flex h-full w-full flex-1 flex-col gap-4">
     <form wire:submit="save" class="max-w-lg space-y-6">
         <flux:input wire:model="name" type="text" :label="__('Name')" required autofocus />
         @error('name')
@@ -64,7 +57,7 @@
     @if ($racingCommittee)
         @canAs('rc.delete')
             @can('delete', $racingCommittee)
-                <form id="delete-rc-form-{{ $racingCommittee->id }}" method="post" action="{{ route('racing-committees.destroy', $racingCommittee) }}" class="mt-6">
+                <form id="delete-rc-form-{{ $racingCommittee->id }}" method="post" action="{{ route('racing-committees.destroy', $racingCommittee) }}" class="mt-2">
                     @csrf
                     @method('DELETE')
                     <flux:button

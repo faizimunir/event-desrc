@@ -9,8 +9,8 @@
 
 <body class="app-shell min-h-screen bg-white dark:bg-zinc-800 antialiased">
     <flux:sidebar sticky collapsible
-        class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 max-lg:z-[70]!">
-        <flux:sidebar.header>
+        class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 max-lg:z-[70]! overflow-hidden!">
+        <flux:sidebar.header class="shrink-0">
             <flux:sidebar.brand href="{{ route('home') }}" class="flex items-center">
                 <x-slot name="logo">
                     {{-- Logo utama (sidebar lebar) --}}
@@ -45,7 +45,7 @@
             <flux:sidebar.collapse class="in-data-flux-sidebar-on-desktop:not-in-data-flux-sidebar-collapsed-desktop:-mr-2" />
         </flux:sidebar.header>
 
-        <flux:sidebar.nav>
+        <flux:sidebar.nav class="min-h-0! flex-1 overflow-y-auto! overscroll-contain">
             <div class="px-3 py-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
                 <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Platform') }}</div>
             </div>
@@ -54,10 +54,34 @@
                     wire:navigate>
                     {{ __('Dashboard') }}
                 </flux:sidebar.item>
+                @canAs('event.read')
+                <flux:sidebar.item icon="calendar" :href="route('events.index')" :current="request()->routeIs('events.*')"
+                    wire:navigate>
+                    {{ __('Events') }}
+                </flux:sidebar.item>
+                @endcanAs
                 @canAs('myrider.manage')
                 <flux:sidebar.item icon="user-circle" :href="route('my-rider.index')" :current="request()->routeIs('my-rider.*')"
                     wire:navigate>
                     {{ __('My Rider') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('access_drag_race_timer')
+                <flux:sidebar.item icon="clock" :href="route('drag-race-timer.index')" :current="request()->routeIs('drag-race-timer.*')">
+                    {{ __('Drag Race Timer') }}
+                </flux:sidebar.item>
+                @endcanAs
+            </div>
+
+            @if (auth()->user()->canAs('rider.read') || auth()->user()->canAs('user.read') || auth()->user()->canAs('team.read'))
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Community') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
+                @canAs('rider.read')
+                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
+                    wire:navigate>
+                    {{ __('Riders') }}
                 </flux:sidebar.item>
                 @endcanAs
                 @canAs('user.read')
@@ -66,47 +90,20 @@
                     {{ __('Users') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @canAs('event.read')
-                <flux:sidebar.item icon="calendar" :href="route('events.index')" :current="request()->routeIs('events.*')"
-                    wire:navigate>
-                    {{ __('Events') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('rider.read')
-                <flux:sidebar.item icon="user" :href="route('riders.index')" :current="request()->routeIs('riders.*')"
-                    wire:navigate>
-                    {{ __('Riders') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('access_drag_race_timer')
-                <flux:sidebar.item icon="clock" :href="route('drag-race-timer.index')" :current="request()->routeIs('drag-race-timer.*')">
-                    {{ __('Drag Race Timer') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('location.read')
-                <flux:sidebar.item icon="map-pin" :href="route('locations.index')" :current="request()->routeIs('locations.*')"
-                    wire:navigate>
-                    {{ __('Locations') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('reward.read')
-                <flux:sidebar.item icon="gift" :href="route('rewards.index')" :current="request()->routeIs('rewards.*')"
-                    wire:navigate>
-                    {{ __('Rewards') }}
-                </flux:sidebar.item>
-                @endcanAs
-                @canAs('level.read')
-                <flux:sidebar.item icon="layers" :href="route('levels.index')" :current="request()->routeIs('levels.*')"
-                    wire:navigate>
-                    {{ __('Levels') }}
-                </flux:sidebar.item>
-                @endcanAs
                 @canAs('team.read')
                 <flux:sidebar.item icon="user-group" :href="route('teams.index')" :current="request()->routeIs('teams.*')"
                     wire:navigate>
                     {{ __('Teams') }}
                 </flux:sidebar.item>
                 @endcanAs
+            </div>
+            @endif
+
+            @if (auth()->user()->canAs('organizer.read') || auth()->user()->canAs('rc.read') || auth()->user()->canAs('mc.read'))
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Committee') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
                 @canAs('organizer.read')
                 <flux:sidebar.item icon="building-2" :href="route('organizers.index')" :current="request()->routeIs('organizers.*')"
                     wire:navigate>
@@ -125,17 +122,8 @@
                     {{ __('Master of Ceremonies') }}
                 </flux:sidebar.item>
                 @endcanAs
-                @if (auth()->user()->hasRole('super_admin'))
-                    <flux:sidebar.item icon="shield-check" :href="route('roles.index')"
-                        :current="request()->routeIs('roles.*')" wire:navigate>
-                        {{ __('Roles') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="key" :href="route('permissions.index')"
-                        :current="request()->routeIs('permissions.*')" wire:navigate>
-                        {{ __('Permissions') }}
-                    </flux:sidebar.item>
-                @endif
             </div>
+            @endif
 
             @if (auth()->user()->canAs('payment.read') || auth()->user()->canAs('account.read'))
             <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
@@ -156,25 +144,69 @@
                 @endcanAs
             </div>
             @endif
+
+            @if (auth()->user()->canAs('location.read') || auth()->user()->canAs('reward.read') || auth()->user()->canAs('level.read'))
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Master') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
+                @canAs('location.read')
+                <flux:sidebar.item icon="map-pin" :href="route('locations.index')" :current="request()->routeIs('locations.*')"
+                    wire:navigate>
+                    {{ __('Locations') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('reward.read')
+                <flux:sidebar.item icon="gift" :href="route('rewards.index')" :current="request()->routeIs('rewards.*')"
+                    wire:navigate>
+                    {{ __('Rewards') }}
+                </flux:sidebar.item>
+                @endcanAs
+                @canAs('level.read')
+                <flux:sidebar.item icon="layers" :href="route('levels.index')" :current="request()->routeIs('levels.*')"
+                    wire:navigate>
+                    {{ __('Levels') }}
+                </flux:sidebar.item>
+                @endcanAs
+            </div>
+            @endif
+
+            @if (auth()->user()->hasRole('super_admin'))
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Access Control') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
+                <flux:sidebar.item icon="shield-check" :href="route('roles.index')"
+                    :current="request()->routeIs('roles.*')" wire:navigate>
+                    {{ __('Roles') }}
+                </flux:sidebar.item>
+                <flux:sidebar.item icon="key" :href="route('permissions.index')"
+                    :current="request()->routeIs('permissions.*')" wire:navigate>
+                    {{ __('Permissions') }}
+                </flux:sidebar.item>
+            </div>
+            @endif
+
         </flux:sidebar.nav>
 
-        <flux:sidebar.spacer />
-        <flux:radio.group
-            x-data
-            variant="segmented"
-            x-model="$flux.appearance"
-            class="in-data-flux-sidebar-collapsed-desktop:hidden"
-        >
-            <flux:radio value="light" icon="sun" />
-            <flux:radio value="dark" icon="moon" />
-            <flux:radio value="system" icon="computer-desktop" />
-        </flux:radio.group>
+        <div class="mt-auto shrink-0 space-y-4">
+            <flux:radio.group
+                x-data
+                variant="segmented"
+                x-model="$flux.appearance"
+                class="in-data-flux-sidebar-collapsed-desktop:hidden"
+            >
+                <flux:radio value="light" icon="sun" />
+                <flux:radio value="dark" icon="moon" />
+                <flux:radio value="system" icon="computer-desktop" />
+            </flux:radio.group>
 
-        <div class="hidden in-data-flux-sidebar-collapsed-desktop:flex justify-center">
-            <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" />
+            <div class="hidden in-data-flux-sidebar-collapsed-desktop:flex justify-center">
+                <flux:button x-data x-on:click="$flux.dark = ! $flux.dark" icon="moon" variant="subtle" aria-label="Toggle dark mode" />
+            </div>
+
+            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </div>
-
-        <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
     </flux:sidebar>
 
     @unless ($unifiedHeader)

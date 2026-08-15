@@ -169,21 +169,23 @@
                                                     {{ __('Preview image') }}
                                                 </button>
                                             </span>
-                                            <div
-                                                x-show="previewOpen"
-                                                x-transition.opacity
-                                                x-cloak
-                                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
-                                                @click.self="previewOpen = false"
-                                                role="dialog"
-                                                aria-modal="true"
-                                                :aria-hidden="!previewOpen">
-                                                <img
-                                                    src="{{ $photoKiaUrl }}"
-                                                    alt="{{ __('Photo KIA') }}"
-                                                    class="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
-                                                    @click.stop />
-                                            </div>
+                                            <template x-teleport="body">
+                                                <div
+                                                    x-show="previewOpen"
+                                                    x-transition.opacity
+                                                    x-cloak
+                                                    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4"
+                                                    @click.self="previewOpen = false"
+                                                    role="dialog"
+                                                    aria-modal="true"
+                                                    :aria-hidden="!previewOpen">
+                                                    <img
+                                                        src="{{ $photoKiaUrl }}"
+                                                        alt="{{ __('Photo KIA') }}"
+                                                        class="max-h-[90vh] max-w-full rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
+                                                        @click.stop />
+                                                </div>
+                                            </template>
                                         </div>
                                     @endif
                                     @if ($reg->jersey_size)

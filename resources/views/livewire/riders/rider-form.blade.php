@@ -1,10 +1,4 @@
 <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-    <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="$this->returnUrl()" wire:navigate icon="arrow-left">
-            {{ __('Back') }}
-        </flux:button>
-    </div>
-    <flux:heading>{{ $rider ? __('Edit Rider') : __('Add Rider') }}</flux:heading>
 
     <form wire:submit="save" class="max-w-lg space-y-6">
         <flux:input wire:model="name" type="text" :label="__('Name')" required autofocus />

@@ -1,55 +1,129 @@
-<x-layouts::app :title="__('Edit kategori')">
-    <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-        <div class="flex items-center gap-2">
-            <flux:button variant="ghost" size="sm" :href="route('events.show', [$event, 'tab' => 'live-result'])" wire:navigate icon="arrow-left">
-                {{ __('Back') }}
-            </flux:button>
-        </div>
-        <flux:heading>{{ $event->title }} — {{ __('Edit kategori') }}</flux:heading>
-        <flux:subheading>{{ $category->title }}</flux:subheading>
-
-        @include('admin.live-result-categories.partials.form', ['event' => $event, 'category' => $category])
-
-        @if ($category->selected_sheets && count($category->selected_sheets) > 0)
-            <div class="mt-2 flex max-w-lg flex-wrap items-center gap-2">
-                <form method="POST" action="{{ route('events.live-result-categories.sync', [$event, $category]) }}">
-                    @csrf
-                    <flux:button type="submit" variant="outline" icon="arrow-path">
-                        {{ __('Sync') }}
-                    </flux:button>
-                </form>
-
-                <select
-                    id="print-round-select"
-                    class="rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                    data-print-url="{{ route('events.live-result-categories.print', [$event, $category]) }}"
-                >
-                    @foreach ($category->selected_sheets as $sheet)
-                        <option value="{{ $sheet }}">{{ $sheet }}</option>
-                    @endforeach
-                </select>
-                <flux:button type="button" variant="outline" icon="printer" id="print-preview-btn">
-                    {{ __('Print') }}
-                </flux:button>
+<x-layouts::app :title="__('Edit kategori')" :unified-header="true">
+    <div class="flex h-full w-full flex-1 flex-col">
+        <div class="users-hero-shell sticky top-0 z-10 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4">
+            <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+                <div class="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl"></div>
             </div>
-        @endif
 
-        @canAs('event.update')
-            @can('update', $event)
-                <form id="delete-live-result-category-form-{{ $category->id }}" method="POST" action="{{ route('events.live-result-categories.destroy', [$event, $category]) }}" class="mt-6">
-                    @csrf
-                    @method('DELETE')
+            <div class="relative space-y-3 px-4 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))] sm:px-5 sm:pb-4 lg:space-y-3.5 lg:pt-4">
+                <div class="flex items-center gap-2.5 lg:hidden">
+                    <flux:sidebar.toggle
+                        icon="bars-2"
+                        inset="left"
+                        class="!size-9 !rounded-xl !border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                    />
+
+                    <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                        <img
+                            src="{{ asset('logo-mini-dark.webp') }}"
+                            alt="{{ config('app.name') }}"
+                            class="h-9 w-auto shrink-0 object-contain"
+                        >
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs text-orange-100/80">
+                                {{ $event->title }}
+                            </p>
+                            <h1 class="truncate text-sm font-semibold text-white">
+                                {{ __('Edit kategori') }}
+                            </h1>
+                        </div>
+                    </div>
+
+                    <flux:dropdown position="bottom" align="end">
+                        <button
+                            type="button"
+                            class="flex size-9 shrink-0 items-center justify-center rounded-xl border border-white/25 bg-white/15 text-xs font-semibold text-white transition hover:bg-white/25"
+                            aria-label="{{ __('Account menu') }}"
+                        >
+                            {{ auth()->user()->initials() }}
+                        </button>
+
+                        @include('partials.mobile-user-menu')
+                    </flux:dropdown>
+                </div>
+
+                <div class="hidden items-center justify-between gap-3 lg:flex">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-orange-100/90">
+                            {{ $event->title }}
+                        </p>
+                        <h1 class="truncate text-xl font-semibold tracking-tight text-white">
+                            {{ __('Edit kategori') }}
+                        </h1>
+                    </div>
+
                     <flux:button
-                        type="button"
-                        variant="danger"
-                        icon="trash"
-                        onclick="if(confirm({{ json_encode(__('Apakah Anda yakin ingin menghapus kategori ini?')) }})) document.getElementById('delete-live-result-category-form-{{ $category->id }}').submit()"
+                        variant="ghost"
+                        size="sm"
+                        :href="route('events.show', [$event, 'tab' => 'live-result'])"
+                        wire:navigate
+                        icon="arrow-left"
+                        class="shrink-0 !border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
                     >
-                        {{ __('Hapus') }}
+                        {{ __('Back') }}
                     </flux:button>
-                </form>
-            @endcan
-        @endcanAs
+                </div>
+
+                <div class="flex items-center gap-2 lg:hidden">
+                    <flux:button
+                        variant="ghost"
+                        size="sm"
+                        :href="route('events.show', [$event, 'tab' => 'live-result'])"
+                        wire:navigate
+                        icon="arrow-left"
+                        class="users-hero-action shrink-0"
+                        :aria-label="__('Back')"
+                    />
+                </div>
+            </div>
+        </div>
+
+        <div class="users-hero-content flex flex-1 flex-col gap-4 pt-4 pb-6">
+            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ $category->title }}</p>
+
+            @include('admin.live-result-categories.partials.form', ['event' => $event, 'category' => $category])
+
+            @if ($category->selected_sheets && count($category->selected_sheets) > 0)
+                <div class="mt-2 flex max-w-lg flex-wrap items-center gap-2">
+                    <form method="POST" action="{{ route('events.live-result-categories.sync', [$event, $category]) }}">
+                        @csrf
+                        <flux:button type="submit" variant="outline" icon="arrow-path">
+                            {{ __('Sync') }}
+                        </flux:button>
+                    </form>
+
+                    <select
+                        id="print-round-select"
+                        class="rounded-lg border border-zinc-300 bg-white px-2.5 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                        data-print-url="{{ route('events.live-result-categories.print', [$event, $category]) }}"
+                    >
+                        @foreach ($category->selected_sheets as $sheet)
+                            <option value="{{ $sheet }}">{{ $sheet }}</option>
+                        @endforeach
+                    </select>
+                    <flux:button type="button" variant="outline" icon="printer" id="print-preview-btn">
+                        {{ __('Print') }}
+                    </flux:button>
+                </div>
+            @endif
+
+            @canAs('event.update')
+                @can('update', $event)
+                    <form id="delete-live-result-category-form-{{ $category->id }}" method="POST" action="{{ route('events.live-result-categories.destroy', [$event, $category]) }}" class="mt-2">
+                        @csrf
+                        @method('DELETE')
+                        <flux:button
+                            type="button"
+                            variant="danger"
+                            icon="trash"
+                            onclick="if(confirm({{ json_encode(__('Apakah Anda yakin ingin menghapus kategori ini?')) }})) document.getElementById('delete-live-result-category-form-{{ $category->id }}').submit()"
+                        >
+                            {{ __('Hapus') }}
+                        </flux:button>
+                    </form>
+                @endcan
+            @endcanAs
+        </div>
     </div>
 
     <script>

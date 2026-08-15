@@ -1,10 +1,4 @@
 <div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-    <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="$event ? route('events.show', $event) : route('events.index')" wire:navigate icon="arrow-left">
-            {{ __('Back') }}
-        </flux:button>
-    </div>
-
     <form wire:submit="save" class="max-w-lg space-y-6">
         <flux:input wire:model="title" type="text" :label="__('Title')" required autofocus />
         @error('title')

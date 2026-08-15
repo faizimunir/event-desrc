@@ -21,6 +21,18 @@ class PackageController extends Controller
         return view('events.packages.create', compact('event'));
     }
 
+    public function show(Event $event, Package $package)
+    {
+        abort_unless(auth()->user()->canAs('package.read'), 403);
+        abort_if($package->event_id !== $event->id, 404);
+
+        if (auth()->user()->canAs('package.update') && auth()->user()->can('update', $package)) {
+            return redirect()->route('events.packages.edit', [$event, $package]);
+        }
+
+        return redirect()->route('events.show', [$event, 'tab' => 'packages']);
+    }
+
     public function edit(Event $event, Package $package)
     {
         abort_unless(auth()->user()->canAs('package.update'), 403);

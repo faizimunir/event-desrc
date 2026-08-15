@@ -5,8 +5,12 @@ namespace App\Livewire\Settings;
 use App\Concerns\PasswordValidationRules;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
+#[Layout('layouts::app', ['unifiedHeader' => true])]
+#[Title('Password Settings')]
 class Password extends Component
 {
     use PasswordValidationRules;

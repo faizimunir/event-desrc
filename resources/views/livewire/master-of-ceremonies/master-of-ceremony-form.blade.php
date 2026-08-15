@@ -1,11 +1,4 @@
-<div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-    <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="route('master-of-ceremonies.index')" wire:navigate icon="arrow-left">
-            {{ __('Back') }}
-        </flux:button>
-    </div>
-    <flux:heading>{{ $masterOfCeremony ? __('Edit Master of Ceremony') : __('Add Master of Ceremony') }}</flux:heading>
-
+<div class="flex h-full w-full flex-1 flex-col gap-4">
     <form wire:submit="save" class="max-w-lg space-y-6">
         <flux:input wire:model="name" type="text" :label="__('Name')" required autofocus />
         @error('name')
@@ -64,7 +57,7 @@
     @if ($masterOfCeremony)
         @canAs('mc.delete')
             @can('delete', $masterOfCeremony)
-                <form id="delete-mc-form-{{ $masterOfCeremony->id }}" method="post" action="{{ route('master-of-ceremonies.destroy', $masterOfCeremony) }}" class="mt-6">
+                <form id="delete-mc-form-{{ $masterOfCeremony->id }}" method="post" action="{{ route('master-of-ceremonies.destroy', $masterOfCeremony) }}" class="mt-2">
                     @csrf
                     @method('DELETE')
                     <flux:button

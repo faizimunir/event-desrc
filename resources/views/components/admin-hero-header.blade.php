@@ -13,7 +13,7 @@
     $hasToolbar = ! $slot->isEmpty() || $hasCreate;
 @endphp
 
-<div {{ $attributes->class('users-hero-shell sticky top-0 z-10 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4') }}>
+<div {{ $attributes->class('users-hero-shell sticky top-0 z-30 bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 shadow-[0_12px_32px_-14px_rgba(249,115,22,0.55)] dark:from-orange-600 dark:via-orange-600 dark:to-amber-600 lg:-mx-4') }}>
     <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <div class="absolute -right-8 -top-8 size-32 rounded-full bg-white/10 blur-2xl"></div>
     </div>

@@ -62,10 +62,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
     Route::resource('users', UserController::class);
     Route::resource('events', EventController::class);
-    Route::resource('events.packages', PackageController::class)->except(['show', 'store', 'update'])->scoped();
-    Route::resource('events.tracks', TrackController::class)->except(['show'])->scoped();
-    Route::resource('events.brackets', BracketController::class)->except(['show'])->scoped();
-    Route::resource('events.brackets.bracket-levels', BracketLevelController::class)->except(['show'])->scoped();
+    Route::resource('events.packages', PackageController::class)->except(['store', 'update'])->scoped();
+    Route::resource('events.tracks', TrackController::class)->scoped();
+    Route::resource('events.brackets', BracketController::class)->scoped();
+    Route::resource('events.brackets.bracket-levels', BracketLevelController::class)->scoped();
     Route::get('events/{event}/registrations', [RegistrationController::class, 'index'])->name('events.registrations.index');
     Route::get('events/{event}/registrations/create', [RegistrationController::class, 'create'])->name('events.registrations.create');
     Route::get('events/{event}/registrations/export', [RegistrationController::class, 'export'])->name('events.registrations.export');

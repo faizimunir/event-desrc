@@ -147,14 +147,16 @@
                                             <img src="{{ $rc->photo_rc_url }}" alt="{{ $rc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity x-cloak
-                                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                            @click.self="previewOpen = false" role="dialog" aria-modal="true"
-                                            :aria-hidden="!previewOpen">
-                                            <img src="{{ $rc->photo_rc_url }}" alt="{{ $rc->name }}"
-                                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
-                                                @click.stop />
-                                        </div>
+                                        <template x-teleport="body">
+                                            <div x-show="previewOpen" x-transition.opacity x-cloak
+                                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                                @click.self="previewOpen = false" role="dialog" aria-modal="true"
+                                                :aria-hidden="!previewOpen">
+                                                <img src="{{ $rc->photo_rc_url }}" alt="{{ $rc->name }}"
+                                                    class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
+                                                    @click.stop />
+                                            </div>
+                                        </template>
                                     @else
                                         <flux:avatar :name="$rc->name" :initials="$rc->initials()"
                                             class="relative z-10 h-12 w-12 shrink-0 text-lg" />
@@ -189,14 +191,16 @@
                                             <img src="{{ $mc->avatar_mc_url }}" alt="{{ $mc->name }}"
                                                 class="h-12 w-12 rounded-lg object-cover bg-zinc-200 dark:bg-zinc-600 cursor-pointer" />
                                         </button>
-                                        <div x-show="previewOpen" x-transition.opacity x-cloak
-                                            class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                            @click.self="previewOpen = false" role="dialog" aria-modal="true"
-                                            :aria-hidden="!previewOpen">
-                                            <img src="{{ $mc->avatar_mc_url }}" alt="{{ $mc->name }}"
-                                                class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
-                                                @click.stop />
-                                        </div>
+                                        <template x-teleport="body">
+                                            <div x-show="previewOpen" x-transition.opacity x-cloak
+                                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                                @click.self="previewOpen = false" role="dialog" aria-modal="true"
+                                                :aria-hidden="!previewOpen">
+                                                <img src="{{ $mc->avatar_mc_url }}" alt="{{ $mc->name }}"
+                                                    class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
+                                                    @click.stop />
+                                            </div>
+                                        </template>
                                     @else
                                         <flux:avatar :name="$mc->name" :initials="$mc->initials()"
                                             class="relative z-10 h-12 w-12 shrink-0 text-lg" />
@@ -388,15 +392,17 @@
                                                         alt="{{ $track->name }}"
                                                         class="h-20 w-28 cursor-pointer object-cover bg-zinc-200 transition duration-300 hover:scale-105 dark:bg-zinc-600" />
                                                 </button>
-                                                <div x-show="previewOpen" x-transition.opacity x-cloak
-                                                    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                                    @click.self="previewOpen = false" role="dialog"
-                                                    aria-modal="true" :aria-hidden="!previewOpen">
-                                                    <img src="{{ $track->photoTrackUrl() }}"
-                                                        alt="{{ $track->name }}"
-                                                        class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
-                                                        @click.stop />
-                                                </div>
+                                                <template x-teleport="body">
+                                                    <div x-show="previewOpen" x-transition.opacity x-cloak
+                                                        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                                        @click.self="previewOpen = false" role="dialog"
+                                                        aria-modal="true" :aria-hidden="!previewOpen">
+                                                        <img src="{{ $track->photoTrackUrl() }}"
+                                                            alt="{{ $track->name }}"
+                                                            class="max-h-[90vh] max-w-full object-contain rounded-lg shadow-xl"
+                                                            @click.stop />
+                                                    </div>
+                                                </template>
                                             @else
                                                 <div
                                                     class="flex h-20 w-28 shrink-0 items-center justify-center rounded-lg bg-zinc-200 dark:bg-zinc-600">

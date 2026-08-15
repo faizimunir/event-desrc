@@ -1,11 +1,4 @@
-<div class="flex h-full w-full flex-1 flex-col gap-4 rounded-xl">
-    <div class="flex items-center gap-2">
-        <flux:button variant="ghost" size="sm" :href="route('organizers.index')" wire:navigate icon="arrow-left">
-            {{ __('Back') }}
-        </flux:button>
-    </div>
-    <flux:heading>{{ $organizer ? __('Edit Organizer') : __('Add Organizer') }}</flux:heading>
-
+<div class="flex h-full w-full flex-1 flex-col gap-4">
     <form wire:submit="save" class="max-w-lg space-y-6">
         @if ($canAssignUser)
             <div>
@@ -42,7 +35,7 @@
     @if ($organizer)
         @canAs('organizer.delete')
             @can('delete', $organizer)
-                <form id="delete-organizer-form-{{ $organizer->id }}" method="post" action="{{ route('organizers.destroy', $organizer) }}" class="mt-6">
+                <form id="delete-organizer-form-{{ $organizer->id }}" method="post" action="{{ route('organizers.destroy', $organizer) }}" class="mt-2">
                     @csrf
                     @method('DELETE')
                     <flux:button

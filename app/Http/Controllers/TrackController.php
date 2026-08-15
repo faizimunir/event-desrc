@@ -49,6 +49,18 @@ class TrackController extends Controller
         return redirect()->route('events.show', [$event, 'tab' => 'tracks'])->with('status', __('Track created.'));
     }
 
+    public function show(Event $event, Track $track)
+    {
+        abort_unless(auth()->user()->canAs('track.read'), 403);
+        abort_if($track->event_id !== $event->id, 404);
+
+        if (auth()->user()->canAs('track.update') && auth()->user()->can('update', $track)) {
+            return redirect()->route('events.tracks.edit', [$event, $track]);
+        }
+
+        return redirect()->route('events.show', [$event, 'tab' => 'tracks']);
+    }
+
     public function edit(Event $event, Track $track)
     {
         abort_unless(auth()->user()->canAs('track.update'), 403);

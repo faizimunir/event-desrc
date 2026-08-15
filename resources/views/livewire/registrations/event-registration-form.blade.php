@@ -115,13 +115,15 @@
                                     {{ __('View size chart') }}
                                 </button>
                             </p>
-                            <div x-show="sizeChartPreviewOpen" x-transition.opacity x-cloak
-                                class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
-                                @click.self="sizeChartPreviewOpen = false" role="dialog" aria-modal="true"
-                                :aria-hidden="!sizeChartPreviewOpen">
-                                <img src="{{ $event->sizeChartUrl() }}" alt="{{ __('Size chart') }}"
-                                    class="max-h-[90vh] max-w-full rounded-lg object-contain shadow-xl" @click.stop />
-                            </div>
+                            <template x-teleport="body">
+                                <div x-show="sizeChartPreviewOpen" x-transition.opacity x-cloak
+                                    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
+                                    @click.self="sizeChartPreviewOpen = false" role="dialog" aria-modal="true"
+                                    :aria-hidden="!sizeChartPreviewOpen">
+                                    <img src="{{ $event->sizeChartUrl() }}" alt="{{ __('Size chart') }}"
+                                        class="max-h-[90vh] max-w-full rounded-lg object-contain shadow-xl" @click.stop />
+                                </div>
+                            </template>
                         @endif
                     </div>
                 @endif

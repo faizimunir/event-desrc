@@ -4,7 +4,6 @@ namespace App\Livewire\Events;
 
 use App\Concerns\ShowsToast;
 use App\Models\Event;
-use App\Models\Registration;
 use App\Services\EventTicketCheckinScanService;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
@@ -14,6 +13,9 @@ class EventCheckinForm extends Component
     use ShowsToast;
 
     public Event $event;
+
+    /** @var array{type: string, message: string, summary: ?array}|null */
+    public ?array $lastScanResult = null;
 
     public function mount(Event $event): void
     {
@@ -32,7 +34,19 @@ class EventCheckinForm extends Component
         );
 
         $this->event = $this->event->fresh();
-        unset($this->registrationsAvailableForCheckin);
+        unset($this->recentCheckins);
+
+        $summary = $result['summary'] ?? null;
+        if ($summary === null && $result['checkin']) {
+            $result['checkin']->loadMissing(['registration.rider', 'registration.bracket']);
+            $summary = $result['checkin']->registration?->checkinSummary();
+        }
+
+        $this->lastScanResult = [
+            'type' => $result['type'],
+            'message' => $result['message'],
+            'summary' => $summary,
+        ];
 
         $variant = match ($result['type']) {
             'success' => 'success',
@@ -43,15 +57,13 @@ class EventCheckinForm extends Component
         $this->toast($result['message'], $variant);
     }
 
-    /** Registrations that can be checked in (approved, no check-in yet). */
     #[Computed]
-    public function registrationsAvailableForCheckin()
+    public function recentCheckins()
     {
-        return $this->event->registrations()
-            ->where('status', Registration::STATUS_APPROVED)
-            ->whereDoesntHave('checkin')
-            ->with('rider')
-            ->orderBy('number_plate')
+        return $this->event->checkins()
+            ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
+            ->orderByDesc('checked_in_at')
+            ->limit(50)
             ->get();
     }
 

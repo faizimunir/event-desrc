@@ -58,6 +58,18 @@ class BracketController extends Controller
         return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket created.'));
     }
 
+    public function show(Event $event, Bracket $bracket)
+    {
+        abort_unless(auth()->user()->canAs('bracket.read'), 403);
+        abort_if($bracket->event_id !== $event->id, 404);
+
+        if (auth()->user()->canAs('bracket.update') && auth()->user()->can('update', $bracket)) {
+            return redirect()->route('events.brackets.edit', [$event, $bracket]);
+        }
+
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets']);
+    }
+
     public function edit(Event $event, Bracket $bracket)
     {
         abort_unless(auth()->user()->canAs('bracket.update'), 403);

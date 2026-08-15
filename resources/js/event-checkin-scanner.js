@@ -2,9 +2,10 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 
 const SCANNER_FORMATS = [Html5QrcodeSupportedFormats.QR_CODE];
 
-function scannerDataFactory(regionId) {
+function scannerDataFactory(regionId, options = {}) {
     return {
         regionId,
+        embedded: Boolean(options.embedded),
         scanner: null,
         open: false,
         starting: false,
@@ -18,6 +19,10 @@ function scannerDataFactory(regionId) {
             const stop = () => this.closeScanner();
             document.addEventListener('livewire:navigating', stop);
             window.addEventListener('pagehide', stop);
+
+            if (this.embedded) {
+                this.$nextTick(() => this.openScanner());
+            }
         },
 
         resolveWire() {
@@ -70,10 +75,18 @@ function scannerDataFactory(regionId) {
         },
 
         lockScroll() {
+            if (this.embedded) {
+                return;
+            }
+
             document.body.style.overflow = 'hidden';
         },
 
         unlockScroll() {
+            if (this.embedded) {
+                return;
+            }
+
             document.body.style.overflow = '';
         },
 
@@ -120,8 +133,8 @@ function scannerDataFactory(regionId) {
                         fps: 10,
                         qrbox: (viewfinderWidth, viewfinderHeight) => {
                             const size = Math.min(
-                                Math.max(Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72), 220),
-                                320,
+                                Math.max(Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72), 180),
+                                this.embedded ? 260 : 320,
                             );
 
                             return { width: size, height: size };
@@ -187,7 +200,9 @@ function scannerDataFactory(regionId) {
             this.processing = true;
             this.error = null;
 
-            await this.closeScanner();
+            if (!this.embedded) {
+                await this.closeScanner();
+            }
 
             try {
                 await this.callProcessScannedCode(code);
@@ -206,7 +221,7 @@ function registerEventCheckinScanner() {
     }
 
     window.__eventCheckinScannerRegistered = true;
-    window.Alpine.data('eventCheckinScanner', (regionId) => scannerDataFactory(regionId));
+    window.Alpine.data('eventCheckinScanner', (regionId, options = {}) => scannerDataFactory(regionId, options));
 }
 
 document.addEventListener('alpine:init', registerEventCheckinScanner);
