@@ -117,7 +117,7 @@
 
     @if($selectedCategory)
         @if($selectedCategory->selected_sheets && count($selectedCategory->selected_sheets) > 0)
-            <div class="mb-6">
+            <div id="live-result-rounds" class="live-result-scroll-target mb-6">
                 <span class="live-result-filter-label">{{ __('Pilih Round') }}</span>
                 <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     @foreach($selectedCategory->selected_sheets as $round)
@@ -126,7 +126,7 @@
                             wire:click="selectRound(@js($round))"
                             wire:loading.attr="disabled"
                             wire:target="selectCategory,selectRound"
-                            class="live-result-chip live-result-chip--block {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
+                            class="live-result-chip live-result-chip--block live-result-chip--round {{ $selectedRound == $round ? 'live-result-chip--round-active' : '' }}"
                         >
                             {{ $round }}
                         </button>
@@ -135,6 +135,7 @@
             </div>
         @endif
 
+        <div id="live-result-results" class="live-result-scroll-target">
         @if($selectedRound)
             <div class="live-result-context-bar mb-6">
                 <flux:icon name="chart-bar" class="size-4 shrink-0 text-orange-500 dark:text-orange-400" />
@@ -236,12 +237,13 @@
                 <p class="mt-3 text-sm font-medium text-zinc-900 dark:text-white">{{ __('Gagal Memuat Data') }}</p>
                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Tidak dapat mengambil data dari Google Sheets. Silakan coba lagi nanti.') }}</p>
             </div>
-        @else
+        @elseif (! $selectedRound)
             <div class="bento-empty-state !py-12">
                 <flux:icon name="radio" class="mx-auto size-10 text-zinc-400 dark:text-zinc-500" />
                 <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('Silakan pilih round untuk menampilkan data.') }}</p>
             </div>
         @endif
+        </div>
     @else
         <div class="bento-empty-state !py-12">
             <flux:icon name="radio" class="mx-auto size-10 text-zinc-400 dark:text-zinc-500" />

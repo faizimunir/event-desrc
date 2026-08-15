@@ -36,11 +36,23 @@ class LiveResultPanel extends Component
     {
         $this->category = $categoryId;
         $this->round = null;
+
+        $this->js(<<<'JS'
+            setTimeout(() => {
+                document.getElementById('live-result-rounds')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+        JS);
     }
 
     public function selectRound(string $round): void
     {
         $this->round = $round;
+
+        $this->js(<<<'JS'
+            setTimeout(() => {
+                document.getElementById('live-result-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 80);
+        JS);
     }
 
     /** Refresh board + sheet data when sync version changes. */
