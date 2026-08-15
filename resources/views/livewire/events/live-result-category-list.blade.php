@@ -155,6 +155,19 @@
                                                     >
                                                         {{ __('Stop') }}
                                                     </flux:button>
+                                                @elseif ($rundown->isCompleted())
+                                                    <flux:button
+                                                        type="button"
+                                                        variant="primary"
+                                                        size="sm"
+                                                        icon="play"
+                                                        wire:click="playRundown({{ $rundown->id }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="playRundown({{ $rundown->id }})"
+                                                        wire:confirm="{{ __('Start this rundown again? Previous actual times will be replaced.') }}"
+                                                    >
+                                                        {{ __('Play') }}
+                                                    </flux:button>
                                                 @else
                                                     <flux:button
                                                         type="button"
@@ -164,9 +177,6 @@
                                                         wire:click="playRundown({{ $rundown->id }})"
                                                         wire:loading.attr="disabled"
                                                         wire:target="playRundown({{ $rundown->id }})"
-                                                        @if ($rundown->isCompleted())
-                                                            wire:confirm="{{ __('Start this rundown again? Previous actual times will be replaced.') }}"
-                                                        @endif
                                                     >
                                                         {{ __('Play') }}
                                                     </flux:button>
