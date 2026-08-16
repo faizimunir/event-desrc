@@ -18,6 +18,8 @@ class EventCheckinList extends Component
 
     public string $search = '';
 
+    public string $bracketFilter = '';
+
     public ?int $editingRegistrationId = null;
 
     public ?int $selectedRegistrationId = null;
@@ -34,6 +36,22 @@ class EventCheckinList extends Component
         if (request()->filled('edit_registration')) {
             $this->editingRegistrationId = (int) request('edit_registration');
         }
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function setBracketFilter(string $bracketId = ''): void
+    {
+        if ($bracketId !== '') {
+            $allowed = $this->event->brackets()->whereKey((int) $bracketId)->exists();
+            $bracketId = $allowed ? (string) (int) $bracketId : '';
+        }
+
+        $this->bracketFilter = $bracketId;
+        $this->resetPage();
     }
 
     public function openRegistrationEdit(int $registrationId): void
@@ -154,6 +172,24 @@ class EventCheckinList extends Component
     }
 
     #[Computed]
+    public function brackets()
+    {
+        return $this->event->brackets_sorted_for_display;
+    }
+
+    #[Computed]
+    public function selectedBracketLabel(): ?string
+    {
+        if ($this->bracketFilter === '') {
+            return null;
+        }
+
+        return $this->brackets
+            ->firstWhere('id', (int) $this->bracketFilter)
+            ?->name;
+    }
+
+    #[Computed]
     public function registrationSearchResults()
     {
         $term = trim($this->search);
@@ -172,6 +208,9 @@ class EventCheckinList extends Component
                         ->orWhere('nickname', 'like', $like);
                 });
             })
+            ->when($this->bracketFilter !== '', function ($query) {
+                $query->where('bracket_id', (int) $this->bracketFilter);
+            })
             ->orderBy('number_plate')
             ->limit(20)
             ->get();
@@ -182,6 +221,9 @@ class EventCheckinList extends Component
     {
         return $this->event->checkins()
             ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
+            ->when($this->bracketFilter !== '', function ($query) {
+                $query->whereHas('registration', fn ($q) => $q->where('bracket_id', (int) $this->bracketFilter));
+            })
             ->orderByDesc('checked_in_at')
             ->paginate(15);
     }

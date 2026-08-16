@@ -18,13 +18,42 @@
             :placeholder="__('Search by name or nickname…')"
             class="min-w-0 flex-1"
         />
+
+        <flux:dropdown position="bottom" align="end">
+            <flux:button
+                type="button"
+                icon="funnel"
+                square
+                class="shrink-0 {{ $bracketFilter !== '' ? '!ring-2 !ring-orange-500/50' : '' }}"
+                :aria-label="__('Filter by bracket')"
+            />
+
+            <flux:menu>
+                <flux:menu.item wire:click="setBracketFilter('')">
+                    {{ __('All brackets') }}
+                </flux:menu.item>
+
+                @foreach ($this->brackets as $bracket)
+                    <flux:menu.item wire:click="setBracketFilter('{{ $bracket->id }}')">
+                        {{ $bracket->name }}
+                    </flux:menu.item>
+                @endforeach
+            </flux:menu>
+        </flux:dropdown>
     </div>
 
     @if (trim($search) !== '')
         <div class="mb-3 flex items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {{ __('Registrations') }}
-            </h2>
+            <div class="min-w-0">
+                <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {{ __('Registrations') }}
+                </h2>
+                @if ($this->selectedBracketLabel)
+                    <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Bracket') }}: {{ $this->selectedBracketLabel }}
+                    </p>
+                @endif
+            </div>
             <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
                 {{ number_format($this->registrationSearchResults->count()) }}
             </span>
@@ -36,7 +65,7 @@
                     <flux:icon name="magnifying-glass" class="size-5 text-zinc-400" />
                 </div>
                 <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('No registrations found.') }}</p>
-                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Try a different name or nickname.') }}</p>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Try adjusting your search or filters.') }}</p>
             </div>
         @else
             <div class="users-list-panel" wire:key="registration-search-{{ md5($search) }}">
@@ -94,9 +123,16 @@
         @endif
     @else
         <div class="mb-3 flex items-center justify-between gap-3">
-            <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                {{ __('Check-in') }}
-            </h2>
+            <div class="min-w-0">
+                <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {{ __('Check-in') }}
+                </h2>
+                @if ($this->selectedBracketLabel)
+                    <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Bracket') }}: {{ $this->selectedBracketLabel }}
+                    </p>
+                @endif
+            </div>
             <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
                 {{ number_format($this->checkins->total()) }}
             </span>
@@ -107,8 +143,14 @@
                 <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
                     <flux:icon name="check-badge" class="size-5 text-zinc-400" />
                 </div>
-                <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ __('No check-ins yet.') }}</p>
-                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Search a registration above or scan a ticket to check in.') }}</p>
+                <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                    {{ $bracketFilter !== '' ? __('No check-ins found.') : __('No check-ins yet.') }}
+                </p>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ $bracketFilter !== ''
+                        ? __('Try adjusting your search or filters.')
+                        : __('Search a registration above or scan a ticket to check in.') }}
+                </p>
             </div>
         @else
             <div class="users-list-panel" wire:key="checkins-paged-p{{ $this->checkins->currentPage() }}">
