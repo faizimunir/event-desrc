@@ -49,6 +49,7 @@ class EventTicketCheckinScanService
 
         $checkin = $event->checkins()->create([
             'registration_id' => $registration->id,
+            'checked_in_at' => now(),
             'checked_in_by' => $checkedInByUserId,
         ]);
 

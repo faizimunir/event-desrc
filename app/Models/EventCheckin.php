@@ -24,6 +24,17 @@ class EventCheckin extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::creating(function (EventCheckin $checkin): void {
+            // Always set from app timezone. Relying on MySQL CURRENT_TIMESTAMP
+            // stores UTC when the DB session is UTC, which then displays ~7–8h early.
+            if ($checkin->checked_in_at === null) {
+                $checkin->checked_in_at = now();
+            }
+        });
+    }
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);

@@ -128,6 +128,7 @@ class EventCheckinList extends Component
 
         $this->event->checkins()->create([
             'registration_id' => $registration->id,
+            'checked_in_at' => now(),
             'checked_in_by' => auth()->id(),
             'notes' => filled($this->checkinNotes) ? $this->checkinNotes : null,
         ]);
@@ -144,7 +145,9 @@ class EventCheckinList extends Component
         $this->closeCheckinModal();
         $this->search = '';
         unset($this->checkins);
+        unset($this->filteredRegistrations);
         unset($this->registrationSearchResults);
+        unset($this->checkinStats);
     }
 
     #[Computed]
@@ -190,6 +193,25 @@ class EventCheckinList extends Component
     }
 
     #[Computed]
+    public function checkinStats(): array
+    {
+        $base = $this->event->registrations()
+            ->publiclyListed()
+            ->when($this->bracketFilter !== '', function ($query) {
+                $query->where('bracket_id', (int) $this->bracketFilter);
+            });
+
+        $total = (clone $base)->count();
+        $checkedIn = (clone $base)->whereHas('checkin')->count();
+
+        return [
+            'checked_in' => $checkedIn,
+            'pending' => max(0, $total - $checkedIn),
+            'total' => $total,
+        ];
+    }
+
+    #[Computed]
     public function registrationSearchResults()
     {
         $term = trim($this->search);
@@ -197,8 +219,7 @@ class EventCheckinList extends Component
             return collect();
         }
 
-        return $this->event->registrations()
-            ->publiclyListed()
+        return $this->eligibleRegistrationsQuery()
             ->with(['rider', 'bracket', 'checkin'])
             ->whereHas('rider', function ($query) use ($term) {
                 $like = '%'.addcslashes($term, '%_\\').'%';
@@ -208,12 +229,20 @@ class EventCheckinList extends Component
                         ->orWhere('nickname', 'like', $like);
                 });
             })
-            ->when($this->bracketFilter !== '', function ($query) {
-                $query->where('bracket_id', (int) $this->bracketFilter);
-            })
             ->orderBy('number_plate')
             ->limit(20)
             ->get();
+    }
+
+    #[Computed]
+    public function filteredRegistrations()
+    {
+        return $this->eligibleRegistrationsQuery()
+            ->with(['rider', 'bracket', 'checkin.checkedInByUser'])
+            ->withExists('checkin')
+            ->orderBy('checkin_exists')
+            ->orderBy('number_plate')
+            ->paginate(15);
     }
 
     #[Computed]
@@ -221,11 +250,17 @@ class EventCheckinList extends Component
     {
         return $this->event->checkins()
             ->with(['registration.rider', 'registration.bracket', 'checkedInByUser'])
-            ->when($this->bracketFilter !== '', function ($query) {
-                $query->whereHas('registration', fn ($q) => $q->where('bracket_id', (int) $this->bracketFilter));
-            })
             ->orderByDesc('checked_in_at')
             ->paginate(15);
+    }
+
+    protected function eligibleRegistrationsQuery()
+    {
+        return $this->event->registrations()
+            ->publiclyListed()
+            ->when($this->bracketFilter !== '', function ($query) {
+                $query->where('bracket_id', (int) $this->bracketFilter);
+            });
     }
 
     public function render()

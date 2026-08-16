@@ -42,6 +42,11 @@
         </flux:dropdown>
     </div>
 
+    @php
+        $stats = $this->checkinStats;
+        $showingFilteredRegistrations = $bracketFilter !== '' && trim($search) === '';
+    @endphp
+
     @if (trim($search) !== '')
         <div class="mb-3 flex items-center justify-between gap-3">
             <div class="min-w-0">
@@ -70,62 +75,15 @@
         @else
             <div class="users-list-panel" wire:key="registration-search-{{ md5($search) }}">
                 @foreach ($this->registrationSearchResults as $registration)
-                    @php
-                        $summary = $registration->checkinSummary();
-                        $rider = $registration->rider;
-                        $alreadyCheckedIn = $registration->checkin !== null;
-                        $metaParts = array_values(array_filter([
-                            $summary['teams'] ?? null,
-                            $summary['bracket'] ?? null,
-                            $registration->status_label,
-                            $alreadyCheckedIn ? __('Checked in') : null,
-                        ]));
-                    @endphp
-
-                    <button
-                        type="button"
-                        wire:key="registration-search-{{ $registration->id }}"
-                        wire:click="openRegistrationCheckin({{ $registration->id }})"
-                        class="users-list-row group w-full text-left"
-                    >
-                        <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                            <div @class([
-                                'flex size-9 shrink-0 items-center justify-center rounded-xl px-1 font-mono text-[10px] font-semibold uppercase leading-none',
-                                'bg-emerald-500/10 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' => $alreadyCheckedIn,
-                                'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' => ! $alreadyCheckedIn,
-                            ])>
-                                <span class="truncate">{{ $summary['number_plate'] ?? '—' }}</span>
-                            </div>
-
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
-                                    <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
-                                        {{ $rider?->name ?? __('Rider') }}
-                                    </p>
-                                    @if ($alreadyCheckedIn)
-                                        <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
-                                    @endif
-                                </div>
-                                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                    {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
-                                </p>
-                            </div>
-
-                            <flux:icon
-                                name="chevron-right"
-                                variant="mini"
-                                class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
-                            />
-                        </div>
-                    </button>
+                    @include('livewire.events.partials.checkin-registration-row', ['registration' => $registration])
                 @endforeach
             </div>
         @endif
     @else
-        <div class="mb-3 flex items-center justify-between gap-3">
+        <div class="mb-3 flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
                 <h2 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {{ __('Check-in') }}
+                    {{ $showingFilteredRegistrations ? __('Registrations') : __('Check-in') }}
                 </h2>
                 @if ($this->selectedBracketLabel)
                     <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
@@ -133,88 +91,123 @@
                     </p>
                 @endif
             </div>
-            <span class="shrink-0 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
-                {{ number_format($this->checkins->total()) }}
-            </span>
+
+            <div class="flex flex-wrap items-center gap-1.5">
+                <span class="rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                    {{ __('Checked in') }} {{ number_format($stats['checked_in']) }}
+                </span>
+                <span class="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                    {{ __('Not checked in') }} {{ number_format($stats['pending']) }}
+                </span>
+                <span class="rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-semibold text-orange-600 dark:bg-orange-500/15 dark:text-orange-400">
+                    {{ __('Total') }} {{ number_format($stats['total']) }}
+                </span>
+            </div>
         </div>
 
-        @if ($this->checkins->isEmpty())
-            <div class="users-list-panel px-4 py-12 text-center">
-                <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
-                    <flux:icon name="check-badge" class="size-5 text-zinc-400" />
-                </div>
-                <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
-                    {{ $bracketFilter !== '' ? __('No check-ins found.') : __('No check-ins yet.') }}
-                </p>
-                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {{ $bracketFilter !== ''
-                        ? __('Try adjusting your search or filters.')
-                        : __('Search a registration above or scan a ticket to check in.') }}
-                </p>
-            </div>
-        @else
-            <div class="users-list-panel" wire:key="checkins-paged-p{{ $this->checkins->currentPage() }}">
-                @foreach ($this->checkins as $checkin)
-                    @php
-                        $canUpdate = auth()->user()->canAs('checkin.update') && auth()->user()->can('update', $checkin);
-                        $summary = $checkin->registration->checkinSummary();
-                        $rider = $checkin->registration->rider;
-                        $metaParts = array_values(array_filter([
-                            $summary['teams'] ?? null,
-                            $summary['bracket'] ?? null,
-                            $checkin->checked_in_at?->format('d/m/Y H:i'),
-                            $checkin->checkedInByUser?->name,
-                            $checkin->notes,
-                        ]));
-                    @endphp
-
-                    <div wire:key="checkin-{{ $checkin->id }}" class="users-list-row group">
-                        @if ($canUpdate)
-                            <a
-                                href="{{ route('events.checkins.edit', [$event, $checkin]) }}"
-                                wire:navigate
-                                class="flex min-w-0 flex-1 items-center gap-2.5"
-                            >
-                        @else
-                            <div class="flex min-w-0 flex-1 items-center gap-2.5">
-                        @endif
-                            <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 px-1 font-mono text-[10px] font-semibold uppercase leading-none text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
-                                <span class="truncate">{{ $checkin->registration->number_plate ?? '—' }}</span>
-                            </div>
-
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
-                                    <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
-                                        {{ $rider?->name ?? __('Rider') }}
-                                    </p>
-                                    <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
-                                </div>
-                                <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
-                                    {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
-                                </p>
-                            </div>
-
-                            @if ($canUpdate)
-                                <flux:icon
-                                    name="chevron-right"
-                                    variant="mini"
-                                    class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
-                                />
-                            @endif
-                        @if ($canUpdate)
-                            </a>
-                        @else
-                            </div>
-                        @endif
+        @if ($showingFilteredRegistrations)
+            @if ($this->filteredRegistrations->isEmpty())
+                <div class="users-list-panel px-4 py-12 text-center">
+                    <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                        <flux:icon name="funnel" class="size-5 text-zinc-400" />
                     </div>
-                @endforeach
-            </div>
-        @endif
+                    <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                        {{ __('No registrations found.') }}
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Try adjusting your search or filters.') }}
+                    </p>
+                </div>
+            @else
+                <div class="users-list-panel" wire:key="filtered-regs-p{{ $this->filteredRegistrations->currentPage() }}-b{{ $bracketFilter }}">
+                    @foreach ($this->filteredRegistrations as $registration)
+                        @include('livewire.events.partials.checkin-registration-row', ['registration' => $registration])
+                    @endforeach
+                </div>
+            @endif
 
-        @if ($this->checkins->hasPages())
-            <div class="mt-4 pb-2">
-                {{ $this->checkins->links() }}
-            </div>
+            @if ($this->filteredRegistrations->hasPages())
+                <div class="mt-4 pb-2">
+                    {{ $this->filteredRegistrations->links() }}
+                </div>
+            @endif
+        @else
+            @if ($this->checkins->isEmpty())
+                <div class="users-list-panel px-4 py-12 text-center">
+                    <div class="mx-auto flex size-11 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                        <flux:icon name="check-badge" class="size-5 text-zinc-400" />
+                    </div>
+                    <p class="mt-3 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+                        {{ __('No check-ins yet.') }}
+                    </p>
+                    <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Search a registration above or scan a ticket to check in.') }}
+                    </p>
+                </div>
+            @else
+                <div class="users-list-panel" wire:key="checkins-paged-p{{ $this->checkins->currentPage() }}">
+                    @foreach ($this->checkins as $checkin)
+                        @php
+                            $canUpdate = auth()->user()->canAs('checkin.update') && auth()->user()->can('update', $checkin);
+                            $summary = $checkin->registration->checkinSummary();
+                            $rider = $checkin->registration->rider;
+                            $metaParts = array_values(array_filter([
+                                $summary['teams'] ?? null,
+                                $summary['bracket'] ?? null,
+                                $checkin->checked_in_at?->format('d/m/Y H:i'),
+                                $checkin->checkedInByUser?->name,
+                                $checkin->notes,
+                            ]));
+                        @endphp
+
+                        <div wire:key="checkin-{{ $checkin->id }}" class="users-list-row group">
+                            @if ($canUpdate)
+                                <a
+                                    href="{{ route('events.checkins.edit', [$event, $checkin]) }}"
+                                    wire:navigate
+                                    class="flex min-w-0 flex-1 items-center gap-2.5"
+                                >
+                            @else
+                                <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                            @endif
+                                <div class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 px-1 font-mono text-[10px] font-semibold uppercase leading-none text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                                    <span class="truncate">{{ $checkin->registration->number_plate ?? '—' }}</span>
+                                </div>
+
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <p class="truncate text-sm font-medium text-zinc-900 transition group-hover:text-orange-600 dark:text-zinc-100 dark:group-hover:text-orange-400">
+                                            {{ $rider?->name ?? __('Rider') }}
+                                        </p>
+                                        <flux:icon name="check-circle" class="size-4 shrink-0 text-emerald-500 dark:text-emerald-400" />
+                                    </div>
+                                    <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ $metaParts !== [] ? implode(' · ', $metaParts) : '—' }}
+                                    </p>
+                                </div>
+
+                                @if ($canUpdate)
+                                    <flux:icon
+                                        name="chevron-right"
+                                        variant="mini"
+                                        class="size-4 shrink-0 text-zinc-300 transition group-hover:translate-x-0.5 group-hover:text-orange-500 dark:text-zinc-600 dark:group-hover:text-orange-400"
+                                    />
+                                @endif
+                            @if ($canUpdate)
+                                </a>
+                            @else
+                                </div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+
+            @if ($this->checkins->hasPages())
+                <div class="mt-4 pb-2">
+                    {{ $this->checkins->links() }}
+                </div>
+            @endif
         @endif
     @endif
 

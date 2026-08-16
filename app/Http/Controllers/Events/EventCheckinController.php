@@ -43,6 +43,7 @@ class EventCheckinController extends Controller
 
         $event->checkins()->create([
             'registration_id' => $registration->id,
+            'checked_in_at' => now(),
             'checked_in_by' => auth()->id(),
             'notes' => $request->input('notes'),
         ]);
