@@ -89,7 +89,14 @@
                                     @if($sheetData['columns']['has_poin_moto_3'] ?? false)
                                         <th style="width: 7%;">Poin M3</th>
                                     @endif
-                                    @if($sheetData['is_qualifikasi'] ?? false)
+                                    @php
+                                        $showTotal = \App\Services\LiveResultSheetParser::shouldShowTotal(
+                                            (string) ($selectedRound ?? ''),
+                                            count($sheetData['groups'] ?? []),
+                                            (bool) ($sheetData['is_qualifikasi'] ?? false),
+                                        );
+                                    @endphp
+                                    @if($showTotal)
                                         <th style="width: 7%;">Total</th>
                                     @endif
                                     <th style="width: 6%;">Rank</th>
@@ -128,7 +135,7 @@
                                             @if($sheetData['columns']['has_poin_moto_3'] ?? false)
                                                 <td class="poin-moto-cell">{{ !empty($row['poin_moto_3']) ? $row['poin_moto_3'] : '-' }}</td>
                                             @endif
-                                            @if($sheetData['is_qualifikasi'] ?? false)
+                                            @if($showTotal)
                                                 <td class="poin-moto-cell">{{ !empty($row['total']) ? $row['total'] : '-' }}</td>
                                             @endif
                                             <td class="rank-cell">{{ !empty($row['rank']) ? $row['rank'] : '-' }}</td>
@@ -137,7 +144,7 @@
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="{{ 3 + ($sheetData['columns']['has_poin_moto_1'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_2'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_3'] ?? false ? 1 : 0) + ($sheetData['is_qualifikasi'] ?? false ? 1 : 0) + 2 }}" style="text-align: center; padding: 6px;">{{ __('Tidak ada data') }}</td>
+                                        <td colspan="{{ 3 + ($sheetData['columns']['has_poin_moto_1'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_2'] ?? false ? 1 : 0) + ($sheetData['columns']['has_poin_moto_3'] ?? false ? 1 : 0) + ($showTotal ? 1 : 0) + 2 }}" style="text-align: center; padding: 6px;">{{ __('Tidak ada data') }}</td>
                                     </tr>
                                 @endif
                             </tbody>

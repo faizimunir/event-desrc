@@ -14,6 +14,7 @@ class LiveResultSheetParser
                 'groups' => [],
                 'columns' => $columns,
                 'is_qualifikasi' => false,
+                'show_total' => false,
                 'column_count' => self::tableColumnCount($columns, false),
             ];
         }
@@ -135,13 +136,52 @@ class LiveResultSheetParser
             'has_poin_moto_3' => $colPoinMoto3 !== null,
         ];
 
+        $showTotal = self::shouldShowTotal($sheetName, count($groups), $isQualifikasi);
+
         return [
             'keterangan' => $keterangan,
             'groups' => $groups,
             'is_qualifikasi' => $isQualifikasi,
+            'show_total' => $showTotal,
             'columns' => $columns,
-            'column_count' => self::tableColumnCount($columns, $isQualifikasi),
+            'column_count' => self::tableColumnCount($columns, $showTotal),
         ];
+    }
+
+    /**
+     * Kolom Total tampil di Qualifikasi, dan juga di Final yang hanya punya satu grup
+     * (akumulasi poin satu batch, sama seperti Qualifikasi).
+     */
+    public static function shouldShowTotal(string $sheetName, int $groupCount, bool $isQualifikasi): bool
+    {
+        if ($isQualifikasi) {
+            return true;
+        }
+
+        return $groupCount === 1 && self::isRaceFinalSheet($sheetName);
+    }
+
+    protected static function isRaceFinalSheet(string $sheetName): bool
+    {
+        $sheetLower = strtolower(trim($sheetName));
+
+        if (! str_contains($sheetLower, 'final')) {
+            return false;
+        }
+
+        if (preg_match('/\b(semi[\s\-]?final|final[\s\-]?semi)\b/i', $sheetLower)) {
+            return false;
+        }
+
+        if (preg_match('/\b(quarter[\s\-]?final|final[\s\-]?quarter)\b/i', $sheetLower)) {
+            return false;
+        }
+
+        if (str_contains($sheetLower, 'replaycharge') || str_contains($sheetLower, 'replay charge')) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

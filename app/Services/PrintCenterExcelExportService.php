@@ -45,9 +45,13 @@ class PrintCenterExcelExportService
      */
     protected function fillCategorySheet(Worksheet $sheet, Event $event, string $categoryTitle, string $round, array $sheetData): void
     {
-        $isQual = (bool) ($sheetData['is_qualifikasi'] ?? false);
+        $showTotal = LiveResultSheetParser::shouldShowTotal(
+            $round,
+            count($sheetData['groups'] ?? []),
+            (bool) ($sheetData['is_qualifikasi'] ?? false),
+        );
         $headers = ['Plate', 'Riders'];
-        if ($isQual) {
+        if ($showTotal) {
             $headers[] = 'Total';
         }
         $headers[] = 'Rank';
@@ -107,7 +111,7 @@ class PrintCenterExcelExportService
                 $col = 1;
                 $sheet->setCellValue([$col++, $row], $dataRow['plate'] ?? '');
                 $sheet->setCellValue([$col++, $row], $this->formatRidersCell($dataRow));
-                if ($isQual) {
+                if ($showTotal) {
                     $sheet->setCellValue([$col++, $row], $dataRow['total'] ?? '');
                 }
                 $sheet->setCellValue([$col++, $row], $dataRow['rank'] ?? '');
