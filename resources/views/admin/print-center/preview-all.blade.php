@@ -79,6 +79,13 @@
                     <div class="group-keterangan" style="margin-bottom: 4px;"><strong>{{ __('Keterangan') }}:</strong> {{ $sheetData['keterangan'] }}</div>
                 @endif
 
+                @php
+                    $showTotal = \App\Services\LiveResultSheetParser::shouldShowTotal(
+                        (string) ($selectedRound ?? ''),
+                        count($sheetData['groups'] ?? []),
+                        (bool) ($sheetData['is_qualifikasi'] ?? false),
+                    );
+                @endphp
                 @foreach($sheetData['groups'] as $groupIndex => $group)
                     @if($groupIndex > 0 && $groupIndex % 2 === 0)
                         {{-- Header ulang setiap 2 grup --}}
@@ -97,7 +104,7 @@
                                 <tr>
                                     <th style="width: 8%;">Plate</th>
                                     <th style="width: 40%;">Riders</th>
-                                    @if($sheetData['is_qualifikasi'] ?? false)
+                                    @if($showTotal)
                                         <th style="width: 10%;">Total</th>
                                     @endif
                                     <th style="width: 8%;">Rank</th>
@@ -114,7 +121,7 @@
                                                 @if(!empty($row['panggilan']))<div class="riders-nickname">{{ $row['panggilan'] }}</div>@endif
                                                 @if(!empty($row['team']))<div class="riders-team">{{ $row['team'] }}</div>@endif
                                             </td>
-                                            @if($sheetData['is_qualifikasi'] ?? false)
+                                            @if($showTotal)
                                                 <td class="poin-moto-cell">{{ !empty($row['total']) ? $row['total'] : '-' }}</td>
                                             @endif
                                             <td class="rank-cell">{{ !empty($row['rank']) ? $row['rank'] : '-' }}</td>
@@ -123,7 +130,7 @@
                                     @endforeach
                                 @else
                                     <tr>
-                                        <td colspan="{{ 2 + ($sheetData['is_qualifikasi'] ?? false ? 1 : 0) + 2 }}" style="text-align: center; padding: 20px;">{{ __('Tidak ada data') }}</td>
+                                        <td colspan="{{ 2 + ($showTotal ? 1 : 0) + 2 }}" style="text-align: center; padding: 20px;">{{ __('Tidak ada data') }}</td>
                                     </tr>
                                 @endif
                             </tbody>

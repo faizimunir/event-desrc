@@ -4,6 +4,16 @@
         ['flag' => 'has_poin_moto_2', 'key' => 'poin_moto_2', 'label' => 'Poin Moto 2'],
         ['flag' => 'has_poin_moto_3', 'key' => 'poin_moto_3', 'label' => 'Poin Moto 3'],
     ])->filter(fn ($col) => $sheetData['columns'][$col['flag']] ?? false);
+    $showTotal = \App\Services\LiveResultSheetParser::shouldShowTotal(
+        (string) ($selectedRound ?? ''),
+        count($sheetData['groups'] ?? []),
+        (bool) ($sheetData['is_qualifikasi'] ?? false),
+    );
+    $columnCount = 5
+        + (($sheetData['columns']['has_poin_moto_1'] ?? false) ? 1 : 0)
+        + (($sheetData['columns']['has_poin_moto_2'] ?? false) ? 1 : 0)
+        + (($sheetData['columns']['has_poin_moto_3'] ?? false) ? 1 : 0)
+        + ($showTotal ? 1 : 0);
 @endphp
 
 @foreach($sheetData['groups'] as $groupIndex => $group)
@@ -32,7 +42,7 @@
                         @foreach($poinMotoColumns as $poinColumn)
                             <th class="text-center">{{ $poinColumn['label'] }}</th>
                         @endforeach
-                        @if($sheetData['is_qualifikasi'] ?? false)
+                        @if($showTotal)
                             <th class="text-center">Total</th>
                         @endif
                         <th class="text-center">Rank</th>
@@ -64,7 +74,7 @@
                                 @foreach($poinMotoColumns as $poinColumn)
                                     <td class="cell-poin whitespace-nowrap">{{ ! empty($row[$poinColumn['key']]) ? $row[$poinColumn['key']] : '-' }}</td>
                                 @endforeach
-                                @if($sheetData['is_qualifikasi'] ?? false)
+                                @if($showTotal)
                                     <td class="cell-total whitespace-nowrap">{{ ! empty($row['total']) ? $row['total'] : '-' }}</td>
                                 @endif
                                 <td class="cell-rank whitespace-nowrap">{{ ! empty($row['rank']) ? $row['rank'] : '-' }}</td>
@@ -73,7 +83,7 @@
                         @endforeach
                     @else
                         <tr>
-                            <td colspan="{{ $sheetData['column_count'] }}" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('Tidak ada data') }}</td>
+                            <td colspan="{{ $columnCount }}" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">{{ __('Tidak ada data') }}</td>
                         </tr>
                     @endif
                 </tbody>

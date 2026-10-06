@@ -4,7 +4,11 @@
         ['flag' => 'has_poin_moto_2', 'key' => 'poin_moto_2', 'label' => 'Poin Moto 2'],
         ['flag' => 'has_poin_moto_3', 'key' => 'poin_moto_3', 'label' => 'Poin Moto 3'],
     ])->filter(fn ($col) => $sheetData['columns'][$col['flag']] ?? false);
-    $showTotal = $sheetData['is_qualifikasi'] ?? false;
+    $showTotal = \App\Services\LiveResultSheetParser::shouldShowTotal(
+        (string) ($selectedRound ?? ''),
+        count($sheetData['groups'] ?? []),
+        (bool) ($sheetData['is_qualifikasi'] ?? false),
+    );
 @endphp
 
 @foreach($sheetData['groups'] as $groupIndex => $group)
