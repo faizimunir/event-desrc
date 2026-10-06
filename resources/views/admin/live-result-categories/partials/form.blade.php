@@ -17,6 +17,11 @@
     method="POST"
     action="{{ $category ? route('events.live-result-categories.update', [$event, $category]) : route('events.live-result-categories.store', $event) }}"
     class="max-w-lg space-y-4"
+    data-fetch-sheets-url="{{ route('events.live-result-categories.fetch-sheets', $event) }}"
+    data-previously-selected="{{ json_encode($selectedSheets) }}"
+    data-empty-id-message="{{ __('Silakan masukkan Spreadsheet ID terlebih dahulu') }}"
+    data-none-found-message="{{ __('Tidak ada sheet ditemukan di spreadsheet ini.') }}"
+    data-error-message="{{ __('Terjadi kesalahan saat mengambil data.') }}"
 >
     @csrf
     @if ($category)
@@ -70,11 +75,20 @@
                 id="spreadsheet_id"
                 required
             />
-            <flux:button type="button" variant="outline" square icon="arrow-path" id="fetch-sheets-btn" :aria-label="__('Fetch Sheets')" />
+            <button
+                type="button"
+                id="fetch-sheets-btn"
+                data-fetch-sheets
+                class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-800 shadow-xs hover:bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-700 dark:text-white dark:hover:bg-zinc-600/75"
+                aria-label="{{ __('Fetch Sheets') }}"
+            >
+                <flux:icon name="arrow-path" variant="mini" class="size-5" />
+            </button>
         </div>
         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
             {{ __('Contoh: dari URL') }} <code class="rounded bg-zinc-100 px-1 dark:bg-zinc-700">https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit</code>
         </p>
+        <p id="fetch-sheets-status" class="mt-1 hidden text-sm" role="status"></p>
         @error('spreadsheet_id')
             <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
         @enderror
@@ -112,79 +126,3 @@
         <flux:button variant="ghost" :href="route('events.show', [$event, 'tab' => 'live-result'])" wire:navigate>{{ __('Cancel') }}</flux:button>
     </div>
 </form>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const fetchBtn = document.getElementById('fetch-sheets-btn');
-    const spreadsheetInput = document.getElementById('spreadsheet_id');
-    const loadingEl = document.getElementById('fetch-loading');
-    const container = document.getElementById('sheets-container');
-    const checkboxesEl = document.getElementById('sheets-checkboxes');
-    const previouslySelected = @json($selectedSheets);
-
-    if (!fetchBtn || !spreadsheetInput) return;
-
-    const toast = function(text, variant) {
-        if (window.Livewire) {
-            Livewire.dispatch('toast-show', {
-                duration: 5000,
-                slots: { text: text },
-                dataset: { variant: variant },
-            });
-        }
-    };
-
-    fetchBtn.addEventListener('click', function() {
-        const spreadsheetId = spreadsheetInput.value.trim();
-        if (!spreadsheetId) {
-            toast(@json(__('Silakan masukkan Spreadsheet ID terlebih dahulu')), 'danger');
-            return;
-        }
-
-        loadingEl?.classList.remove('hidden');
-        fetchBtn.disabled = true;
-
-        fetch(@json(route('events.live-result-categories.fetch-sheets', $event)), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': @json(csrf_token())
-            },
-            body: JSON.stringify({ spreadsheet_id: spreadsheetId })
-        })
-        .then(r => r.json())
-        .then(data => {
-            loadingEl?.classList.add('hidden');
-            fetchBtn.disabled = false;
-            if (data.success && data.sheets && data.sheets.length > 0) {
-                checkboxesEl.innerHTML = '';
-                data.sheets.forEach(function(sheet) {
-                    const label = document.createElement('label');
-                    label.className = 'flex items-center gap-2 cursor-pointer';
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.name = 'selected_sheets[]';
-                    checkbox.value = sheet;
-                    checkbox.checked = previouslySelected.includes(sheet);
-                    checkbox.className = 'rounded border-zinc-300 text-zinc-600 focus:ring-zinc-500';
-                    const span = document.createElement('span');
-                    span.className = 'text-sm text-zinc-700 dark:text-zinc-300';
-                    span.textContent = sheet;
-                    label.appendChild(checkbox);
-                    label.appendChild(span);
-                    checkboxesEl.appendChild(label);
-                });
-                container?.classList.remove('hidden');
-            } else {
-                toast(data.error || @json(__('Tidak ada sheet ditemukan di spreadsheet ini.')), 'danger');
-            }
-        })
-        .catch(function() {
-            loadingEl?.classList.add('hidden');
-            fetchBtn.disabled = false;
-            toast(@json(__('Terjadi kesalahan saat mengambil data.')), 'danger');
-        });
-    });
-});
-</script>

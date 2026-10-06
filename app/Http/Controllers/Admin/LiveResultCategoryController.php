@@ -48,12 +48,14 @@ class LiveResultCategoryController extends Controller
     public function fetchSheets(Request $request, Event $event)
     {
         abort_unless(auth()->user()->canAs('manage_live_results'), 403);
+        $this->authorize('update', $event);
 
         $request->validate([
             'spreadsheet_id' => 'required|string',
         ]);
 
-        $metadata = $this->googleSheetsService->getSpreadsheetMetadata($request->spreadsheet_id, false);
+        $spreadsheetId = $this->googleSheetsService->normalizeSpreadsheetId((string) $request->spreadsheet_id);
+        $metadata = $this->googleSheetsService->getSpreadsheetMetadata($spreadsheetId, false);
 
         if (! $metadata['success']) {
             return response()->json([
@@ -91,7 +93,7 @@ class LiveResultCategoryController extends Controller
             'event_id' => $event->id,
             'bracket_id' => $validated['bracket_id'] ?? null,
             'title' => $validated['title'],
-            'spreadsheet_id' => $validated['spreadsheet_id'],
+            'spreadsheet_id' => $this->googleSheetsService->normalizeSpreadsheetId($validated['spreadsheet_id']),
             'selected_sheets' => $validated['selected_sheets'] ?? [],
             'order' => 0,
         ]);
@@ -143,6 +145,7 @@ class LiveResultCategoryController extends Controller
         ]);
         $validated['is_active'] = $request->boolean('is_active');
         $validated['bracket_id'] = $validated['bracket_id'] ?? null;
+        $validated['spreadsheet_id'] = $this->googleSheetsService->normalizeSpreadsheetId($validated['spreadsheet_id']);
 
         $liveResultCategory->update($validated);
         $this->reorderCategories($event);

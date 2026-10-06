@@ -21,8 +21,20 @@ class GoogleSheetsService
         }
     }
 
+    public function normalizeSpreadsheetId(string $value): string
+    {
+        $value = trim($value);
+
+        if (preg_match('#/spreadsheets/d/([a-zA-Z0-9_-]+)#', $value, $matches) === 1) {
+            return $matches[1];
+        }
+
+        return $value;
+    }
+
     public function getSpreadsheetMetadata(string $spreadsheetId, bool $useCache = true): array
     {
+        $spreadsheetId = $this->normalizeSpreadsheetId($spreadsheetId);
         $cacheKey = "sheets_metadata_{$spreadsheetId}";
 
         if (! $useCache) {
@@ -77,6 +89,7 @@ class GoogleSheetsService
 
     public function getSheetData(string $spreadsheetId, string $sheetName, ?string $range = null, bool $useCache = true): array
     {
+        $spreadsheetId = $this->normalizeSpreadsheetId($spreadsheetId);
         $range = $range ?: $sheetName;
         $cacheKey = "sheets_data_{$spreadsheetId}_{$sheetName}_{$range}";
 
@@ -121,11 +134,14 @@ class GoogleSheetsService
 
     public function clearAllCache(string $spreadsheetId): void
     {
+        $spreadsheetId = $this->normalizeSpreadsheetId($spreadsheetId);
         Cache::forget("sheets_metadata_{$spreadsheetId}");
     }
 
     public function isValidSpreadsheetId(string $spreadsheetId): bool
     {
-        return preg_match('/^[a-zA-Z0-9_-]{44}$/', $spreadsheetId);
+        $spreadsheetId = $this->normalizeSpreadsheetId($spreadsheetId);
+
+        return (bool) preg_match('/^[a-zA-Z0-9_-]{44}$/', $spreadsheetId);
     }
 }
