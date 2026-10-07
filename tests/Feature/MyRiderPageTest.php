@@ -76,3 +76,46 @@ test('creating rider from my rider form assigns current user', function () {
     expect($rider)->not->toBeNull();
     expect($rider->user_id)->toBe($user->id);
 });
+
+test('member can open edit page and update own rider', function () {
+    $role = Role::firstOrCreate(['name' => 'member', 'guard_name' => 'web']);
+    $role->givePermissionTo('myrider.manage');
+    $user = User::factory()->create();
+    $user->assignRole($role);
+    $user->setActiveRole('member');
+    $rider = Rider::create(['name' => 'Old Name', 'user_id' => $user->id]);
+
+    $this->actingAs($user)->get(route('my-rider.edit', $rider))->assertOk();
+
+    Livewire::actingAs($user)
+        ->test(RiderForm::class, ['rider' => $rider, 'forMyRider' => true])
+        ->set('name', 'New Name')
+        ->call('save')
+        ->assertRedirect(route('my-rider.index', absolute: false));
+
+    expect($rider->fresh()->name)->toBe('New Name');
+});
+
+test('member cannot edit or delete rider owned by someone else', function () {
+    $role = Role::firstOrCreate(['name' => 'member', 'guard_name' => 'web']);
+    $role->givePermissionTo('myrider.manage');
+    $user = User::factory()->create();
+    $user->assignRole($role);
+    $user->setActiveRole('member');
+    $other = User::factory()->create();
+    $rider = Rider::create(['name' => 'Other', 'user_id' => $other->id]);
+
+    $this->actingAs($user)->get(route('my-rider.edit', $rider))->assertForbidden();
+});
+
+test('member cannot delete own rider', function () {
+    $role = Role::firstOrCreate(['name' => 'member', 'guard_name' => 'web']);
+    $role->givePermissionTo('myrider.manage');
+    $user = User::factory()->create();
+    $user->assignRole($role);
+    $user->setActiveRole('member');
+    $rider = Rider::create(['name' => 'Mine', 'user_id' => $user->id]);
+
+    $this->actingAs($user)->delete(route('riders.destroy', $rider))->assertForbidden();
+    expect(Rider::find($rider->id))->not->toBeNull();
+});

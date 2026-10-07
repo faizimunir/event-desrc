@@ -109,6 +109,19 @@
                                     </div>
                                 </div>
                             @endif
+                            @can('update', $rider)
+                                <div class="mt-auto border-t border-zinc-100 px-5 py-3 dark:border-zinc-700/80">
+                                    <flux:button
+                                        :href="route('my-rider.edit', $rider)"
+                                        variant="ghost"
+                                        size="sm"
+                                        icon="pencil-square"
+                                        wire:navigate
+                                    >
+                                        {{ __('Edit') }}
+                                    </flux:button>
+                                </div>
+                            @endcan
                         </li>
                     @endforeach
                 </ul>

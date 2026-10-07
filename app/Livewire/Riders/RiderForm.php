@@ -67,7 +67,6 @@ class RiderForm extends Component
     public function save(MediaService $mediaService): void
     {
         if ($this->rider) {
-            abort_unless(auth()->user()->canAs('rider.update'), 403);
             $this->authorize('update', $this->rider);
         } else {
             $user = auth()->user();
