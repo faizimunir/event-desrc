@@ -35,14 +35,28 @@ class WhacenterTestCommand extends Command
         $ok = 0;
         $fail = 0;
 
+        $device = $whacenter->deviceStatus(fresh: true);
+        $this->info('Status device: '.($device['status'] ?? 'tidak diketahui'));
+        if ($device['connected'] === false) {
+            $this->error('Device tidak terhubung, pesan tidak dikirim.');
+
+            return self::FAILURE;
+        }
+
         foreach ($numbers as $number) {
             if ($sync) {
                 $this->info("Mengirim sync ke {$number}...");
-                if ($whacenter->sendMessage($number, $message)) {
-                    $this->info('  → OK');
+                $result = $whacenter->sendMessageDetailed($number, $message);
+                if ($result['ok']) {
+                    $this->info('  → Diterima Whacenter (message id: '.($result['message_id'] ?? '-').')');
+                    if ($result['message_id'] !== null) {
+                        sleep(5);
+                        $status = $whacenter->messageStatus($result['message_id']);
+                        $this->info('  → Status pesan: '.$status['state'].' ('.($status['delivery_status'] ?? '-').')');
+                    }
                     $ok++;
                 } else {
-                    $this->error('  → Gagal');
+                    $this->error('  → Gagal: '.($result['error'] ?? 'unknown'));
                     $fail++;
                 }
             } else {

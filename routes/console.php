@@ -14,5 +14,8 @@ Schedule::command('events:sync-status')->everyMinute();
 // Draft / pending unpaid lewat expired_at → cancelled (kuota lepas otomatis di query)
 Schedule::command('orders:enforce-deadlines')->everyMinute();
 
+// Log WhatsApp yang macet di "queued" (worker mati / job hilang) → diselesaikan sebagai sent/failed
+Schedule::command('whacenter:watchdog')->everyFiveMinutes()->withoutOverlapping();
+
 // Opsional: confirmed → completed setelah event selesai
 Schedule::command('orders:mark-completed')->daily();

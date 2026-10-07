@@ -85,8 +85,43 @@ class ActivationForm extends Component
             'password' => Hash::make($this->password),
         ]);
 
-        $whacenter->generateAndSendOtp($user->whatsapp);
-        $this->step = 3;
+        if ($this->sendOtp($whacenter, $user)) {
+            $this->step = 3;
+        }
+    }
+
+    public function resendOtp(WhacenterService $whacenter): void
+    {
+        $user = User::find($this->activationUserId);
+        if (! $user || $user->isActivated()) {
+            session()->forget('activation_user_id');
+            $this->redirect(route('activation.show'), navigate: true);
+
+            return;
+        }
+
+        if ($this->sendOtp($whacenter, $user)) {
+            $this->reset('otp');
+            session()->flash('otp_resent', __('A new code has been sent to your WhatsApp.'));
+        }
+    }
+
+    private function sendOtp(WhacenterService $whacenter, User $user): bool
+    {
+        $result = $whacenter->requestOtp($user->whatsapp, request()->ip());
+
+        if ($result['sent']) {
+            return true;
+        }
+
+        $this->addError('otp', match ($result['reason']) {
+            'throttled' => __('Please wait :seconds seconds before requesting a new code.', [
+                'seconds' => max(1, $result['retry_after']),
+            ]),
+            default => __('WhatsApp service is temporarily unavailable. Please try again in a few minutes.'),
+        });
+
+        return false;
     }
 
     public function submitOtp(WhacenterService $whacenter): void
