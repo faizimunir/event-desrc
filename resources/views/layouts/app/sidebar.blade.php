@@ -145,6 +145,18 @@
             </div>
             @endif
 
+            @canAs('whatsapp_notification.read')
+            <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
+                <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Notifications') }}</div>
+            </div>
+            <div class="block space-y-[2px]">
+                <flux:sidebar.item icon="chat-bubble-left-right" :href="route('whatsapp-notifications.index')" :current="request()->routeIs('whatsapp-notifications.*')"
+                    wire:navigate>
+                    {{ __('WhatsApp Notifications') }}
+                </flux:sidebar.item>
+            </div>
+            @endcanAs
+
             @if (auth()->user()->canAs('location.read') || auth()->user()->canAs('reward.read') || auth()->user()->canAs('level.read'))
             <div class="px-3 py-2 mt-2 in-data-flux-sidebar-collapsed-desktop:hidden" data-flux-sidebar-group>
                 <div class="text-sm text-zinc-400 font-medium leading-none">{{ __('Master') }}</div>

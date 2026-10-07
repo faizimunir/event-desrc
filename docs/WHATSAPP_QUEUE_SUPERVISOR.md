@@ -44,7 +44,18 @@ sudo supervisorctl start desrc-whatsapp-worker:*
 sudo supervisorctl status
 ```
 
-## 4) Operasional
+## 4) Menu "WhatsApp Notifications" (kirim massal e-ticket)
+
+Menu ini (permission `whatsapp_notification.read` untuk melihat, `whatsapp_notification.send` untuk mengirim)
+tersedia untuk `super_admin`, `admin`, dan `organizer` (organizer hanya melihat event miliknya).
+
+- Pengiriman massal dipecah per 25 pendaftar oleh `BulkSendTicketWhatsappJob` pada antrean `whatsapp` yang sama,
+  jadi tidak perlu worker baru. Tiap pesan tetap lewat jadwal serial (jeda acak + istirahat per batch).
+- Sebelum memulai, device dicek; run berhenti menambah antrean bila device terputus > 30 menit.
+- Pendaftar yang pesannya masih `queued` otomatis dilewati, sehingga klik ganda / run ulang tidak membuat pesan dobel.
+- Setelah deploy: `php artisan migrate` (membuat permission) lalu `php artisan queue:restart`.
+
+## 5) Operasional
 
 - Setelah deploy: `php artisan queue:restart`
 - Cek log macet tanpa mengubah data: `php artisan whacenter:watchdog --dry-run`

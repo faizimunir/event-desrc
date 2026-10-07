@@ -77,6 +77,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payments/{payment}/approve', [PaymentController::class, 'approve'])->name('payments.approve');
     Route::post('payments/{payment}/reject', [PaymentController::class, 'reject'])->name('payments.reject');
     Route::post('payments/{payment}/expire', [PaymentController::class, 'expire'])->name('payments.expire');
+    Route::get('whatsapp-notifications', function () {
+        abort_unless(auth()->user()->canAs('whatsapp_notification.read'), 403);
+
+        return view('whatsapp-notifications.index');
+    })->name('whatsapp-notifications.index');
     Route::get('events/{event}/code-access', [EventCodeAccessController::class, 'index'])->name('events.code-access.index');
     Route::get('events/{event}/code-access/create', [EventCodeAccessController::class, 'create'])->name('events.code-access.create');
     Route::post('events/{event}/code-access', [EventCodeAccessController::class, 'store'])->name('events.code-access.store');
