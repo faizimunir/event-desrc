@@ -61,6 +61,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::get('my-rider', [MyRiderController::class, 'index'])->name('my-rider.index');
     Route::get('my-rider/create', [MyRiderController::class, 'create'])->name('my-rider.create');
+    Route::get('my-rider/{rider}/edit', [MyRiderController::class, 'edit'])->name('my-rider.edit');
     Route::resource('users', UserController::class);
     Route::resource('events', EventController::class);
     Route::resource('events.packages', PackageController::class)->except(['store', 'update'])->scoped();
