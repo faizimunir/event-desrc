@@ -37,6 +37,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'access_print_center',
             'myrider.manage',
             'access_drag_race_timer',
+            'whatsapp_notification.read', 'whatsapp_notification.send',
         ];
 
         $guard = config('auth.defaults.guard');
@@ -74,6 +75,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'registration.delete',
             'manage_live_results',
             'access_print_center',
+            'whatsapp_notification.read', 'whatsapp_notification.send',
         ]);
         $organizer->syncPermissions([
             'event.create', 'event.read', 'event.update', 'event.delete',
@@ -86,6 +88,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'payment.read',
             'manage_live_results',
             'access_print_center',
+            'whatsapp_notification.read', 'whatsapp_notification.send',
         ]);
         $committee->syncPermissions([
             'event.create', 'event.read', 'event.update', 'event.delete',

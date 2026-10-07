@@ -45,7 +45,13 @@
                 maxlength="6"
                 required
             />
+            @if (session('otp_resent'))
+                <p class="text-sm text-green-600 dark:text-green-400">{{ session('otp_resent') }}</p>
+            @endif
             <flux:button variant="primary" type="submit" class="w-full">{{ __('Verify & activate') }}</flux:button>
+            <flux:button variant="ghost" type="button" wire:click="resendOtp" wire:loading.attr="disabled" wire:target="resendOtp" class="w-full">
+                {{ __('Resend code') }}
+            </flux:button>
         </form>
     @endif
 

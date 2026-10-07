@@ -36,12 +36,22 @@ class WhatsappNotificationLog extends Model
         'status',
         'sent_at',
         'failed_reason',
+        'provider_message_id',
+        'delivery_status',
+        'delivered_at',
+        'read_at',
+        'scheduled_at',
+        'expires_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'scheduled_at' => 'datetime',
+            'expires_at' => 'datetime',
             'sent_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'read_at' => 'datetime',
         ];
     }
 
@@ -58,13 +68,71 @@ class WhatsappNotificationLog extends Model
         return $this->belongsTo(Registration::class);
     }
 
-    public function markSent(): void
+    /**
+     * @param  array{delivery_status?: string|null, delivered_at?: string|null, read_at?: string|null}  $delivery
+     */
+    public function markSent(?string $providerMessageId = null, array $delivery = []): void
     {
-        $this->forceFill([
+        $attributes = [
             'status' => self::STATUS_SENT,
             'sent_at' => now(),
             'failed_reason' => null,
-        ])->save();
+        ];
+
+        if (static::supportsDeliveryTracking()) {
+            if ($providerMessageId !== null) {
+                $attributes['provider_message_id'] = $providerMessageId;
+            }
+
+            foreach (['delivery_status', 'delivered_at', 'read_at'] as $key) {
+                if (($delivery[$key] ?? null) !== null) {
+                    $attributes[$key] = $delivery[$key];
+                }
+            }
+        }
+
+        $this->forceFill($attributes)->save();
+    }
+
+    /** Pesan diterima Whacenter, tapi belum dikonfirmasi terkirim (status tetap queued). */
+    public function markAccepted(string $providerMessageId): void
+    {
+        $this->forceFill(['provider_message_id' => $providerMessageId])->save();
+    }
+
+    /** Catat jadwal kirim & batas kedaluwarsa agar watchdog bisa mendeteksi pesan yang macet. */
+    public static function recordSchedule(int $id, \DateTimeInterface $scheduledAt, \DateTimeInterface $expiresAt): void
+    {
+        if (! static::supportsScheduleTracking()) {
+            return;
+        }
+
+        try {
+            static::query()->whereKey($id)->update([
+                'scheduled_at' => $scheduledAt,
+                'expires_at' => $expiresAt,
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+    }
+
+    /** True when the schedule tracking migration has been applied. */
+    public static function supportsScheduleTracking(): bool
+    {
+        static $exists;
+
+        return $exists ??= static::tableExists()
+            && Schema::hasColumns((new static)->getTable(), ['scheduled_at', 'expires_at']);
+    }
+
+    /** True when the delivery tracking migration has been applied. */
+    public static function supportsDeliveryTracking(): bool
+    {
+        static $exists;
+
+        return $exists ??= static::tableExists()
+            && Schema::hasColumns((new static)->getTable(), ['provider_message_id', 'delivery_status', 'delivered_at', 'read_at']);
     }
 
     public function markFailed(string $reason): void
@@ -110,6 +178,12 @@ class WhatsappNotificationLog extends Model
             default => __('Notification'),
         };
 
+        $deliveryNote = match ($this->delivery_status ?? null) {
+            'read' => __('Read'),
+            'delivered' => __('Delivered'),
+            default => null,
+        };
+
         $title = match ($this->status) {
             self::STATUS_SENT => __('WhatsApp sent: :what', ['what' => $kind]),
             self::STATUS_FAILED => __('WhatsApp failed: :what', ['what' => $kind]),
@@ -119,6 +193,7 @@ class WhatsappNotificationLog extends Model
         $detailParts = array_filter([
             __('Template: :name', ['name' => $this->templateViewName()]),
             $this->maskedRecipient(),
+            $this->status === self::STATUS_SENT ? $deliveryNote : null,
             $this->status === self::STATUS_FAILED && filled($this->failed_reason)
                 ? Str::limit($this->failed_reason, 200)
                 : null,
