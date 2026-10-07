@@ -73,6 +73,9 @@ class EventForm extends Component
 
     public bool $show_participants_publicly = true;
 
+    /** When false, registration schedule, payment methods and bank accounts are hidden and stored empty. */
+    public bool $uses_system_registration = true;
+
     public bool $has_live_result = false;
 
     /** When true, public live result uses card list instead of table. */
@@ -106,7 +109,10 @@ class EventForm extends Component
             $this->registration_opens_at = $event->registration_opens_at?->format('Y-m-d\TH:i') ?? '';
             $this->registration_closes_at = $event->registration_closes_at?->format('Y-m-d\TH:i') ?? '';
             $this->location_id = $event->location_id ? (string) $event->location_id : null;
-            $this->payment_methods = $event->normalizedPaymentMethods();
+            $this->uses_system_registration = $event->usesSystemRegistration();
+            $this->payment_methods = $this->uses_system_registration
+                ? $event->normalizedPaymentMethods()
+                : Event::PAYMENT_METHODS;
             $this->account_ids = $event->accounts->pluck('id')->map(fn ($id) => (string) $id)->values()->all();
             $this->jersey_sizes = implode(', ', $event->jerseySizeOptions());
             $this->show_participants_publicly = (bool) $event->show_participants_publicly;
@@ -114,6 +120,13 @@ class EventForm extends Component
             $this->live_result_use_cards = $event->usesLiveResultCards();
         } else {
             $this->jersey_sizes = implode(', ', Event::DEFAULT_JERSEY_SIZES);
+        }
+    }
+
+    public function updatedUsesSystemRegistration(bool $value): void
+    {
+        if (! $value && in_array($this->status, [Event::STATUS_OPEN_REGIST, Event::STATUS_CLOSED_REGIST], true)) {
+            $this->status = Event::STATUS_PUBLISHED;
         }
     }
 
@@ -156,6 +169,19 @@ class EventForm extends Component
             }
         }
 
+        $usesSystemRegistration = $this->uses_system_registration;
+
+        if ($this->event && $this->event->usesSystemRegistration() && ! $usesSystemRegistration
+            && $this->event->registrations()->exists()) {
+            $this->addError('uses_system_registration', __('Registration via the system cannot be disabled because this event already has registrations.'));
+
+            return;
+        }
+
+        $allowedStatuses = $usesSystemRegistration
+            ? Event::STATUSES
+            : array_values(array_diff(Event::STATUSES, [Event::STATUS_OPEN_REGIST, Event::STATUS_CLOSED_REGIST]));
+
         $rules = [
             'title' => ['required', 'string', 'max:255'],
             'category' => ['required', 'in:'.Event::CATEGORY_UMUR.','.Event::CATEGORY_TAHUN],
@@ -165,12 +191,9 @@ class EventForm extends Component
             'master_of_ceremony_id' => ['nullable', 'integer', 'exists:master_of_ceremonies,id'],
             'start_at' => ['required', 'date'],
             'end_at' => ['nullable', 'date', 'after_or_equal:start_at'],
-            'status' => ['required', 'in:'.implode(',', Event::STATUSES)],
-            'registration_opens_at' => ['nullable', 'date'],
-            'registration_closes_at' => ['nullable', 'date'],
+            'status' => ['required', 'in:'.implode(',', $allowedStatuses)],
+            'uses_system_registration' => ['boolean'],
             'location_id' => ['nullable'],
-            'payment_methods' => ['required', 'array', 'min:1'],
-            'payment_methods.*' => ['in:'.implode(',', Event::PAYMENT_METHODS)],
             'poster' => ['nullable', 'image', 'max:10240'],
             'logo' => ['nullable', 'image', 'max:5120'],
             'sizeChart' => ['nullable', 'image', 'max:10240'],
@@ -181,21 +204,26 @@ class EventForm extends Component
             $rules['has_live_result'] = ['boolean'];
             $rules['live_result_use_cards'] = ['boolean'];
         }
-        if (in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)) {
-            $rules['account_ids'] = ['required', 'array', 'min:1'];
+        if ($usesSystemRegistration) {
+            $rules['registration_opens_at'] = ['nullable', 'date'];
+            $rules['registration_closes_at'] = ['nullable', 'date'];
+            $rules['payment_methods'] = ['required', 'array', 'min:1'];
+            $rules['payment_methods.*'] = ['in:'.implode(',', Event::PAYMENT_METHODS)];
+            $rules['account_ids'] = in_array(Event::PAYMENT_MANUAL, $this->payment_methods ?? [], true)
+                ? ['required', 'array', 'min:1']
+                : ['nullable', 'array'];
             $rules['account_ids.*'] = ['integer', 'exists:accounts,id'];
-        } else {
-            $rules['account_ids'] = ['nullable', 'array'];
-            $rules['account_ids.*'] = ['integer', 'exists:accounts,id'];
-        }
-        if ($this->registration_opens_at && $this->registration_closes_at) {
-            $rules['registration_closes_at'][] = 'after_or_equal:registration_opens_at';
+            if ($this->registration_opens_at && $this->registration_closes_at) {
+                $rules['registration_closes_at'][] = 'after_or_equal:registration_opens_at';
+            }
         }
 
         $validated = $this->validate($rules);
 
         $locationId = $validated['location_id'] ? (int) $validated['location_id'] : null;
-        $paymentMethods = array_values(array_unique($validated['payment_methods']));
+        $paymentMethods = $usesSystemRegistration
+            ? array_values(array_unique($validated['payment_methods']))
+            : [];
         $syncAccountIds = in_array(Event::PAYMENT_MANUAL, $paymentMethods, true)
             ? array_values(array_unique(array_map('intval', $validated['account_ids'] ?? [])))
             : [];
@@ -241,8 +269,8 @@ class EventForm extends Component
             $sizeChartPath = $this->sizeChart->store('events/size-charts', 'public');
         }
 
-        $registrationOpensAt = $validated['registration_opens_at'] ?: null;
-        $registrationClosesAt = $validated['registration_closes_at'] ?: null;
+        $registrationOpensAt = ($validated['registration_opens_at'] ?? null) ?: null;
+        $registrationClosesAt = ($validated['registration_closes_at'] ?? null) ?: null;
 
         if ($this->event) {
             $this->event->update([
@@ -255,6 +283,7 @@ class EventForm extends Component
                 'start_at' => $validated['start_at'],
                 'end_at' => $validated['end_at'] ?: null,
                 'status' => $validated['status'],
+                'uses_system_registration' => $usesSystemRegistration,
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,
@@ -280,6 +309,7 @@ class EventForm extends Component
                 'start_at' => $validated['start_at'],
                 'end_at' => $validated['end_at'] ?: null,
                 'status' => $validated['status'],
+                'uses_system_registration' => $usesSystemRegistration,
                 'registration_opens_at' => $registrationOpensAt,
                 'registration_closes_at' => $registrationClosesAt,
                 'location_id' => $locationId,

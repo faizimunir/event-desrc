@@ -86,6 +86,7 @@ class Event extends Model
         'has_live_result',
         'live_result_layout',
         'show_participants_publicly',
+        'uses_system_registration',
         'registration_opens_at',
         'registration_closes_at',
     ];
@@ -182,6 +183,7 @@ class Event extends Model
             'registration_closes_at' => 'datetime',
             'has_live_result' => 'boolean',
             'show_participants_publicly' => 'boolean',
+            'uses_system_registration' => 'boolean',
             'payment_methods' => 'array',
             'jersey_sizes' => 'array',
         ];
@@ -363,6 +365,12 @@ class Event extends Model
      */
     public function getEffectiveStatusAttribute(): string
     {
+        if (! $this->usesSystemRegistration()) {
+            return in_array($this->status, [self::STATUS_OPEN_REGIST, self::STATUS_CLOSED_REGIST], true)
+                ? self::STATUS_PUBLISHED
+                : $this->status;
+        }
+
         $now = now();
 
         // Sudah lewat registration_closes_at → closed_regist (untuk published/open_regist)
@@ -490,6 +498,10 @@ class Event extends Model
             return self::STATUS_LIVE;
         }
 
+        if (! $this->usesSystemRegistration()) {
+            return self::STATUS_PUBLISHED;
+        }
+
         if ($this->registration_closes_at && $now->gte($this->registration_closes_at)) {
             return self::STATUS_CLOSED_REGIST;
         }
@@ -521,12 +533,25 @@ class Event extends Model
      */
     public function isRegistrationOpen(): bool
     {
-        return $this->isEffectiveOpenRegist();
+        return $this->usesSystemRegistration() && $this->isEffectiveOpenRegist();
+    }
+
+    /**
+     * Apakah pendaftaran dikelola lewat sistem ini. Jika false, jadwal registrasi,
+     * metode pembayaran, dan rekening dianggap kosong dan form registrasi publik disembunyikan.
+     */
+    public function usesSystemRegistration(): bool
+    {
+        return (bool) ($this->uses_system_registration ?? true);
     }
 
     /** @return list<string> */
     public function normalizedPaymentMethods(): array
     {
+        if (! $this->usesSystemRegistration()) {
+            return [];
+        }
+
         $m = $this->payment_methods;
         if ($m === null || $m === []) {
             return [self::PAYMENT_MANUAL, self::PAYMENT_QRIS];

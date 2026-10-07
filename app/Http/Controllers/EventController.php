@@ -67,7 +67,7 @@ class EventController extends Controller
      */
     public function verifyEarlyAccess(Request $request, Event $event)
     {
-        if ($event->isDraft()) {
+        if ($event->isDraft() || ! $event->usesSystemRegistration()) {
             abort(404);
         }
 
@@ -99,6 +99,10 @@ class EventController extends Controller
 
     protected function hasEarlyAccessForEvent(Event $event): bool
     {
+        if (! $event->usesSystemRegistration()) {
+            return false;
+        }
+
         $ids = session('event_early_access', []);
 
         return in_array($event->id, $ids, true);
