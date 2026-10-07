@@ -452,8 +452,14 @@
                 <div class="mt-8 space-y-6 lg:mt-10">
                     @php
                         $showParticipantsPublicly = (bool) $event->show_participants_publicly;
+                        $usesSystemRegistration = $event->usesSystemRegistration();
                     @endphp
 
+                    @if (! $usesSystemRegistration)
+                        @if ($showParticipantsPublicly)
+                            <livewire:event-participant-list :event="$event" />
+                        @endif
+                    @else
                     @if ($showParticipantsPublicly)
                         <div x-data="{ tab: @js($participantTabActive ? 'participant' : 'registration') }">
                             <div class="bento-tabs mb-4 sm:mb-5" role="tablist" aria-label="{{ __('Event sections') }}">
@@ -799,8 +805,10 @@
                         </div>
                     @endif
 
+                    @endif
+
                     {{-- Modal: input access code for early registration (shown when registration not open) --}}
-                    @if (!$event->isRegistrationOpen())
+                    @if ($usesSystemRegistration && !$event->isRegistrationOpen())
                         <flux:modal name="early-access-modal" focusable class="max-w-md" dismissible>
                             <form method="POST" action="{{ route('events.early-access.verify', $event->slug) }}"
                                 class="space-y-4">

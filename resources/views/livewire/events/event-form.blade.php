@@ -10,8 +10,10 @@
             <flux:select wire:model="status" class="w-full" required>
                 <flux:select.option value="draft">{{ __('Draft') }} — {{ __('default, not visible on main page') }}</flux:select.option>
                 <flux:select.option value="published">{{ __('Published') }} — {{ __('visible on main page, registration not open') }}</flux:select.option>
-                <flux:select.option value="open_regist">{{ __('Open Regist') }} — {{ __('registration open') }}</flux:select.option>
-                <flux:select.option value="closed_regist">{{ __('Closed Regist') }} — {{ __('registration closed') }}</flux:select.option>
+                @if ($uses_system_registration)
+                    <flux:select.option value="open_regist">{{ __('Open Regist') }} — {{ __('registration open') }}</flux:select.option>
+                    <flux:select.option value="closed_regist">{{ __('Closed Regist') }} — {{ __('registration closed') }}</flux:select.option>
+                @endif
                 <flux:select.option value="live">{{ __('Live') }} — {{ __('event in progress') }}</flux:select.option>
                 <flux:select.option value="done">{{ __('Done') }} — {{ __('event finished') }}</flux:select.option>
             </flux:select>
@@ -139,6 +141,18 @@
             @enderror
         </div>
 
+        <flux:field variant="inline">
+            <flux:label class="mb-0">{{ __('Registration via system') }}</flux:label>
+            <flux:switch wire:model.live="uses_system_registration" />
+        </flux:field>
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+            {{ __('Jika dinonaktifkan, jadwal registrasi, metode pembayaran, dan rekening bank disembunyikan dan dianggap kosong, serta form pendaftaran tidak tampil di halaman publik event.') }}
+        </p>
+        @error('uses_system_registration')
+            <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+        @enderror
+
+        @if ($uses_system_registration)
         <div class="grid grid-cols-2 gap-4">
         <flux:input wire:model="registration_opens_at" type="datetime-local" :label="__('Registration opens at')" />
         @error('registration_opens_at')
@@ -196,6 +210,7 @@
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
                 @enderror
             </div>
+        @endif
         @endif
 
         <div>

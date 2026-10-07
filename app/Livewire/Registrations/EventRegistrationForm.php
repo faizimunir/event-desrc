@@ -230,6 +230,12 @@ class EventRegistrationForm extends Component
 
     private function validateBracketAndPackage(): bool
     {
+        if (! $this->event->usesSystemRegistration()) {
+            $this->toastError(__('Registration is not open for this event.'));
+
+            return false;
+        }
+
         $bracket = $this->event->brackets->firstWhere('id', $this->bracket_id);
         if (! $bracket) {
             $this->toastError(__('Invalid bracket.'));

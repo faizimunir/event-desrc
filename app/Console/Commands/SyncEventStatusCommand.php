@@ -17,6 +17,7 @@ class SyncEventStatusCommand extends Command
 
         // Published → Open Regist when registration_opens_at has passed
         $opened = Event::query()
+            ->where('uses_system_registration', true)
             ->where('status', Event::STATUS_PUBLISHED)
             ->whereNotNull('registration_opens_at')
             ->where('registration_opens_at', '<=', $now)
@@ -24,6 +25,7 @@ class SyncEventStatusCommand extends Command
 
         // Open Regist → Closed Regist when registration_closes_at has passed
         $closed = Event::query()
+            ->where('uses_system_registration', true)
             ->where('status', Event::STATUS_OPEN_REGIST)
             ->whereNotNull('registration_closes_at')
             ->where('registration_closes_at', '<=', $now)

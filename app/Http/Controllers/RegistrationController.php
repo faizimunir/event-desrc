@@ -48,7 +48,8 @@ class RegistrationController extends Controller
         if ($event->isDraft()) {
             abort(404);
         }
-        $hasEarlyAccess = in_array($event->id, session('event_early_access', []), true);
+        $hasEarlyAccess = $event->usesSystemRegistration()
+            && in_array($event->id, session('event_early_access', []), true);
         if (! $event->isRegistrationOpen() && ! $hasEarlyAccess) {
             return redirect()->route('events.public.show', $event->slug)
                 ->with('error', __('Registration is not open for this event.'));
