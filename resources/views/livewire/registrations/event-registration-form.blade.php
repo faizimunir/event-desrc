@@ -102,19 +102,26 @@
                 </div>
 
                 @if ($this->requiresJerseySize)
-                    <div class="space-y-2" x-data="{ sizeChartPreviewOpen: false }" @keydown.escape.window="sizeChartPreviewOpen = false">
-                        <flux:select wire:model="jersey_size" :placeholder="__('— Select size —')" :label="__('Jersey size')" required>
-                            @foreach ($this->jerseySizeOptions as $size)
-                                <flux:select.option :value="$size">{{ $size }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
+                    <div x-data="{ sizeChartPreviewOpen: false }" @keydown.escape.window="sizeChartPreviewOpen = false">
+                        <flux:field>
+                            <div class="flex items-center justify-between gap-3">
+                                <flux:label>{{ __('Jersey size') }}</flux:label>
+                                @if ($event->sizeChartUrl())
+                                    <button type="button" @click="sizeChartPreviewOpen = true"
+                                        class="inline-flex items-center gap-1 text-sm font-medium text-orange-600 hover:text-orange-700 hover:underline dark:text-orange-400 dark:hover:text-orange-300">
+                                        <flux:icon name="photo" class="size-4" />
+                                        {{ __('View size chart') }}
+                                    </button>
+                                @endif
+                            </div>
+                            <flux:select wire:model="jersey_size" :placeholder="__('— Select size —')" required>
+                                @foreach ($this->jerseySizeOptions as $size)
+                                    <flux:select.option :value="$size">{{ $size }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:error name="jersey_size" />
+                        </flux:field>
                         @if ($event->sizeChartUrl())
-                            <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                                <button type="button" @click="sizeChartPreviewOpen = true"
-                                    class="underline hover:text-zinc-700 dark:hover:text-zinc-300">
-                                    {{ __('View size chart') }}
-                                </button>
-                            </p>
                             <template x-teleport="body">
                                 <div x-show="sizeChartPreviewOpen" x-transition.opacity x-cloak
                                     class="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4"
