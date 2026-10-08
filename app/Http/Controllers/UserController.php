@@ -112,6 +112,29 @@ class UserController extends Controller
         return redirect()->route('users.show', $user)->with('status', __('User updated.'));
     }
 
+    /**
+     * Bypass aktivasi (WhatsApp OTP): hanya super_admin.
+     */
+    public function activate(User $user)
+    {
+        abort_unless(auth()->user()->hasRole('super_admin'), 403);
+
+        if ($user->isActivated()) {
+            return redirect()->back()->with('error', __('This account is already activated.'));
+        }
+
+        if (! $user->email || ! $user->password) {
+            return redirect()->back()->with('error', __('Set an email and password for this user first (Edit User) before activating.'));
+        }
+
+        $user->forceFill([
+            'activated_at' => now(),
+            'email_verified_at' => $user->email_verified_at ?? now(),
+        ])->save();
+
+        return redirect()->back()->with('status', __('User activated.'));
+    }
+
     public function destroy(User $user)
     {
         abort_unless(auth()->user()->canAs('user.delete'), 403);
