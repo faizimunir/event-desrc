@@ -9,28 +9,30 @@ class EventPolicy
 {
     public function view(User $user, Event $event): bool
     {
-        if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
-            return true;
-        }
-        $organizer = $event->organizer;
-        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
+        return $this->canManage($user, $event);
     }
 
     public function update(User $user, Event $event): bool
     {
-        if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
-            return true;
-        }
-        $organizer = $event->organizer;
-        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
+        return $this->canManage($user, $event);
     }
 
     public function delete(User $user, Event $event): bool
     {
+        return $this->canManage($user, $event);
+    }
+
+    /**
+     * Admin-level selalu boleh; selain itu user harus termasuk pengelola organizer event.
+     */
+    private function canManage(User $user, Event $event): bool
+    {
         if ($user->hasRole('super_admin') || $user->hasRole('admin') || $user->hasRole('committee')) {
             return true;
         }
+
         $organizer = $event->organizer;
-        return $organizer && $organizer->user_id !== null && $organizer->user_id === $user->id;
+
+        return $organizer !== null && $organizer->isManagedBy($user);
     }
 }

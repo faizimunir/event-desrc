@@ -109,7 +109,7 @@ class TicketNotificationCenter extends Component
         }
 
         $registration = TicketWhatsappBroadcast::eligibleQuery($event->id)
-            ->with(['ticket', 'rider.user', 'event.organizer.user', 'bracket', 'package', 'order'])
+            ->with(['ticket', 'rider.user', 'event.organizer.users', 'bracket', 'package', 'order'])
             ->find($registrationId);
 
         if (! $registration) {

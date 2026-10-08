@@ -1,5 +1,5 @@
 @php
-    $organizerUser = $registration->event?->organizer?->user;
+    $organizerUsers = $registration->event?->organizer?->users ?? collect();
 @endphp
 
 Terimakasih kak {{ $recipientName }} 👋
@@ -26,14 +26,16 @@ Nanti di venue tinggal tunjukin e-ticket atau QR-nya pas check-in 🙏
 Makasih ya kak 🙌
 
 —
-@if($organizerUser)
+@if($organizerUsers->isNotEmpty())
 Kalau ada yang mau ditanyakan soal event, bisa hubungi panitia:
+@foreach($organizerUsers as $organizerUser)
 @if($organizerUser->name)
 👤 {{ $organizerUser->name }}
 @endif
 @if($organizerUser->whatsapp)
 📱 {{ $organizerUser->whatsapp }}
 @endif
+@endforeach
 @else
 Kalau butuh bantuan, hubungi panitia lewat kontak resmi event ya.
 @endif

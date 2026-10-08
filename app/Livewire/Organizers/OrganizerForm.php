@@ -17,26 +17,33 @@ class OrganizerForm extends Component
 
     public string $link = '';
 
-    public ?string $user_id = null;
+    /** @var list<string> ID user pengelola organizer */
+    public array $user_ids = [];
 
-    /** Apakah field user (user_id) boleh diedit (super_admin/admin). */
+    /** Apakah daftar pengelola (user_ids) boleh diedit (super_admin/admin). */
     public bool $canAssignUser = false;
 
     public function mount(?Organizer $organizer = null): void
     {
         $user = auth()->user();
         $this->canAssignUser = $user->hasRole('super_admin') || $user->hasRole('admin');
-        $this->users = $this->canAssignUser ? User::role('organizer')->orderBy('name')->get() : collect();
 
         if ($organizer?->exists) {
             $this->organizer = $organizer;
             $this->name = $organizer->name;
             $this->link = $organizer->link ?? '';
-            $this->user_id = $organizer->user_id ? (string) $organizer->user_id : null;
+            $this->user_ids = $organizer->users()->pluck('users.id')->map(fn ($id) => (string) $id)->all();
+        }
+
+        if ($this->canAssignUser) {
+            // User ber-role organizer, ditambah pengelola yang sudah terpasang (walau role-nya sudah dicabut).
+            $this->users = User::query()
+                ->role('organizer')
+                ->when($this->user_ids !== [], fn ($q) => $q->orWhereIn('users.id', $this->user_ids))
+                ->orderBy('name')
+                ->get();
         } else {
-            if (! $this->canAssignUser) {
-                $this->user_id = (string) $user->id;
-            }
+            $this->users = collect();
         }
     }
 
@@ -53,22 +60,25 @@ class OrganizerForm extends Component
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'link' => ['nullable', 'string', 'max:255', 'url'],
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'user_ids' => ['nullable', 'array'],
+            'user_ids.*' => ['integer', 'distinct', 'exists:users,id'],
         ];
         $validated = $this->validate($rules);
 
-        if (! $this->canAssignUser) {
-            $validated['user_id'] = $user->id;
-        } else {
-            $validated['user_id'] = isset($validated['user_id']) && $validated['user_id'] !== '' ? (int) $validated['user_id'] : null;
-        }
+        $userIds = collect($validated['user_ids'] ?? [])->map(fn ($id) => (int) $id)->unique()->values()->all();
+        unset($validated['user_ids']);
 
         if ($this->organizer) {
             $this->organizer->update($validated);
+            // Non-admin tidak boleh mengubah daftar pengelola.
+            if ($this->canAssignUser) {
+                $this->organizer->users()->sync($userIds);
+            }
             session()->flash('status', __('Organizer updated.'));
             $this->redirect(route('organizers.index'), navigate: true);
         } else {
-            Organizer::create($validated);
+            $organizer = Organizer::create($validated);
+            $organizer->users()->sync($this->canAssignUser ? $userIds : [$user->id]);
             session()->flash('status', __('Organizer created.'));
             $this->redirect(route('organizers.index'), navigate: true);
         }

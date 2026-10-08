@@ -38,6 +38,17 @@ function waUser(string $role): User
     return $user;
 }
 
+/**
+ * @param  User|list<User>  $managers
+ */
+function waOrganizer(string $name, User|array $managers): Organizer
+{
+    $organizer = Organizer::query()->create(['name' => $name]);
+    $organizer->users()->sync(collect(is_array($managers) ? $managers : [$managers])->pluck('id')->all());
+
+    return $organizer;
+}
+
 function waEvent(?Organizer $organizer = null): Event
 {
     return Event::query()->create([
@@ -127,8 +138,8 @@ test('menu and page are available to allowed roles only', function (string $role
 
 test('organizer only sees events they own', function () {
     $organizerUser = waUser('organizer');
-    $own = waEvent(Organizer::query()->create(['user_id' => $organizerUser->id, 'name' => 'Mine']));
-    $other = waEvent(Organizer::query()->create(['user_id' => User::factory()->create()->id, 'name' => 'Theirs']));
+    $own = waEvent(waOrganizer('Mine', $organizerUser));
+    $other = waEvent(waOrganizer('Theirs', User::factory()->create()));
 
     $ids = TicketWhatsappBroadcast::accessibleEvents($organizerUser)->pluck('id')->all();
 
@@ -233,7 +244,7 @@ test('cancelled run stops queueing further messages', function () {
 test('resend of a single participant is permission and ownership guarded', function () {
     Queue::fake();
     $organizerUser = waUser('organizer');
-    $event = waEvent(Organizer::query()->create(['user_id' => $organizerUser->id, 'name' => 'Mine']));
+    $event = waEvent(waOrganizer('Mine', $organizerUser));
     $registration = waRegistration($event);
     waLog($registration, 'failed');
 
@@ -244,7 +255,7 @@ test('resend of a single participant is permission and ownership guarded', funct
     expect(WhatsappNotificationLog::query()->where('status', 'queued')->count())->toBe(1);
     Queue::assertPushed(SendWhacenterMessageJob::class, 1);
 
-    $otherEvent = waEvent(Organizer::query()->create(['user_id' => User::factory()->create()->id, 'name' => 'Theirs']));
+    $otherEvent = waEvent(waOrganizer('Theirs', User::factory()->create()));
     $foreign = waRegistration($otherEvent);
 
     Livewire::actingAs($organizerUser)
