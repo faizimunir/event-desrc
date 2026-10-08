@@ -44,14 +44,14 @@ class OrganizerPendingDigestCommand extends Command
         $orders = Order::query()
             ->pendingPayment()
             ->where('created_at', '>=', $since)
-            ->with(['registration.event.organizer.user'])
+            ->with(['registration.event.organizer.users'])
             ->get();
 
         // Pending payments yang baru dibuat dalam N jam terakhir
         $payments = Payment::query()
             ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_SUBMITTED])
             ->where('created_at', '>=', $since)
-            ->with(['registration.event.organizer.user'])
+            ->with(['registration.event.organizer.users'])
             ->get();
 
         $this->info("Data: {$orders->count()} pending order(s), {$payments->count()} pending payment(s) (dalam {$hours} jam terakhir).");
@@ -78,65 +78,70 @@ class OrganizerPendingDigestCommand extends Command
 
         foreach ($orders as $order) {
             $event = $order->registration?->event;
-            $organizer = $event?->organizer;
-            $user = $organizer?->user;
+            $users = $event?->organizer?->users ?? collect();
 
-            if (! $user) {
+            if ($users->isEmpty()) {
                 $skippedNoUser++;
 
                 continue;
             }
-            if (empty(trim((string) $user->whatsapp))) {
-                $skippedNoWhatsapp++;
 
-                continue;
+            // Setiap pengelola organizer menerima digest-nya sendiri.
+            foreach ($users as $user) {
+                if (empty(trim((string) $user->whatsapp))) {
+                    $skippedNoWhatsapp++;
+
+                    continue;
+                }
+
+                $key = $user->id;
+                $byOrganizer[$key] ??= [
+                    'user' => $user,
+                    'events' => [],
+                ];
+
+                $eventKey = $event?->id ?? 0;
+                $byOrganizer[$key]['events'][$eventKey]['event'] = $event;
+                $byOrganizer[$key]['events'][$eventKey]['orders'] = ($byOrganizer[$key]['events'][$eventKey]['orders'] ?? 0) + 1;
             }
-
-            $key = $user->id;
-            $byOrganizer[$key] ??= [
-                'user' => $user,
-                'events' => [],
-            ];
-
-            $eventKey = $event?->id ?? 0;
-            $byOrganizer[$key]['events'][$eventKey]['event'] = $event;
-            $byOrganizer[$key]['events'][$eventKey]['orders'] = ($byOrganizer[$key]['events'][$eventKey]['orders'] ?? 0) + 1;
         }
 
         foreach ($payments as $payment) {
             $event = $payment->registration?->event;
-            $organizer = $event?->organizer;
-            $user = $organizer?->user;
+            $users = $event?->organizer?->users ?? collect();
 
-            if (! $user) {
+            if ($users->isEmpty()) {
                 $skippedNoUser++;
 
                 continue;
             }
-            if (empty(trim((string) $user->whatsapp))) {
-                $skippedNoWhatsapp++;
 
-                continue;
+            foreach ($users as $user) {
+                if (empty(trim((string) $user->whatsapp))) {
+                    $skippedNoWhatsapp++;
+
+                    continue;
+                }
+
+                $key = $user->id;
+                $byOrganizer[$key] ??= [
+                    'user' => $user,
+                    'events' => [],
+                ];
+
+                $eventKey = $event?->id ?? 0;
+                $byOrganizer[$key]['events'][$eventKey]['event'] = $event;
+                $byOrganizer[$key]['events'][$eventKey]['payments'] = ($byOrganizer[$key]['events'][$eventKey]['payments'] ?? 0) + 1;
             }
-
-            $key = $user->id;
-            $byOrganizer[$key] ??= [
-                'user' => $user,
-                'events' => [],
-            ];
-
-            $eventKey = $event?->id ?? 0;
-            $byOrganizer[$key]['events'][$eventKey]['event'] = $event;
-            $byOrganizer[$key]['events'][$eventKey]['payments'] = ($byOrganizer[$key]['events'][$eventKey]['payments'] ?? 0) + 1;
         }
 
-        $this->info("Organizer tanpa user_id: {$skippedNoUser} item di-skip. User tanpa WhatsApp: {$skippedNoWhatsapp} item di-skip.");
+        $this->info("Organizer tanpa pengelola: {$skippedNoUser} item di-skip. User tanpa WhatsApp: {$skippedNoWhatsapp} item di-skip.");
 
         if ($checkOnly) {
             $this->newLine();
             $this->info('--- Mode --check: tidak mengirim WA ---');
             if ($byOrganizer === []) {
-                $this->warn('Tidak ada admin event dengan nomor WhatsApp yang ketemu. Pastikan: Event punya organizer_id, Organizer punya user_id, User punya whatsapp diisi.');
+                $this->warn('Tidak ada admin event dengan nomor WhatsApp yang ketemu. Pastikan: Event punya organizer_id, Organizer punya user pengelola, User punya whatsapp diisi.');
             } else {
                 $this->table(
                     ['User ID', 'Nama', 'WhatsApp', 'Event(s)'],
@@ -230,8 +235,14 @@ class OrganizerPendingDigestCommand extends Command
         }
         $seen[$key] = true;
         $organizer = $event->organizer;
-        $user = $organizer?->user;
-        $wa = $user && trim((string) $user->whatsapp) !== '' ? $user->whatsapp : '(kosong/tidak ada)';
-        $this->line("  Event: {$event->title} (id={$event->id}) | Organizer: ".($organizer?->name ?? 'null').' (id='.($organizer?->id ?? 'null').') | User: '.($user?->name ?? 'null').' (id='.($user?->id ?? 'null').") | WA: {$wa}");
+        $users = $organizer?->users ?? collect();
+        $userInfo = $users->isEmpty()
+            ? 'null'
+            : $users->map(function ($user) {
+                $wa = trim((string) $user->whatsapp) !== '' ? $user->whatsapp : '(kosong/tidak ada)';
+
+                return "{$user->name} (id={$user->id}, WA: {$wa})";
+            })->implode('; ');
+        $this->line("  Event: {$event->title} (id={$event->id}) | Organizer: ".($organizer?->name ?? 'null').' (id='.($organizer?->id ?? 'null').") | User: {$userInfo}");
     }
 }

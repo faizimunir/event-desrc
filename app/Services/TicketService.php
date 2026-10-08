@@ -52,7 +52,7 @@ class TicketService
      */
     public static function resendTicketWhatsapp(Registration $registration): ?string
     {
-        $registration->loadMissing(['ticket', 'rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
+        $registration->loadMissing(['ticket', 'rider.user', 'event.organizer.users', 'bracket', 'package', 'order']);
         $ticket = $registration->ticket;
         if (! $ticket) {
             return __('No e-ticket exists for this registration yet.');
@@ -85,7 +85,7 @@ class TicketService
      */
     public static function ticketWaMeUrl(Registration $registration): array
     {
-        $registration->loadMissing(['ticket', 'rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
+        $registration->loadMissing(['ticket', 'rider.user', 'event.organizer.users', 'bracket', 'package', 'order']);
         $ticket = $registration->ticket;
         if (! $ticket) {
             return [null, __('No e-ticket exists for this registration yet.')];
@@ -127,7 +127,7 @@ class TicketService
      */
     public static function buildPaymentSuccessWhatsAppBody(Registration $registration, Ticket $ticket): string
     {
-        $registration->loadMissing(['rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
+        $registration->loadMissing(['rider.user', 'event.organizer.users', 'bracket', 'package', 'order']);
         $user = $registration->rider?->user;
         $eventTitle = $registration->event?->title ?? config('app.name');
         $recipientName = $user?->name ?: $registration->rider?->name ?: '';
@@ -150,7 +150,7 @@ class TicketService
      */
     protected static function sendTicketNotifications(Ticket $ticket): void
     {
-        $registration = $ticket->registration->loadMissing(['rider.user', 'event.organizer.user', 'bracket', 'package', 'order']);
+        $registration = $ticket->registration->loadMissing(['rider.user', 'event.organizer.users', 'bracket', 'package', 'order']);
         $user = $registration->rider?->user;
 
         if (! $user) {

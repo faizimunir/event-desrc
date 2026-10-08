@@ -78,7 +78,7 @@ class TicketWhatsappBroadcast
             ! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee'),
             fn (Builder $query) => $query->whereHas(
                 'organizer',
-                fn (Builder $organizer) => $organizer->where('user_id', $user->id)
+                fn (Builder $organizer) => $organizer->whereHas('users', fn (Builder $u) => $u->whereKey($user->id))
             )
         );
     }

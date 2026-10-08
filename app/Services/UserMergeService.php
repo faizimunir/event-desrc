@@ -62,7 +62,7 @@ class UserMergeService
             foreach ($secondaryIds as $sid) {
                 Rider::query()->where('user_id', $sid)->update(['user_id' => $primaryUserId]);
                 Order::query()->where('user_id', $sid)->update(['user_id' => $primaryUserId]);
-                Organizer::query()->where('user_id', $sid)->update(['user_id' => $primaryUserId]);
+                $this->reassignOrganizerManager($sid, $primaryUserId);
                 Payment::query()->where('reviewed_by', $sid)->update(['reviewed_by' => $primaryUserId]);
                 EventCheckin::query()->where('checked_in_by', $sid)->update(['checked_in_by' => $primaryUserId]);
                 DB::table('sessions')->where('user_id', $sid)->update(['user_id' => $primaryUserId]);
@@ -81,6 +81,19 @@ class UserMergeService
 
             app(PermissionRegistrar::class)->forgetCachedPermissions();
         });
+    }
+
+    /**
+     * Pindahkan keanggotaan pengelola organizer dari user sekunder ke user utama (tanpa duplikat).
+     */
+    private function reassignOrganizerManager(int $secondaryId, int $primaryUserId): void
+    {
+        Organizer::query()
+            ->whereHas('users', fn ($q) => $q->whereKey($secondaryId))
+            ->each(function (Organizer $organizer) use ($secondaryId, $primaryUserId) {
+                $organizer->users()->syncWithoutDetaching([$primaryUserId]);
+                $organizer->users()->detach($secondaryId);
+            });
     }
 
     /**

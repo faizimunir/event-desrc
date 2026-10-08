@@ -70,7 +70,7 @@ class BulkSendTicketWhatsappJob implements ShouldQueue
 
         $registrations = TicketWhatsappBroadcast::bulkQuery($this->eventId, $this->target)
             ->where('registrations.id', '>', $this->afterId)
-            ->with(['ticket', 'rider.user', 'event.organizer.user', 'bracket', 'package', 'order'])
+            ->with(['ticket', 'rider.user', 'event.organizer.users', 'bracket', 'package', 'order'])
             ->orderBy('registrations.id')
             ->limit(self::CHUNK_SIZE)
             ->get();

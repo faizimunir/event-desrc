@@ -12,7 +12,8 @@ class OrganizerPolicy
         if ($user->canAs('organizer.update')) {
             return true;
         }
-        return $organizer->user_id !== null && $organizer->user_id === $user->id;
+
+        return $organizer->isManagedBy($user);
     }
 
     public function delete(User $user, Organizer $organizer): bool
@@ -20,6 +21,7 @@ class OrganizerPolicy
         if ($user->canAs('organizer.delete')) {
             return true;
         }
-        return $organizer->user_id !== null && $organizer->user_id === $user->id;
+
+        return $organizer->isManagedBy($user);
     }
 }

@@ -42,7 +42,7 @@ class EventController extends Controller
             abort(404);
         }
 
-        $event->load(['location', 'organizer.user', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'rundowns.brackets']);
+        $event->load(['location', 'organizer.users', 'racingCommittee', 'masterOfCeremony', 'brackets', 'packages.rewards', 'tracks', 'rundowns.brackets']);
 
         Order::enforceExpiredDraftsForEvent($event->id);
         Order::enforceExpiredPaymentWindowsForEvent($event->id);

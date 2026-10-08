@@ -90,7 +90,7 @@ class EventForm extends Component
         $user = auth()->user();
         $organizerQuery = Organizer::query()->orderBy('name');
         if (! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee')) {
-            $organizerQuery->where('user_id', $user->id);
+            $organizerQuery->managedBy($user);
         }
         $this->organizers = $organizerQuery->get();
         $this->accounts = Account::orderBy('acc_name')->get();
@@ -163,7 +163,7 @@ class EventForm extends Component
         $this->jersey_sizes = implode(', ', Event::normalizeJerseySizes($this->jersey_sizes));
 
         if (! $this->event && $this->organizer_id === null && ! $user->hasRole('super_admin') && ! $user->hasRole('admin')) {
-            $autoOrganizerId = Organizer::where('user_id', $user->id)->value('id');
+            $autoOrganizerId = Organizer::managedBy($user)->orderBy('id')->value('id');
             if ($autoOrganizerId) {
                 $this->organizer_id = (string) $autoOrganizerId;
             }

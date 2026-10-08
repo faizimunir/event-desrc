@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -13,17 +14,36 @@ class Organizer extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
         'name',
         'link',
     ];
 
     /**
-     * User (admin organizer) yang berhak mengelola organizer dan event-eventnya.
+     * User-user (admin organizer) yang berhak mengelola organizer dan event-eventnya.
      */
-    public function user(): BelongsTo
+    public function users(): BelongsToMany
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsToMany(User::class, 'organizer_user')->withTimestamps();
+    }
+
+    /**
+     * Apakah user termasuk pengelola organizer ini.
+     */
+    public function isManagedBy(User $user): bool
+    {
+        if ($this->relationLoaded('users')) {
+            return $this->users->contains('id', $user->id);
+        }
+
+        return $this->users()->whereKey($user->id)->exists();
+    }
+
+    /**
+     * Organizer yang dikelola oleh user tertentu.
+     */
+    public function scopeManagedBy(Builder $query, User $user): Builder
+    {
+        return $query->whereHas('users', fn (Builder $q) => $q->whereKey($user->id));
     }
 
     /**

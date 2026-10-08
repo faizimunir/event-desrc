@@ -48,6 +48,11 @@
                                         —
                                     @endif
                                 </p>
+                                @if ($organizer->users->isNotEmpty())
+                                    <p class="mt-0.5 truncate text-xs text-zinc-400 dark:text-zinc-500">
+                                        {{ $organizer->users->pluck('name')->join(', ') }}
+                                    </p>
+                                @endif
                             </div>
                             @canAs('organizer.update')
                                 @can('update', $organizer)

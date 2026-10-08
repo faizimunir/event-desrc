@@ -1,5 +1,5 @@
 @php
-    $organizerUser = $registration->event?->organizer?->user;
+    $organizerUsers = $registration->event?->organizer?->users ?? collect();
 @endphp
 
 Halo kak {{ $recipientName }} 👋
@@ -25,14 +25,16 @@ Nanti tinggal ikuti aja petunjuk di sana ya kak 🙏
 Makasih ya 🙌
 
 —
-@if($organizerUser)
+@if($organizerUsers->isNotEmpty())
 Kalau ada yang mau ditanyakan, bisa langsung hubungi panitia:
+@foreach($organizerUsers as $organizerUser)
 @if($organizerUser->name)
 👤 {{ $organizerUser->name }}
 @endif
 @if($organizerUser->whatsapp)
 📱 {{ $organizerUser->whatsapp }}
 @endif
+@endforeach
 @else
 Kalau butuh bantuan, bisa hubungi panitia lewat kontak resmi event ya.
 @endif

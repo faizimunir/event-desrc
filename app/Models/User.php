@@ -73,9 +73,9 @@ class User extends Authenticatable
     }
 
     /** Organizer-organizer yang dikelola user ini (admin organizer). */
-    public function managedOrganizers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function managedOrganizers(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->hasMany(Organizer::class, 'user_id');
+        return $this->belongsToMany(Organizer::class, 'organizer_user')->withTimestamps();
     }
 
     /** Cek apakah akun sudah aktivasi (bisa login dengan email + password). */

@@ -30,10 +30,11 @@ class OrganizerList extends Component
         $query = Organizer::query();
 
         if (! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee')) {
-            $query->where('user_id', $user->id);
+            $query->managedBy($user);
         }
 
         return $query
+            ->with('users:id,name')
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('name', 'like', '%'.$this->search.'%');
