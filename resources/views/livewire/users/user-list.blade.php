@@ -186,6 +186,11 @@
                                             {{ $primaryRole }}
                                         </span>
                                     @endif
+                                    @unless ($user->isActivated())
+                                        <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-400">
+                                            {{ __('Not activated') }}
+                                        </span>
+                                    @endunless
                                 </div>
                                 <p class="mt-0.5 truncate text-xs text-zinc-500 dark:text-zinc-400">
                                     @if ($user->whatsapp)

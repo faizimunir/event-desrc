@@ -64,6 +64,21 @@
                             {{ __('Back') }}
                         </flux:button>
 
+                        @if (auth()->user()->hasRole('super_admin') && ! $user->isActivated())
+                            <form method="POST" action="{{ route('users.activate', $user) }}" onsubmit="return confirm('{{ __('Activate this account without OTP verification?') }}')">
+                                @csrf
+                                <flux:button
+                                    type="submit"
+                                    variant="ghost"
+                                    size="sm"
+                                    icon="check-circle"
+                                    class="!border !border-white/25 !bg-white/15 !text-white hover:!bg-white/25"
+                                >
+                                    {{ __('Activate') }}
+                                </flux:button>
+                            </form>
+                        @endif
+
                         @canAs('user.update')
                             @can('update', $user)
                                 <flux:button
@@ -91,6 +106,20 @@
                         class="users-hero-action shrink-0"
                         :aria-label="__('Back')"
                     />
+
+                    @if (auth()->user()->hasRole('super_admin') && ! $user->isActivated())
+                        <form method="POST" action="{{ route('users.activate', $user) }}" class="shrink-0" onsubmit="return confirm('{{ __('Activate this account without OTP verification?') }}')">
+                            @csrf
+                            <flux:button
+                                type="submit"
+                                variant="ghost"
+                                size="sm"
+                                icon="check-circle"
+                                class="users-hero-action"
+                                :aria-label="__('Activate')"
+                            />
+                        </form>
+                    @endif
 
                     @canAs('user.update')
                         @can('update', $user)
@@ -126,6 +155,11 @@
                                     {{ str_replace('_', ' ', $role->name) }}
                                 </span>
                             @endforeach
+                            @if ($user->isActivated())
+                                <flux:badge color="green" size="sm" class="shrink-0">{{ __('Activated') }}</flux:badge>
+                            @else
+                                <flux:badge color="yellow" size="sm" class="shrink-0">{{ __('Not activated') }}</flux:badge>
+                            @endif
                         </div>
                         <dl class="mt-3 grid gap-3 sm:grid-cols-2">
                             <div>
