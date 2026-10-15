@@ -1,5 +1,11 @@
 @php
     $organizerUsers = $registration->event?->organizer?->users ?? collect();
+    $deadlineMinutes = (int) $paymentProofDeadlineMinutes;
+    $deadlineLabel = match (true) {
+        $deadlineMinutes >= 1440 && $deadlineMinutes % 1440 === 0 => ($deadlineMinutes / 1440).' hari',
+        $deadlineMinutes >= 60 && $deadlineMinutes % 60 === 0 => ($deadlineMinutes / 60).' jam',
+        default => $deadlineMinutes.' menit',
+    };
 @endphp
 
 Halo kak {{ $recipientName }} 👋
@@ -16,7 +22,7 @@ Link pembayaran untuk event *{{ $eventTitle }}* sudah siap 🙌
 💰 Total: {{ $registration->package->formatted_payable_amount }}
 @endif
 
-Bisa lanjut lewat link ini, masih aktif sekitar {{ $paymentProofDeadlineMinutes }} menit:
+Bisa lanjut lewat link ini, masih aktif sekitar {{ $deadlineLabel }}:
 
 {{ $paymentLinkUrl }}
 

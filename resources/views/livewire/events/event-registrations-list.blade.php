@@ -10,6 +10,15 @@
                 class="shrink-0"
                 :aria-label="__('Add registration')"
             />
+            <flux:button
+                variant="outline"
+                :href="route('events.registrations.import.create', $event)"
+                wire:navigate
+                icon="arrow-up-tray"
+                square
+                class="shrink-0"
+                :aria-label="__('Import registrations')"
+            />
         @endcanAs
 
         <flux:input
