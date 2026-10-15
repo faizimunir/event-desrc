@@ -29,6 +29,9 @@
         default => 'zinc',
     } : null;
     $canUpdate = auth()->user()->canAs('event.update');
+    $canEditPackage = auth()->user()->hasRole('super_admin');
+    $eventHasJerseyForm = $event->packages->contains(fn ($p) => $p->hasJerseyReward());
+    $jerseyPackageIds = $event->packages->filter(fn ($p) => $p->hasJerseyReward())->pluck('id')->values()->all();
     $openEditRiderDataModal = $canUpdate && (
         $errors->hasAny([
             'name', 'nickname', 'pob', 'dob', 'gender', 'number_plate', 'rider_data', 'team_ids',
@@ -382,8 +385,36 @@
                     </div>
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Package') }}</dt>
-                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">{{ $registration->package?->name ?? '—' }}</dd>
+                        <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                <span>{{ $registration->package?->name ?? '—' }}</span>
+                                @if ($canEditPackage)
+                                    <flux:modal.trigger name="edit-registration-package">
+                                        <flux:button
+                                            type="button"
+                                            variant="ghost"
+                                            size="xs"
+                                            class="!min-h-0 shrink-0 !px-1 !py-0.5"
+                                            icon="pencil-square"
+                                            title="{{ __('Edit package') }}"
+                                        ></flux:button>
+                                    </flux:modal.trigger>
+                                @endif
+                            </div>
+                        </dd>
                     </div>
+                    @if ($eventHasJerseyForm || filled($registration->jersey_size))
+                        <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                            <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Jersey size') }}</dt>
+                            <dd class="mt-1 text-sm text-zinc-900 dark:text-zinc-100 sm:col-span-2 sm:mt-0">
+                                @if (filled($registration->jersey_size))
+                                    {{ $registration->jersey_size }}
+                                @else
+                                    <span class="text-zinc-400 dark:text-zinc-500">—</span>
+                                @endif
+                            </dd>
+                        </div>
+                    @endif
                     <div class="px-4 py-3 sm:grid sm:grid-cols-3 sm:gap-4">
                         <dt class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ __('Registered at') }}</dt>
                         <dd class="mt-1 text-sm text-zinc-600 dark:text-zinc-400 sm:col-span-2 sm:mt-0">{{ $registration->created_at->format('d/m/Y H:i') }}</dd>
@@ -577,6 +608,54 @@
                                 </flux:modal.close>
                                 <flux:button type="submit" variant="primary" size="sm" icon="arrow-path">
                                     {{ __('Update bracket') }}
+                                </flux:button>
+                            </div>
+                        </form>
+                    </flux:modal>
+                @endif
+                @if ($canEditPackage)
+                    <flux:modal name="edit-registration-package" focusable class="max-w-md" dismissible>
+                        <form
+                            method="post"
+                            action="{{ route('events.registrations.update-package', [$event, $registration]) }}"
+                            class="space-y-4 p-2"
+                            x-data="{
+                                packageId: @js((string) old('package_id', $registration->package_id)),
+                                jerseyPackageIds: @js(array_map('strval', $jerseyPackageIds)),
+                                get needsJersey() { return this.jerseyPackageIds.includes(String(this.packageId)); },
+                            }"
+                        >
+                            @csrf
+                            <flux:heading size="lg">{{ __('Edit package') }}</flux:heading>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Change the package of this registration. Package quota will be checked before saving. Existing payment amounts are not changed.') }}
+                            </p>
+
+                            <flux:select name="package_id" :label="__('Package')" x-model="packageId" required>
+                                @foreach ($event->packages as $packageOption)
+                                    @php($isCurrentPackage = (int) $registration->package_id === (int) $packageOption->id)
+                                    @continue(! $packageOption->isActive() && ! $isCurrentPackage)
+                                    <option value="{{ $packageOption->id }}" @selected((int) old('package_id', $registration->package_id) === (int) $packageOption->id)>
+                                        {{ $packageOption->name }} — {{ $packageOption->formatted_payable_amount }}@unless ($packageOption->isActive()) ({{ __('Not active') }})@endunless
+                                    </option>
+                                @endforeach
+                            </flux:select>
+
+                            <div x-show="needsJersey" x-cloak>
+                                <flux:select name="jersey_size" :label="__('Jersey size')" x-bind:disabled="! needsJersey">
+                                    <option value="">{{ __('Select size') }}</option>
+                                    @foreach ($event->jerseySizeOptions() as $size)
+                                        <option value="{{ $size }}" @selected(old('jersey_size', $registration->jersey_size) === $size)>{{ $size }}</option>
+                                    @endforeach
+                                </flux:select>
+                            </div>
+
+                            <div class="flex justify-end gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
+                                <flux:modal.close>
+                                    <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>
+                                </flux:modal.close>
+                                <flux:button type="submit" variant="primary" size="sm" icon="arrow-path">
+                                    {{ __('Update package') }}
                                 </flux:button>
                             </div>
                         </form>
