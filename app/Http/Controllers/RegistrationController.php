@@ -459,7 +459,7 @@ class RegistrationController extends Controller
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
-        $event->loadMissing('brackets');
+        $event->loadMissing(['brackets', 'packages.rewards']);
         $registration->load(['rider.user', 'bracket', 'package', 'payment.reviewedByUser', 'order', 'ticket']);
         $registration->order?->enforceExpiredDraftIfNeeded();
         $registration->order?->enforceExpiredPaymentWindowIfNeeded();
@@ -744,6 +744,102 @@ class RegistrationController extends Controller
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('error', is_array($result) ? $result[1] : __('Unable to update bracket.'));
+    }
+
+    /**
+     * Super admin: change the package of a registration (and jersey size when the package has a jersey reward).
+     */
+    public function updateRegistrationPackage(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->hasRole('super_admin'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $event->loadMissing('packages.rewards');
+        $backUrl = route('events.registrations.show', [$event, $registration]);
+
+        $packageIds = $event->packages->pluck('id')->all();
+        $targetPackage = $event->packages->firstWhere('id', (int) $request->input('package_id'));
+        $requiresJersey = $targetPackage?->hasJerseyReward() ?? false;
+
+        // Sama seperti transfer package: registrasi pending/approved wajib punya jersey jika package tujuan punya reward jersey.
+        $registrationIsLive = in_array($registration->status, [Registration::STATUS_PENDING, Registration::STATUS_APPROVED], true);
+        $jerseyRules = $requiresJersey
+            ? [$registrationIsLive ? 'required' : 'nullable', 'string', Rule::in($event->jerseySizeOptions())]
+            : ['nullable', 'string', 'max:50'];
+
+        try {
+            $validated = $request->validate([
+                'package_id' => ['required', 'integer', Rule::in($packageIds)],
+                'jersey_size' => $jerseyRules,
+            ]);
+        } catch (ValidationException $e) {
+            return redirect()->to($backUrl)
+                ->with('error', collect($e->validator->errors()->all())->first() ?: __('Invalid package.'));
+        }
+
+        $jerseySize = $requiresJersey ? ($validated['jersey_size'] ?? null) : null;
+
+        if ((int) $registration->package_id === (int) $targetPackage->id) {
+            if ($requiresJersey && $registration->jersey_size !== $jerseySize) {
+                $registration->update(['jersey_size' => $jerseySize]);
+
+                return redirect()->to($backUrl)->with('status', __('Jersey size updated.'));
+            }
+
+            return redirect()->to($backUrl)->with('status', __('Package unchanged.'));
+        }
+
+        // Sama seperti transfer package: package tujuan harus aktif.
+        if (! $targetPackage->isActive()) {
+            return redirect()->to($backUrl)->with('error', __('Target package must be active.'));
+        }
+
+        $sourcePackage = $registration->package;
+
+        $error = QuotaReservationService::withLocks(
+            (int) $registration->bracket_id,
+            (int) $targetPackage->id,
+            null,
+            function () use ($registration, $targetPackage, $jerseySize) {
+                $package = Package::query()->findOrFail($targetPackage->id);
+                if (! $package->isActive()) {
+                    return __('Target package must be active.');
+                }
+
+                $locked = Registration::query()->whereKey($registration->id)->lockForUpdate()->firstOrFail();
+
+                // Kuota hanya dicek jika registrasi ini memang memegang kuota (aturan sama dengan transfer package).
+                $holdsQuota = Registration::query()
+                    ->whereKey($locked->id)
+                    ->countsTowardQuota()
+                    ->whereHas('order', fn ($q) => $q->holdsQuota())
+                    ->exists();
+                if ($holdsQuota && $package->isQuotaFull()) {
+                    return __('This package has no remaining quota.');
+                }
+
+                $locked->update([
+                    'package_id' => $package->id,
+                    'jersey_size' => $jerseySize,
+                ]);
+
+                return null;
+            }
+        );
+
+        if ($error) {
+            return redirect()->to($backUrl)->with('error', $error);
+        }
+
+        $message = __('Registration package updated.');
+        $targetPackage->loadMissing('rewards');
+        if ($sourcePackage && abs($targetPackage->payableAmount() - $sourcePackage->payableAmount()) > 0.001) {
+            $message .= ' '.__('The new package has a different price; existing payment records were not changed.');
+        }
+
+        return redirect()->to($backUrl)->with('status', $message);
     }
 
     protected function registrationRiderEditSuccessUrl(Request $request, Event $event, Registration $registration): string
