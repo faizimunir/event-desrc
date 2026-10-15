@@ -2,12 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\ComponentHasRegistrationsException;
+use App\Http\Controllers\Concerns\RespondsToRegistrationTransfer;
 use App\Models\Bracket;
 use App\Models\Event;
+use App\Services\RegistrationTransferService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\Rule;
 
 class BracketController extends Controller
 {
+    use RespondsToRegistrationTransfer;
+
     public function index(Event $event)
     {
         abort_unless(auth()->user()->canAs('bracket.read'), 403);
@@ -117,15 +125,83 @@ class BracketController extends Controller
         return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket updated.'));
     }
 
-    public function destroy(Event $event, Bracket $bracket)
+    /**
+     * Hapus bracket. Bracket yang masih punya pendaftar tidak boleh dihapus (cascade akan menghapus
+     * registrasi, order, pembayaran, tiket, check-in). Hanya super_admin yang boleh force delete,
+     * dengan mengetik ulang nama bracket sebagai konfirmasi.
+     */
+    public function destroy(Request $request, Event $event, Bracket $bracket)
     {
         abort_unless(auth()->user()->canAs('bracket.delete'), 403);
         $this->authorize('delete', $bracket);
         abort_if($bracket->event_id !== $event->id, 404);
 
-        $bracket->delete();
+        $user = auth()->user();
+        $force = $user->hasRole('super_admin') && $request->boolean('force_delete');
+        $editUrl = route('events.brackets.edit', [$event, $bracket]);
 
-        return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with('status', __('Bracket deleted.'));
+        if ($force && trim((string) $request->input('confirm_name')) !== $bracket->name) {
+            return redirect($editUrl)->with('error', __('Confirmation name does not match. Bracket was not deleted.'));
+        }
+
+        try {
+            $deletedRegistrations = DB::transaction(function () use ($bracket, $force, $user, $event) {
+                // Lock baris bracket agar pendaftaran baru (yang juga me-lock bracket) tidak menyelip.
+                $locked = Bracket::query()->whereKey($bracket->id)->lockForUpdate()->firstOrFail();
+                $count = $locked->registrationsCount();
+
+                if ($count > 0 && $force) {
+                    $locked->allowDeleteWithRegistrations = true;
+                    Log::warning('Bracket force-deleted together with its registrations.', [
+                        'user_id' => $user->id,
+                        'event_id' => $event->id,
+                        'bracket_id' => $locked->id,
+                        'bracket_name' => $locked->name,
+                        'registrations_deleted' => $count,
+                    ]);
+                }
+
+                $locked->delete();
+
+                return $count;
+            });
+        } catch (ComponentHasRegistrationsException $e) {
+            return redirect($editUrl)->with('error', __('This bracket still has :count registrants and cannot be deleted. Transfer them to another bracket first.', ['count' => $e->registrationsCount]));
+        }
+
+        return redirect()->route('events.show', [$event, 'tab' => 'brackets'])->with(
+            'status',
+            $deletedRegistrations > 0
+                ? __('Bracket deleted together with :count registrations.', ['count' => $deletedRegistrations])
+                : __('Bracket deleted.')
+        );
+    }
+
+    /**
+     * Alihkan seluruh pendaftar bracket ini ke bracket lain di event yang sama.
+     * Setiap pendaftar divalidasi (umur/tahun lahir, gender, kuota, duplikat) secara terpisah.
+     */
+    public function transfer(Request $request, Event $event, Bracket $bracket, RegistrationTransferService $transfers)
+    {
+        abort_unless(auth()->user()->canAs('bracket.update') && auth()->user()->canAs('event.update'), 403);
+        $this->authorize('update', $bracket);
+        $this->authorize('update', $event);
+        abort_if($bracket->event_id !== $event->id, 404);
+
+        $validated = $request->validate([
+            'target_bracket_id' => ['required', 'integer', Rule::in($event->brackets()->whereKeyNot($bracket->id)->pluck('id')->all())],
+        ], [
+            'target_bracket_id.in' => __('Please choose a different bracket in this event.'),
+        ]);
+
+        $target = $event->brackets()->findOrFail($validated['target_bracket_id']);
+        $result = $transfers->transferBracket($bracket, $target);
+
+        return $this->transferResponse(
+            redirect()->route('events.brackets.edit', [$event, $bracket]),
+            $result,
+            $target->name,
+        );
     }
 
     private function normalizeBracketRules(array $validated): array

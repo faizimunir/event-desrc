@@ -81,22 +81,34 @@
         <div class="users-hero-content flex flex-1 flex-col gap-4 pt-4 pb-6">
             <livewire:packages.package-form :event="$event" :package="$package" />
 
-            @canAs('package.delete')
-                @can('delete', $package)
-                    <form id="delete-package-form-{{ $package->id }}" method="post" action="{{ route('events.packages.destroy', [$event, $package]) }}" class="mt-2">
-                        @csrf
-                        @method('DELETE')
-                        <flux:button
-                            type="button"
-                            variant="danger"
-                            icon="trash"
-                            onclick="if(confirm('{{ addslashes(__('Are you sure you want to delete this package?')) }}')) document.getElementById('delete-package-form-{{ $package->id }}').submit()"
-                        >
-                            {{ __('Delete Package') }}
-                        </flux:button>
-                    </form>
-                @endcan
-            @endcanAs
+            @php
+                $transferTargets = $event->packages()
+                    ->whereKeyNot($package->id)
+                    ->where('status', \App\Models\Package::STATUS_ACTIVE)
+                    ->get()
+                    ->map(fn ($option) => [
+                        'id' => $option->id,
+                        'label' => $option->name.' — '.$option->formatted_payable_amount,
+                        'payable' => $option->payableAmount(),
+                    ])
+                    ->values()
+                    ->all();
+
+                $cascadeNotes = array_values(array_filter([
+                    ($rewardsCount = $package->rewards()->count()) > 0 ? trans_choice('Link to :count reward|Links to :count rewards', $rewardsCount, ['count' => $rewardsCount]) : null,
+                ]));
+            @endphp
+            @include('events.partials.delete-or-transfer', [
+                'kind' => 'package',
+                'event' => $event,
+                'item' => $package,
+                'deleteRoute' => route('events.packages.destroy', [$event, $package]),
+                'transferRoute' => route('events.packages.transfer', [$event, $package]),
+                'targetField' => 'target_package_id',
+                'targets' => $transferTargets,
+                'cascadeNotes' => $cascadeNotes,
+                'currentPayable' => $package->payableAmount(),
+            ])
         </div>
     </div>
 </x-layouts::app>

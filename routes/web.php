@@ -70,6 +70,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('events.tracks', TrackController::class)->scoped();
     Route::resource('events.brackets', BracketController::class)->scoped();
     Route::resource('events.brackets.bracket-levels', BracketLevelController::class)->scoped();
+    Route::post('events/{event}/brackets/{bracket}/transfer', [BracketController::class, 'transfer'])->name('events.brackets.transfer');
+    Route::post('events/{event}/packages/{package}/transfer', [PackageController::class, 'transfer'])->name('events.packages.transfer');
     Route::get('events/{event}/registrations', [RegistrationController::class, 'index'])->name('events.registrations.index');
     Route::get('events/{event}/registrations/create', [RegistrationController::class, 'create'])->name('events.registrations.create');
     Route::get('events/{event}/registrations/export', [RegistrationController::class, 'export'])->name('events.registrations.export');
