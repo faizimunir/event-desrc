@@ -2,18 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\PaymentLinkMail;
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\Registration;
-use App\Models\WhatsappNotificationLog;
 use App\Services\ManualTransferNotifier;
+use App\Services\PaymentLinkNotifier;
 use App\Services\TicketService;
 use App\Services\WhacenterService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\View;
 use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
@@ -180,7 +176,7 @@ class PaymentController extends Controller
 
                         if ($queuePaymentLinkNotification) {
                             $order->refresh();
-                            $this->sendPaymentLinkNotifications($order, $reg);
+                            PaymentLinkNotifier::send($order, $reg);
                         }
                     }
                 }
@@ -533,57 +529,5 @@ class PaymentController extends Controller
 
         return redirect()->route('payments.index')
             ->with('status', __('Payment attempt marked as expired. Order is not cancelled by this action; use order deadline or cancel order if needed.'));
-    }
-
-    /** Kirim payment link ke WhatsApp (Whacenter) dan email setelah user klik Confirm & Pay. */
-    private function sendPaymentLinkNotifications(Order $order, Registration $reg): void
-    {
-        $user = $reg->rider->user;
-        if (! $user) {
-            return;
-        }
-
-        $event = $reg->event;
-        $paymentLinkUrl = route('payment.create', array_filter([
-            'order_code' => $order->order_code,
-            'whatsapp' => $user->whatsapp ?: null,
-            'payment_method' => $event->allowsQrisPayment() ? 'qris' : ($event->allowsManualPayment() ? 'manual' : null),
-        ], static fn ($v) => $v !== null && $v !== ''));
-        $eventTitle = $reg->event->title ?? config('app.name');
-        $recipientName = $user->name ?: $reg->rider->name;
-        $order->loadMissing('payments');
-        $pending = $order->activePendingPayment();
-        $qrisExactTotalIdr = null;
-        if ($pending && $pending->method === Payment::METHOD_QRIS && (float) ($pending->transfer_amount ?? 0) > 0) {
-            $qrisExactTotalIdr = 'Rp '.number_format((float) $pending->transfer_amount, 0, ',', '.');
-        }
-
-        if ($user->whatsapp) {
-            $waMessage = trim(View::make('whatsapp.payment-link', [
-                'recipientName' => $recipientName,
-                'eventTitle' => $eventTitle,
-                'registration' => $reg->loadMissing(['rider', 'bracket', 'package', 'event.organizer.users']),
-                'paymentLinkUrl' => $paymentLinkUrl,
-                'paymentProofDeadlineMinutes' => Payment::PAYMENT_PROOF_DEADLINE_MINUTES,
-            ])->render());
-            $logId = null;
-            if (WhatsappNotificationLog::tableExists()) {
-                $logId = $reg->whatsappNotificationLogs()->create([
-                    'type' => WhatsappNotificationLog::TYPE_PAYMENT_LINK,
-                    'recipient' => WhacenterService::normalizeWhatsApp($user->whatsapp),
-                    'status' => WhatsappNotificationLog::STATUS_QUEUED,
-                ])->id;
-            }
-            app(WhacenterService::class)->queueMessage($user->whatsapp, $waMessage, $logId);
-        }
-
-        if ($user->email) {
-            Mail::to($user->email)->send(new PaymentLinkMail(
-                $paymentLinkUrl,
-                $eventTitle,
-                $recipientName,
-                $qrisExactTotalIdr,
-            ));
-        }
     }
 }

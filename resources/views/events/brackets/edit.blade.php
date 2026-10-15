@@ -154,22 +154,38 @@
                     <flux:button variant="ghost" :href="route('events.show', [$event, 'tab' => 'brackets'])" wire:navigate>{{ __('Cancel') }}</flux:button>
                 </div>
             </form>
-            @canAs('bracket.delete')
-                @can('delete', $bracket)
-                    <form id="delete-bracket-form-{{ $bracket->id }}" method="post" action="{{ route('events.brackets.destroy', [$event, $bracket]) }}" class="mt-2">
-                        @csrf
-                        @method('DELETE')
-                        <flux:button
-                            type="button"
-                            variant="danger"
-                            icon="trash"
-                            onclick="if(confirm('{{ addslashes(__('Are you sure you want to delete this bracket?')) }}')) document.getElementById('delete-bracket-form-{{ $bracket->id }}').submit()"
-                        >
-                            {{ __('Delete Bracket') }}
-                        </flux:button>
-                    </form>
-                @endcan
-            @endcanAs
+            @php
+                $transferTargets = $event->brackets_sorted_for_display
+                    ->where('id', '!=', $bracket->id)
+                    ->map(function ($option) {
+                        $remaining = $option->remainingQuota();
+
+                        return [
+                            'id' => $option->id,
+                            'label' => $option->name.' — '.($remaining === null
+                                ? __('Unlimited quota')
+                                : trans_choice(':count slot left|:count slots left', $remaining, ['count' => $remaining])),
+                            'payable' => null,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                $cascadeNotes = array_values(array_filter([
+                    ($levels = $bracket->bracketLevels()->count()) > 0 ? trans_choice(':count bracket level|:count bracket levels', $levels, ['count' => $levels]) : null,
+                    ($rundowns = $bracket->rundowns()->count()) > 0 ? trans_choice('Link to :count rundown|Links to :count rundowns', $rundowns, ['count' => $rundowns]) : null,
+                ]));
+            @endphp
+            @include('events.partials.delete-or-transfer', [
+                'kind' => 'bracket',
+                'event' => $event,
+                'item' => $bracket,
+                'deleteRoute' => route('events.brackets.destroy', [$event, $bracket]),
+                'transferRoute' => route('events.brackets.transfer', [$event, $bracket]),
+                'targetField' => 'target_bracket_id',
+                'targets' => $transferTargets,
+                'cascadeNotes' => $cascadeNotes,
+            ])
         </div>
     </div>
 </x-layouts::app>
