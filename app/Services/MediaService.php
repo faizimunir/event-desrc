@@ -39,7 +39,8 @@ class MediaService
         );
 
         $id = (string) \Illuminate\Support\Str::ulid();
-        $disk = 'public';
+        $collectionConfig = $config[$collection];
+        $disk = (string) ($collectionConfig['disk'] ?? 'public');
         $basePath = 'media/'.$id;
         $originalPath = $basePath.'/original.webp';
 
@@ -59,7 +60,6 @@ class MediaService
         $image = $this->imageManager->read($file->getRealPath());
         $maxWidth = (int) config('media.max_original_width', 2000);
         $qualityOriginal = (int) config('media.quality_original', 85);
-        $collectionConfig = $config[$collection];
 
         if (isset($collectionConfig['force_ratio']) && is_array($collectionConfig['force_ratio']) && count($collectionConfig['force_ratio']) >= 2) {
             [$ratioW, $ratioH] = $collectionConfig['force_ratio'];

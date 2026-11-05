@@ -174,3 +174,148 @@ test('moota processMutation ignores duplicate mutation_id', function () {
     expect($payment->moota_mutation_id)->toBe($mutationId)
         ->and($payment->paid_at?->timestamp)->toBe($paidAtFirst?->timestamp);
 });
+
+test('moota processMutation prefers order_code reference over amount', function () {
+    $user = User::factory()->create();
+
+    $event = Event::query()->create([
+        'title' => 'Ref Event',
+        'slug' => 'ref-'.Str::lower(Str::random(10)),
+        'start_at' => now()->addDay(),
+        'end_at' => now()->addDays(2),
+        'status' => Event::STATUS_OPEN_REGIST,
+        'payment_methods' => [Event::PAYMENT_QRIS],
+    ]);
+
+    $bracket = Bracket::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Open',
+        'quota' => 100,
+    ]);
+
+    $package = Package::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Paket',
+        'price' => 100_000,
+        'status' => Package::STATUS_ACTIVE,
+    ]);
+
+    $makePending = function (string $amount, string $riderName) use ($event, $bracket, $package, $user) {
+        $rider = Rider::query()->create([
+            'user_id' => $user->id,
+            'name' => $riderName,
+        ]);
+
+        $registration = Registration::query()->create([
+            'event_id' => $event->id,
+            'rider_id' => $rider->id,
+            'bracket_id' => $bracket->id,
+            'package_id' => $package->id,
+            'status' => Registration::STATUS_PENDING,
+        ]);
+
+        $order = Order::query()->create([
+            'registration_id' => $registration->id,
+            'status' => Order::STATUS_UNPAID,
+            'expired_at' => now()->addHour(),
+            'confirmed_at' => now(),
+        ]);
+
+        $payment = Payment::query()->create([
+            'order_id' => $order->id,
+            'registration_id' => $registration->id,
+            'amount' => $amount,
+            'transfer_amount' => $amount,
+            'method' => Payment::METHOD_QRIS,
+            'status' => Payment::STATUS_PENDING,
+        ]);
+
+        return [$order->fresh(), $payment];
+    };
+
+    [$orderTarget, $paymentTarget] = $makePending('100033.00', 'Ref Rider A');
+    [$orderOther, $paymentOther] = $makePending('100033.00', 'Ref Rider B');
+
+    $mutationId = 'mut-ref-'.Str::uuid()->toString();
+
+    app(MootaWebhookService::class)->processMutation([
+        'mutation_id' => $mutationId,
+        'type' => 'CR',
+        'amount' => '100033.00',
+        'date' => now()->toIso8601String(),
+        'description' => 'Pembayaran '.$orderTarget->order_code,
+    ]);
+
+    expect($paymentTarget->fresh()->status)->toBe(Payment::STATUS_SUCCESS)
+        ->and($paymentOther->fresh()->status)->toBe(Payment::STATUS_PENDING)
+        ->and($orderTarget->fresh()->status)->toBe(Order::STATUS_PAID)
+        ->and($orderOther->fresh()->status)->toBe(Order::STATUS_UNPAID);
+});
+
+test('moota processMutation skips ambiguous amount-only matches', function () {
+    $user = User::factory()->create();
+
+    $event = Event::query()->create([
+        'title' => 'Amb Event',
+        'slug' => 'amb-'.Str::lower(Str::random(10)),
+        'start_at' => now()->addDay(),
+        'end_at' => now()->addDays(2),
+        'status' => Event::STATUS_OPEN_REGIST,
+        'payment_methods' => [Event::PAYMENT_QRIS],
+    ]);
+
+    $bracket = Bracket::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Open',
+        'quota' => 100,
+    ]);
+
+    $package = Package::query()->create([
+        'event_id' => $event->id,
+        'name' => 'Paket',
+        'price' => 100_000,
+        'status' => Package::STATUS_ACTIVE,
+    ]);
+
+    $amount = '100044.00';
+
+    foreach (['Amb Rider A', 'Amb Rider B'] as $riderName) {
+        $rider = Rider::query()->create([
+            'user_id' => $user->id,
+            'name' => $riderName,
+        ]);
+
+        $registration = Registration::query()->create([
+            'event_id' => $event->id,
+            'rider_id' => $rider->id,
+            'bracket_id' => $bracket->id,
+            'package_id' => $package->id,
+            'status' => Registration::STATUS_PENDING,
+        ]);
+
+        $order = Order::query()->create([
+            'registration_id' => $registration->id,
+            'status' => Order::STATUS_UNPAID,
+            'expired_at' => now()->addHour(),
+            'confirmed_at' => now(),
+        ]);
+
+        Payment::query()->create([
+            'order_id' => $order->id,
+            'registration_id' => $registration->id,
+            'amount' => $amount,
+            'transfer_amount' => $amount,
+            'method' => Payment::METHOD_QRIS,
+            'status' => Payment::STATUS_PENDING,
+        ]);
+    }
+
+    app(MootaWebhookService::class)->processMutation([
+        'mutation_id' => 'mut-amb-'.Str::uuid()->toString(),
+        'type' => 'CR',
+        'amount' => $amount,
+        'date' => now()->toIso8601String(),
+    ]);
+
+    expect(Payment::query()->where('transfer_amount', $amount)->where('status', Payment::STATUS_PENDING)->count())->toBe(2);
+});

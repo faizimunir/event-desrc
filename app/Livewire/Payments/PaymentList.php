@@ -45,6 +45,7 @@ class PaymentList extends Component
     public function payments()
     {
         $term = trim($this->search);
+        $user = auth()->user();
 
         return Payment::query()
             ->with([
@@ -54,6 +55,13 @@ class PaymentList extends Component
                 'registration.package',
                 'reviewedByUser',
             ])
+            ->when(
+                ! $user->hasRole('super_admin') && ! $user->hasRole('admin') && ! $user->hasRole('committee'),
+                fn ($query) => $query->whereHas(
+                    'registration.event.organizer',
+                    fn ($organizerQuery) => $organizerQuery->managedBy($user)
+                )
+            )
             ->when($term !== '', function ($query) use ($term) {
                 $like = '%'.addcslashes($term, '%_\\').'%';
 

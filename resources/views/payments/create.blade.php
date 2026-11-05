@@ -350,7 +350,7 @@
                                     <label for="transfer_proof" class="text-sm font-medium text-zinc-700 dark:text-zinc-300">
                                         {{ __('Transfer proof') }} <span class="font-normal text-zinc-500">({{ __('photo or screenshot') }})</span>
                                     </label>
-                                    <input type="file" name="transfer_proof" id="transfer_proof" accept="image/*"
+                                    <input type="file" name="transfer_proof" id="transfer_proof" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                                         class="block w-full text-sm text-zinc-600 file:mr-4 file:rounded-xl file:border-0 file:bg-zinc-900 file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-white hover:file:bg-zinc-800 dark:text-zinc-400 dark:file:bg-zinc-100 dark:file:text-zinc-900 dark:hover:file:bg-zinc-200"
                                         required>
                                     @error('transfer_proof')

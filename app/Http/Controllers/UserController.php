@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role;
 
@@ -20,7 +21,7 @@ class UserController extends Controller
     {
         abort_unless(auth()->user()->canAs('user.create'), 403);
 
-        $roles = Role::where('guard_name', 'web')->orderBy('name')->get();
+        $roles = $this->assignableRolesFor(auth()->user());
 
         return view('users.create', compact('roles'));
     }
@@ -29,13 +30,15 @@ class UserController extends Controller
     {
         abort_unless(auth()->user()->canAs('user.create'), 403);
 
+        $assignable = auth()->user()->assignableRoleNames();
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users,email'],
             'whatsapp' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', 'confirmed', Password::defaults()],
             'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => ['string', Rule::in($assignable)],
         ]);
 
         $user = User::create([
@@ -74,7 +77,7 @@ class UserController extends Controller
         $this->authorize('update', $user);
 
         $user->load('roles');
-        $roles = Role::where('guard_name', 'web')->orderBy('name')->get();
+        $roles = $this->assignableRolesFor(auth()->user());
 
         return view('users.edit', compact('user', 'roles'));
     }
@@ -84,13 +87,16 @@ class UserController extends Controller
         abort_unless(auth()->user()->canAs('user.update'), 403);
         $this->authorize('update', $user);
 
+        $actor = auth()->user();
+        $assignable = $actor->assignableRoleNames();
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['nullable', 'string', 'email', 'max:255', 'unique:users,email,'.$user->id],
             'whatsapp' => ['nullable', 'string', 'max:50'],
             'password' => ['nullable', 'string', 'confirmed', Password::defaults()],
             'roles' => ['nullable', 'array'],
-            'roles.*' => ['string', 'exists:roles,name'],
+            'roles.*' => ['string', Rule::in($assignable)],
         ]);
 
         $user->fill([
@@ -106,7 +112,18 @@ class UserController extends Controller
         $user->save();
 
         if (array_key_exists('roles', $validated)) {
-            $user->syncRoles($validated['roles'] ?? []);
+            $requested = array_values(array_intersect($validated['roles'] ?? [], $assignable));
+
+            // Pertahankan elevated roles yang actor tidak boleh sentuh (jika masih ada di target).
+            if (! $actor->hasRole('super_admin')) {
+                $protected = $user->roles
+                    ->pluck('name')
+                    ->filter(fn (string $name): bool => in_array($name, User::ELEVATED_ROLES, true))
+                    ->all();
+                $requested = array_values(array_unique(array_merge($requested, $protected)));
+            }
+
+            $user->syncRoles($requested);
         }
 
         return redirect()->route('users.show', $user)->with('status', __('User updated.'));
@@ -147,5 +164,19 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()->route('users.index')->with('status', __('User deleted.'));
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, Role>
+     */
+    private function assignableRolesFor(User $actor)
+    {
+        $names = $actor->assignableRoleNames();
+
+        return Role::query()
+            ->where('guard_name', 'web')
+            ->whereIn('name', $names)
+            ->orderBy('name')
+            ->get();
     }
 }

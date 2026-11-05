@@ -35,7 +35,7 @@ class RegistrationController extends Controller
 
     public function index(Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorizeEventView($event);
 
         return redirect()->route('events.show', [$event, 'tab' => 'registrations']);
     }
@@ -270,7 +270,7 @@ class RegistrationController extends Controller
      */
     public function create(Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
 
         $event->load(['brackets', 'packages' => fn ($q) => $q->where('status', Package::STATUS_ACTIVE)->with('rewards')]);
         $riders = Rider::with('user')->orderBy('name')->get();
@@ -283,7 +283,7 @@ class RegistrationController extends Controller
      */
     public function storeInternal(Request $request, Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
 
         $event->loadMissing(['brackets', 'packages.rewards']);
         $activePackageIds = $event->packages->where('status', Package::STATUS_ACTIVE)->pluck('id')->all();
@@ -376,7 +376,7 @@ class RegistrationController extends Controller
      */
     public function export(Request $request, Event $event)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorizeEventView($event);
 
         $statusFilter = array_filter((array) $request->query('status', []), fn ($s) => in_array($s, Registration::STATUSES, true));
         $paymentStatusFilter = array_filter((array) $request->query('payment_status', []), fn ($s) => in_array($s, array_merge(\App\Models\Payment::STATUSES, ['none']), true));
@@ -455,7 +455,7 @@ class RegistrationController extends Controller
      */
     public function show(Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorizeEventView($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -502,7 +502,7 @@ class RegistrationController extends Controller
      */
     public function resendTicketWhatsapp(Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -522,7 +522,7 @@ class RegistrationController extends Controller
      */
     public function sendTicketViaWaMe(Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -552,7 +552,7 @@ class RegistrationController extends Controller
      */
     public function updateRiderUserWhatsapp(Request $request, Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -613,7 +613,7 @@ class RegistrationController extends Controller
      */
     public function reassignRiderToWhatsappOwner(Request $request, Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -656,7 +656,7 @@ class RegistrationController extends Controller
      */
     public function updateRegistrationRider(Request $request, Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -723,7 +723,7 @@ class RegistrationController extends Controller
      */
     public function updateRegistrationBracket(Request $request, Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -943,7 +943,8 @@ class RegistrationController extends Controller
      */
     public function updateStatus(Request $request, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $registration->loadMissing('event');
+        $this->authorizeEventManage($registration->event);
 
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(Registration::STATUSES)],
@@ -1020,7 +1021,7 @@ class RegistrationController extends Controller
      */
     public function generatePayment(Request $request, Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -1140,7 +1141,7 @@ class RegistrationController extends Controller
      */
     public function reopenPayment(Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -1223,7 +1224,7 @@ class RegistrationController extends Controller
      */
     public function resetPaymentDeadline(Event $event, Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizeEventManage($event);
         if ($registration->event_id !== $event->id) {
             abort(404);
         }
@@ -1249,9 +1250,10 @@ class RegistrationController extends Controller
      */
     public function approveAll(Registration $registration)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
-
+        $registration->loadMissing('event');
         $event = $registration->event;
+        $this->authorizeEventManage($event);
+
         $messages = [];
 
         if (! $registration->isApproved()) {
@@ -1280,6 +1282,19 @@ class RegistrationController extends Controller
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('status', $message);
+    }
+
+    private function authorizeEventView(Event $event): void
+    {
+        abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorize('view', $event);
+    }
+
+    private function authorizeEventManage(?Event $event): void
+    {
+        abort_unless($event !== null, 404);
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorize('update', $event);
     }
 
     /**

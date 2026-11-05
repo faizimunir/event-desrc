@@ -35,6 +35,9 @@ return [
         'photo_kia' => [
             'keep_ratio' => true,
             'variants' => [400, 800],
+            // Dokumen identitas: disk privat + disajikan lewat route berotorisasi.
+            'disk' => 'local',
+            'private' => true,
         ],
 
         'post_cover' => [

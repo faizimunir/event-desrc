@@ -71,7 +71,7 @@ class EventCodeAccessController extends Controller
     private function validatedCode(Request $request): array
     {
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'min:8', 'max:255'],
             'name' => ['nullable', 'string', 'max:255'],
             'valid_from' => ['nullable', 'date'],
             'valid_until' => ['nullable', 'date', 'after_or_equal:valid_from'],

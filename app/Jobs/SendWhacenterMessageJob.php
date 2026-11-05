@@ -43,7 +43,7 @@ class SendWhacenterMessageJob implements ShouldQueueAfterCommit
         public string $message,
         public ?int $whatsappNotificationLogId = null,
     ) {
-        $this->onConnection(config('services.whacenter.queue_connection', 'redis'));
+        $this->onConnection(\App\Support\QueueConnection::forWhacenter());
         $this->onQueue(config('services.whacenter.queue', 'whatsapp'));
     }
 

@@ -242,4 +242,34 @@ class User extends Authenticatable
             abort(403);
         }
     }
+
+    /**
+     * Role yang hanya boleh di-assign oleh super_admin (anti privilege escalation).
+     *
+     * @var list<string>
+     */
+    public const ELEVATED_ROLES = ['super_admin', 'admin'];
+
+    /**
+     * Nama role yang boleh di-assign oleh user ini lewat form manajemen user.
+     *
+     * @return list<string>
+     */
+    public function assignableRoleNames(): array
+    {
+        $names = Role::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name')
+            ->pluck('name')
+            ->all();
+
+        if ($this->hasRole('super_admin')) {
+            return $names;
+        }
+
+        return array_values(array_filter(
+            $names,
+            fn (string $name): bool => ! in_array($name, self::ELEVATED_ROLES, true)
+        ));
+    }
 }

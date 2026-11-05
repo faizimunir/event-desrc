@@ -164,3 +164,34 @@ test('user without user.read cannot view user show page', function () {
 
     $response->assertForbidden();
 });
+
+test('admin cannot assign super_admin role via user update', function () {
+    foreach (['admin', 'super_admin', 'member'] as $name) {
+        Role::firstOrCreate(['name' => $name, 'guard_name' => 'web']);
+    }
+
+    $adminRole = Role::findByName('admin', 'web');
+    $adminRole->givePermissionTo(['user.read', 'user.create', 'user.update', 'user.delete']);
+
+    $actor = User::factory()->create();
+    $actor->assignRole('admin');
+    $actor->setActiveRole('admin');
+
+    $target = User::factory()->create([
+        'email' => 'elevate-target@example.com',
+        'password' => 'Password123!',
+    ]);
+    $target->assignRole('member');
+
+    $response = $this->actingAs($actor)->put(route('users.update', $target), [
+        'name' => $target->name,
+        'email' => $target->email,
+        'whatsapp' => $target->whatsapp,
+        'roles' => ['super_admin'],
+        '_token' => csrf_token(),
+    ]);
+
+    $response->assertSessionHasErrors('roles.0');
+    expect($target->fresh()->hasRole('super_admin'))->toBeFalse()
+        ->and($target->fresh()->hasRole('member'))->toBeTrue();
+});
