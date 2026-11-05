@@ -113,6 +113,21 @@
 
             <div class="px-6 py-6 sm:px-8 sm:py-8">
                 <div class="space-y-8">
+                    @if ($event->usesSystemRegistration() && $event->isRegistrationOpen() && filled($whatsapp))
+                        <div class="rounded-2xl border border-orange-200/80 bg-orange-50/80 px-4 py-4 dark:border-orange-800/60 dark:bg-orange-950/30 sm:px-5">
+                            <p class="text-sm font-medium text-orange-950 dark:text-orange-100">
+                                {{ __('Registering another child?') }}
+                            </p>
+                            <p class="mt-1 text-sm text-orange-900/80 dark:text-orange-200/80">
+                                {{ __('Continue with the same WhatsApp number — no need to verify again in this browser session.') }}
+                            </p>
+                            <a href="{{ route('events.public.show', $event->slug) }}#registration-form"
+                                class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-orange-700 underline decoration-orange-300 underline-offset-4 transition hover:text-orange-900 dark:text-orange-300 dark:decoration-orange-700 dark:hover:text-orange-100">
+                                {{ __('Register another rider') }}
+                                <flux:icon name="arrow-right" class="size-4" />
+                            </a>
+                        </div>
+                    @endif
                     <section class="rounded-2xl bg-zinc-50 ring-1 ring-zinc-200/80 dark:bg-zinc-800/40 dark:ring-zinc-700/80">
                         <h2 class="p-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Order Detail') }}</h2>
                         <dl>

@@ -85,6 +85,31 @@ class User extends Authenticatable
     }
 
     /**
+     * Nama untuk soft-gate registrasi: kata pertama utuh, kata berikutnya di-mask.
+     * Contoh: "Andre susanto" → "Andre S******"
+     */
+    public function maskedDisplayName(): string
+    {
+        $name = trim((string) $this->name);
+        if ($name === '') {
+            return __('an existing account');
+        }
+
+        $parts = preg_split('/\s+/u', $name) ?: [$name];
+        $first = array_shift($parts);
+        $maskedRest = collect($parts)
+            ->map(function (string $part) {
+                $initial = Str::upper(Str::substr($part, 0, 1));
+                $stars = str_repeat('*', max(2, Str::length($part) - 1));
+
+                return $initial.$stars;
+            })
+            ->implode(' ');
+
+        return trim($first.($maskedRest !== '' ? ' '.$maskedRest : ''));
+    }
+
+    /**
      * Get the user's initials
      */
     public function initials(): string

@@ -423,7 +423,7 @@ class WhacenterService
         Cache::put(self::OTP_CACHE_PREFIX.$number, $otp, now()->addMinutes(self::OTP_TTL_MINUTES));
         Cache::forget(self::OTP_ATTEMPTS_CACHE_PREFIX.$number);
 
-        $message = __('Your activation code is :code. Valid for :minutes minutes.', [
+        $message = __('Your verification code is :code. Valid for :minutes minutes.', [
             'code' => $otp,
             'minutes' => self::OTP_TTL_MINUTES,
         ]);
