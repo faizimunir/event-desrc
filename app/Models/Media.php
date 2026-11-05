@@ -45,6 +45,32 @@ class Media extends Model
         return $this->morphTo();
     }
 
+    public function isPrivate(): bool
+    {
+        return (bool) config("media.collections.{$this->collection}.private", false);
+    }
+
+    /**
+     * Disk tempat file benar-benar ada (dukung legacy public untuk koleksi yang kini privat).
+     */
+    public function resolveDiskForPath(?string $path = null): ?string
+    {
+        $path ??= $this->getPath();
+        $candidates = array_values(array_unique(array_filter([
+            $this->disk,
+            'local',
+            'public',
+        ])));
+
+        foreach ($candidates as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                return $disk;
+            }
+        }
+
+        return null;
+    }
+
     public function getPath(?int $size = null): string
     {
         $base = 'media/'.$this->id;
@@ -59,7 +85,8 @@ class Media extends Model
         }
 
         $path = $base.'/'.$size.'.webp';
-        if (! Storage::disk($this->disk)->exists($path)) {
+        $disk = $this->resolveDiskForPath($path) ?? $this->disk;
+        if (! Storage::disk($disk)->exists($path)) {
             return $base.'/original.webp';
         }
 
@@ -68,6 +95,26 @@ class Media extends Model
 
     public function getUrl(?int $size = null): string
     {
-        return Storage::disk($this->disk)->url($this->getPath($size));
+        if ($this->isPrivate()) {
+            return route('media.show', array_filter([
+                'media' => $this->id,
+                'size' => $size,
+            ]), absolute: false);
+        }
+
+        $path = $this->getPath($size);
+        $url = Storage::disk($this->disk)->url($path);
+
+        // Disk lokal/public: path relatif agar APP_URL mismatch tidak merusak tampilan.
+        if (in_array($this->disk, ['public', 'local'], true)) {
+            $parsedPath = parse_url($url, PHP_URL_PATH);
+            if (is_string($parsedPath) && $parsedPath !== '') {
+                $query = parse_url($url, PHP_URL_QUERY);
+
+                return $parsedPath.($query ? '?'.$query : '');
+            }
+        }
+
+        return $url;
     }
 }

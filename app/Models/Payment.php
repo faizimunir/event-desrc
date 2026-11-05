@@ -350,15 +350,57 @@ class Payment extends Model
         return 'Rp '.number_format((float) $total, 0, ',', '.');
     }
 
-    public function getTransferProofUrlAttribute(): ?string
+    /** Disk baru untuk bukti transfer (tidak web-accessible). */
+    public const PROOF_DISK = 'local';
+
+    /** Disk lama (kompatibel file yang sudah terunggah sebelum hardening). */
+    public const PROOF_DISK_LEGACY = 'public';
+
+    public const PROOF_DIRECTORY = 'payments/proofs';
+
+    /**
+     * Disk tempat file bukti saat ini berada (private dulu, lalu legacy public).
+     */
+    public function transferProofDisk(): ?string
     {
         if (! $this->transfer_proof_path) {
             return null;
         }
 
-        return Storage::disk('public')->exists($this->transfer_proof_path)
-            ? Storage::disk('public')->url($this->transfer_proof_path)
-            : null;
+        if (Storage::disk(self::PROOF_DISK)->exists($this->transfer_proof_path)) {
+            return self::PROOF_DISK;
+        }
+
+        if (Storage::disk(self::PROOF_DISK_LEGACY)->exists($this->transfer_proof_path)) {
+            return self::PROOF_DISK_LEGACY;
+        }
+
+        return null;
+    }
+
+    public function deleteTransferProofFile(): void
+    {
+        if (! $this->transfer_proof_path) {
+            return;
+        }
+
+        foreach ([self::PROOF_DISK, self::PROOF_DISK_LEGACY] as $disk) {
+            if (Storage::disk($disk)->exists($this->transfer_proof_path)) {
+                Storage::disk($disk)->delete($this->transfer_proof_path);
+            }
+        }
+    }
+
+    /**
+     * URL terkendali (route auth/ownership) — bukan path /storage publik.
+     */
+    public function getTransferProofUrlAttribute(): ?string
+    {
+        if (! $this->transfer_proof_path || $this->transferProofDisk() === null) {
+            return null;
+        }
+
+        return route('payments.proof', $this);
     }
 
     /** Rekening manual dari config (untuk tampilan ke user). */

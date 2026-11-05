@@ -302,7 +302,7 @@ class WhacenterService
     ): void {
         $delaySeconds = $priority ? 0 : $this->reserveSerialSlot();
 
-        $connection = config('services.whacenter.queue_connection', 'redis');
+        $connection = \App\Support\QueueConnection::forWhacenter();
         $queue = config('services.whacenter.queue', 'whatsapp');
 
         Log::info('Whacenter queue dispatch', [
@@ -316,19 +316,36 @@ class WhacenterService
         $scheduledAt = now()->addSeconds($delaySeconds);
         $expiresAt = $scheduledAt->copy()->addMinutes($ttl);
 
-        $job = new SendWhacenterMessageJob($number, $message, $whatsappNotificationLogId);
-        $job->deadlineTimestamp = $expiresAt->timestamp;
+        try {
+            $job = new SendWhacenterMessageJob($number, $message, $whatsappNotificationLogId);
+            $job->deadlineTimestamp = $expiresAt->timestamp;
+            $job->onConnection($connection)->onQueue($queue);
 
-        $pending = dispatch($job)
-            ->onConnection($connection)
-            ->onQueue($queue);
+            if ($delaySeconds > 0) {
+                $job->delay($scheduledAt);
+            }
 
-        if ($delaySeconds > 0) {
-            $pending->delay($scheduledAt);
-        }
+            // Dispatch langsung (bukan PendingDispatch) agar error Redis/queue
+            // tertangkap di sini — termasuk setelah DB commit (ShouldQueueAfterCommit).
+            app(\Illuminate\Contracts\Bus\Dispatcher::class)->dispatch($job);
 
-        if ($whatsappNotificationLogId !== null) {
-            WhatsappNotificationLog::recordSchedule($whatsappNotificationLogId, $scheduledAt, $expiresAt);
+            if ($whatsappNotificationLogId !== null) {
+                WhatsappNotificationLog::recordSchedule($whatsappNotificationLogId, $scheduledAt, $expiresAt);
+            }
+        } catch (\Throwable $e) {
+            // Jangan gagalkan alur pembayaran/registrasi hanya karena antrian WA down.
+            Log::error('Whacenter queue dispatch failed', [
+                'number' => $number,
+                'connection' => $connection,
+                'error' => $e->getMessage(),
+            ]);
+
+            if ($whatsappNotificationLogId !== null) {
+                WhatsappNotificationLog::query()->whereKey($whatsappNotificationLogId)->update([
+                    'status' => WhatsappNotificationLog::STATUS_FAILED,
+                    'failed_reason' => 'Queue dispatch failed: '.$e->getMessage(),
+                ]);
+            }
         }
     }
 

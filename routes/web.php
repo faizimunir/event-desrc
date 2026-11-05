@@ -12,6 +12,7 @@ use App\Http\Controllers\LevelController;
 use App\Http\Controllers\LiveResultController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MasterOfCeremonyController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\MyRiderController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrganizerController;
@@ -159,17 +160,33 @@ Route::get('tickets/{ticket}/qr', [TicketController::class, 'qr'])->name('ticket
 Route::get('tickets/{ticket}', [TicketController::class, 'show'])->name('tickets.show');
 
 // Payment (public): form upload bukti transfer manual
-Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
-Route::get('payment/status', [PaymentController::class, 'status'])->name('payment.status');
-Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
-Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
+Route::middleware('throttle:payment-public')->group(function () {
+    Route::get('payment', [PaymentController::class, 'create'])->name('payment.create');
+    Route::get('payment/status', [PaymentController::class, 'status'])->name('payment.status');
+    Route::post('payment/verify', [PaymentController::class, 'verify'])->name('payment.verify');
+    Route::post('payment', [PaymentController::class, 'store'])->name('payment.store');
+});
+
+// Bukti transfer (auth admin ATAU pemilik order via session) — di luar auth agar guest owner bisa lihat
+Route::get('payments/{payment}/proof', [PaymentController::class, 'proof'])
+    ->middleware('throttle:payment-public')
+    ->name('payments.proof');
+
+// Media privat (photo_kia): pemilik rider, staff, organizer event terkait, atau pemilik order
+Route::get('media/{media}', [MediaController::class, 'show'])
+    ->middleware('throttle:payment-public')
+    ->name('media.show');
 
 // Public registration (no auth) — form hanya di halaman event (event-show)
 Route::get('{event}/register', fn (Event $event) => redirect()->route('events.public.show', $event->slug))->name('registrations.create');
-Route::post('{event}/register', [RegistrationController::class, 'store'])->name('registrations.store');
+Route::post('{event}/register', [RegistrationController::class, 'store'])
+    ->middleware('throttle:payment-public')
+    ->name('registrations.store');
 
 // Early registration: verify access code (modal on event-show)
-Route::post('early-access/{event:slug}', [EventController::class, 'verifyEarlyAccess'])->name('events.early-access.verify');
+Route::post('early-access/{event:slug}', [EventController::class, 'verifyEarlyAccess'])
+    ->middleware('throttle:early-access')
+    ->name('events.early-access.verify');
 
 // Live Result (public) — akses langsung via slug: desrc.id/{slug}
 Route::get('live-result', [LiveResultController::class, 'index'])->name('live-result.index');

@@ -35,7 +35,7 @@ class CheckWhacenterMessageStatusJob implements ShouldQueue
         public string $providerMessageId,
         public int $check = 1,
     ) {
-        $this->onConnection(config('services.whacenter.queue_connection', 'redis'));
+        $this->onConnection(\App\Support\QueueConnection::forWhacenter());
         $this->onQueue(config('services.whacenter.queue', 'whatsapp'));
     }
 

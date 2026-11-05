@@ -18,6 +18,7 @@ class EventCodeAccessList extends Component
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorize('update', $event);
         $this->event = $event;
     }
 

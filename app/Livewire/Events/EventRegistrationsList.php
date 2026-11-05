@@ -30,6 +30,7 @@ class EventRegistrationsList extends Component
     public function mount(Event $event): void
     {
         abort_unless(auth()->user()->canAs('event.read'), 403);
+        $this->authorize('view', $event);
         $this->event = $event;
         Order::enforceExpiredDraftsForEvent($event->id);
         Order::enforceExpiredPaymentWindowsForEvent($event->id);

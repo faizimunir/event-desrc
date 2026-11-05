@@ -10,9 +10,11 @@ class MediaObserver
     public function deleted(Media $media): void
     {
         $path = 'media/'.$media->id;
-        $disk = $media->disk;
-        if (Storage::disk($disk)->exists($path)) {
-            Storage::disk($disk)->deleteDirectory($path);
+
+        foreach (array_unique([$media->disk, 'local', 'public']) as $disk) {
+            if (Storage::disk($disk)->exists($path)) {
+                Storage::disk($disk)->deleteDirectory($path);
+            }
         }
     }
 }

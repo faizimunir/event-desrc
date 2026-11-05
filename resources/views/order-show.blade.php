@@ -34,7 +34,9 @@
                         ->orderBy('name')
                         ->get()
                     : collect();
-                $photoKiaUrl = $rider->getFirstMediaUrl('photo_kia') ?: ($rider->photo_kia ?: null);
+                $photoKiaUrl = \App\Traits\HasMedia::normalizePublicMediaUrl(
+                    $rider->getFirstMediaUrl('photo_kia') ?: ($rider->photo_kia ?: null)
+                );
                 $transferProofCompleted = $order->proof_uploaded || $order->isPaid() || ($payment && $payment->isSuccess());
                 $progressTimeline = [
                     ['label' => __('Registration Submitted'), 'checked' => $reg->created_at !== null],

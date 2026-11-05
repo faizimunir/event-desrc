@@ -43,7 +43,7 @@ class BulkSendTicketWhatsappJob implements ShouldQueue
         public int $afterId = 0,
         public int $deviceWaits = 0,
     ) {
-        $this->onConnection(config('services.whacenter.queue_connection', 'redis'));
+        $this->onConnection(\App\Support\QueueConnection::forWhacenter());
         $this->onQueue(config('services.whacenter.queue', 'whatsapp'));
     }
 

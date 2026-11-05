@@ -5,10 +5,13 @@ namespace App\Providers;
 use App\Models\Media;
 use App\Observers\MediaObserver;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
@@ -34,8 +37,29 @@ class AppServiceProvider extends ServiceProvider
         $this->registerNavbarViewComposer();
         $this->configureDefaults();
         $this->configureActiveRoleGate();
+        $this->configureRateLimiting();
         $this->registerCanAsBladeDirectives();
         $this->configureVitePreload();
+    }
+
+    /**
+     * Throttle endpoint publik / webhook — longgar cukup untuk lokal & panitia, ketat untuk brute-force.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('payment-public', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
+        RateLimiter::for('early-access', function (Request $request) {
+            $eventKey = (string) ($request->route('event')?->getKey() ?? $request->route('event') ?? '');
+
+            return Limit::perMinute(15)->by($request->ip().'|'.$eventKey);
+        });
+
+        RateLimiter::for('moota-webhook', function (Request $request) {
+            return Limit::perMinute(120)->by($request->ip());
+        });
     }
 
     /**

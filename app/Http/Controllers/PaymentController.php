@@ -11,6 +11,7 @@ use App\Services\WhacenterService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentController extends Controller
 {
@@ -299,7 +300,7 @@ class PaymentController extends Controller
         $request->validate([
             'order_code' => ['required', 'string', 'exists:orders,order_code'],
             'whatsapp' => ['required', 'string', 'max:20'],
-            'transfer_proof' => ['required', 'file', 'image', 'max:5120'], // 5MB
+            'transfer_proof' => ['required', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'], // 5MB
         ]);
 
         $order = Order::with(['registration.event.accounts', 'registration.rider.user', 'registration.package'])
@@ -402,11 +403,9 @@ class PaymentController extends Controller
                 ->withInput();
         }
 
-        if ($payment->transfer_proof_path && Storage::disk('public')->exists($payment->transfer_proof_path)) {
-            Storage::disk('public')->delete($payment->transfer_proof_path);
-        }
+        $payment->deleteTransferProofFile();
 
-        $path = $request->file('transfer_proof')->store('payments/proofs', 'public');
+        $path = $request->file('transfer_proof')->store(Payment::PROOF_DIRECTORY, Payment::PROOF_DISK);
         $payment->transfer_proof_path = $path;
         $payment->method = 'manual';
         $payment->manual_account_id = $manualAccountId;
@@ -438,11 +437,43 @@ class PaymentController extends Controller
     }
 
     /**
+     * Serve bukti transfer (private disk + legacy public) — admin event atau pemilik order.
+     */
+    public function proof(Payment $payment): StreamedResponse
+    {
+        $payment->loadMissing(['registration.event', 'order']);
+
+        $allowed = false;
+        $user = auth()->user();
+        $event = $payment->registration?->event;
+
+        if ($user && $event && $user->canAs('event.read')) {
+            try {
+                $this->authorize('view', $event);
+                $allowed = true;
+            } catch (\Illuminate\Auth\Access\AuthorizationException) {
+                $allowed = false;
+            }
+        }
+
+        if (! $allowed && $payment->order?->isOwnedByCurrentVisitor()) {
+            $allowed = true;
+        }
+
+        abort_unless($allowed, 403);
+
+        $disk = $payment->transferProofDisk();
+        abort_unless($disk !== null && $payment->transfer_proof_path, 404);
+
+        return Storage::disk($disk)->response($payment->transfer_proof_path);
+    }
+
+    /**
      * Admin: approve pembayaran (cek uang masuk, lalu approve).
      */
     public function approve(Request $request, Payment $payment)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizePaymentManage($payment);
 
         $registration = $payment->registration;
 
@@ -487,7 +518,7 @@ class PaymentController extends Controller
      */
     public function reject(Request $request, Payment $payment)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizePaymentManage($payment);
 
         $registration = $payment->registration;
 
@@ -518,7 +549,7 @@ class PaymentController extends Controller
      */
     public function expire(Request $request, Payment $payment)
     {
-        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $this->authorizePaymentManage($payment);
 
         if ($payment->isSuccess()) {
             return redirect()->route('payments.index')
@@ -529,5 +560,14 @@ class PaymentController extends Controller
 
         return redirect()->route('payments.index')
             ->with('status', __('Payment attempt marked as expired. Order is not cancelled by this action; use order deadline or cancel order if needed.'));
+    }
+
+    private function authorizePaymentManage(Payment $payment): void
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        $payment->loadMissing('registration.event');
+        $event = $payment->registration?->event;
+        abort_unless($event !== null, 404);
+        $this->authorize('update', $event);
     }
 }

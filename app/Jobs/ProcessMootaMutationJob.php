@@ -26,7 +26,7 @@ class ProcessMootaMutationJob implements ShouldQueue
      */
     public function __construct(public array $mutation)
     {
-        $this->onConnection((string) config('services.moota.queue_connection', 'redis'));
+        $this->onConnection(\App\Support\QueueConnection::forMoota());
         $this->onQueue((string) config('services.moota.queue', 'moota'));
     }
 

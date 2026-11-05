@@ -12,7 +12,9 @@
         ? \App\Models\Team::query()->whereIn('id', $registrationTeamIds)->orderBy('name')->get()
         : collect();
     $payment = $registration->payment;
-    $photoKiaUrl = $rider->getFirstMediaUrl('photo_kia') ?: $rider->photo_kia;
+    $photoKiaUrl = \App\Traits\HasMedia::normalizePublicMediaUrl(
+        $rider->getFirstMediaUrl('photo_kia') ?: $rider->photo_kia
+    );
     $transferProofUrl = $payment?->transfer_proof_url;
     $badgeColor = match ($registration->status) {
         'approved' => 'green',

@@ -88,19 +88,9 @@ class MootaWebhookService
             return;
         }
 
-        $payment = Payment::query()
-            ->where('method', Payment::METHOD_QRIS)
-            ->where('status', Payment::STATUS_PENDING)
-            ->where('transfer_amount', $amount)
-            ->orderBy('id')
-            ->first();
+        $payment = $this->findPendingQrisPayment($mutation, $amount);
 
         if (! $payment) {
-            Log::info('moota.webhook.unmatched', [
-                'mutation_id' => $mutationId,
-                'amount' => $amount,
-            ]);
-
             return;
         }
 
@@ -152,6 +142,101 @@ class MootaWebhookService
                 TicketService::ensureTicketForRegistration($registration);
             }
         }
+    }
+
+    /**
+     * Prefer match by order reference when present; else unique amount match only.
+     */
+    protected function findPendingQrisPayment(array $mutation, string $amount): ?Payment
+    {
+        $orderRef = $this->extractOrderReference($mutation);
+
+        if ($orderRef !== null) {
+            $payment = Payment::query()
+                ->where('method', Payment::METHOD_QRIS)
+                ->where('status', Payment::STATUS_PENDING)
+                ->whereHas('order', fn ($q) => $q->where('order_code', $orderRef))
+                ->orderBy('id')
+                ->first();
+
+            if (! $payment) {
+                Log::info('moota.webhook.order_ref_unmatched', [
+                    'order_ref' => $orderRef,
+                    'amount' => $amount,
+                ]);
+
+                return null;
+            }
+
+            $paymentAmount = $this->normalizeAmount($payment->transfer_amount);
+            if ($paymentAmount !== null && $paymentAmount !== $amount) {
+                Log::warning('moota.webhook.amount_mismatch', [
+                    'order_ref' => $orderRef,
+                    'payment_id' => $payment->id,
+                    'expected' => $paymentAmount,
+                    'got' => $amount,
+                ]);
+
+                return null;
+            }
+
+            return $payment;
+        }
+
+        $matches = Payment::query()
+            ->where('method', Payment::METHOD_QRIS)
+            ->where('status', Payment::STATUS_PENDING)
+            ->where('transfer_amount', $amount)
+            ->orderBy('id')
+            ->limit(2)
+            ->get();
+
+        if ($matches->count() === 0) {
+            Log::info('moota.webhook.unmatched', [
+                'amount' => $amount,
+            ]);
+
+            return null;
+        }
+
+        if ($matches->count() > 1) {
+            Log::warning('moota.webhook.ambiguous_amount', [
+                'amount' => $amount,
+                'payment_ids' => $matches->pluck('id')->all(),
+            ]);
+
+            return null;
+        }
+
+        return $matches->first();
+    }
+
+    /**
+     * Cari ORD-… di field referensi Moota (order_id, description, note, dll).
+     */
+    protected function extractOrderReference(array $mutation): ?string
+    {
+        $candidates = [
+            data_get($mutation, 'payment_detail.order_id'),
+            data_get($mutation, 'payment_detail.trx_id'),
+            data_get($mutation, 'order_id'),
+            data_get($mutation, 'description'),
+            data_get($mutation, 'note'),
+            data_get($mutation, 'notes'),
+            data_get($mutation, 'remark'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (! is_string($candidate) || trim($candidate) === '') {
+                continue;
+            }
+
+            if (preg_match('/\b(ORD-[0-9A-HJKMNP-TV-Z]{26})\b/i', $candidate, $matches) === 1) {
+                return strtoupper($matches[1]);
+            }
+        }
+
+        return null;
     }
 
     protected function normalizeAmount(mixed $amount): ?string
