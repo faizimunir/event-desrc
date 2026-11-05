@@ -1,6 +1,74 @@
 <div class="space-y-5"
     x-on:registration-bracket-selected.window="$wire.set('bracket_id', $event.detail.id)"
     x-on:registration-package-selected.window="$wire.set('package_id', $event.detail.id)">
+    @if ($showParentClaimModal)
+        <flux:modal name="parent-claim-modal" focusable class="max-w-md" dismissible>
+            <div class="space-y-4">
+                @if ($parentClaimStep === 'confirm')
+                    <div>
+                        <flux:heading size="lg">{{ __('Is this your WhatsApp account?') }}</flux:heading>
+                        <flux:subheading class="mt-2">
+                            {{ __('This number is already linked to :name. If that is you, confirm to continue registering under the same account.', ['name' => $claimedParentMaskedName]) }}
+                        </flux:subheading>
+                    </div>
+                    @error('otp')
+                        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                    @enderror
+                    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <flux:button type="button" variant="ghost" size="sm" wire:click="rejectParentClaim">
+                            {{ __('Use a different number') }}
+                        </flux:button>
+                        <flux:button type="button" variant="primary" size="sm"
+                            wire:click="confirmParentClaim"
+                            wire:loading.attr="disabled"
+                            wire:target="confirmParentClaim">
+                            {{ __('Yes, continue as :name', ['name' => $claimedParentMaskedName]) }}
+                        </flux:button>
+                    </div>
+                @else
+                    <div>
+                        <flux:heading size="lg">{{ __('Verify WhatsApp') }}</flux:heading>
+                        <flux:subheading class="mt-2">
+                            {{ __('We sent a 6-digit code to this WhatsApp number. Enter it to confirm you are :name.', ['name' => $claimedParentMaskedName]) }}
+                        </flux:subheading>
+                    </div>
+                    <flux:input
+                        wire:model="otp"
+                        type="text"
+                        :label="__('Verification code')"
+                        :placeholder="__('6-digit code')"
+                        maxlength="6"
+                        inputmode="numeric"
+                        required
+                    />
+                    @error('otp')
+                        <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
+                    @enderror
+                    @if (session('parent_claim_otp_resent'))
+                        <p class="text-sm text-green-600 dark:text-green-400">{{ session('parent_claim_otp_resent') }}</p>
+                    @endif
+                    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
+                        <flux:button type="button" variant="ghost" size="sm"
+                            wire:click="resendParentClaimOtp"
+                            wire:loading.attr="disabled"
+                            wire:target="resendParentClaimOtp">
+                            {{ __('Resend code') }}
+                        </flux:button>
+                        <flux:button type="button" variant="primary" size="sm"
+                            wire:click="verifyParentClaimOtp"
+                            wire:loading.attr="disabled"
+                            wire:target="verifyParentClaimOtp">
+                            {{ __('Verify & continue') }}
+                        </flux:button>
+                    </div>
+                    <flux:button type="button" variant="ghost" size="sm" wire:click="rejectParentClaim" class="w-full sm:w-auto">
+                        {{ __('Use a different number') }}
+                    </flux:button>
+                @endif
+            </div>
+        </flux:modal>
+    @endif
+
     @if ($showSimilarChoice && count($similarRiders) > 0)
         <flux:modal name="duplicate-rider-modal" focusable class="max-w-2xl" dismissible>
             <div class="space-y-4">
@@ -76,8 +144,13 @@
                 </p>
                 <div class="grid gap-3 sm:grid-cols-2">
                     <flux:input wire:model="parent_name" type="text" :label="__('Parent / Guardian name')" required />
-                    <flux:input wire:model="whatsapp" type="tel" :label="__('WhatsApp number')" :placeholder="__('e.g. 08123456789')" required />
+                    <flux:input wire:model.blur="whatsapp" type="tel" :label="__('WhatsApp number')" :placeholder="__('e.g. 08123456789')" required />
                 </div>
+                @if ($whatsappIdentityVerified && filled($whatsapp))
+                    <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
+                        {{ __('WhatsApp verified for this session — you can register another rider without entering the code again.') }}
+                    </p>
+                @endif
             </div>
 
             <div class="registration-form-section">

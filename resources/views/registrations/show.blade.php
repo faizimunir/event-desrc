@@ -561,6 +561,32 @@
                             @error('whatsapp')
                                 <p class="text-sm text-red-600 dark:text-red-400" role="alert">{{ $message }}</p>
                             @enderror
+                            @if (session('whatsapp_owner_id') && session('whatsapp_claimed_number'))
+                                <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100">
+                                    <p>
+                                        {{ __('Account :name already uses this number.', ['name' => session('whatsapp_owner_name')]) }}
+                                    </p>
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        <flux:button
+                                            type="submit"
+                                            formaction="{{ route('events.registrations.reassign-rider-whatsapp', [$event, $registration]) }}"
+                                            variant="primary"
+                                            size="sm"
+                                            onclick="return confirm({{ json_encode(__('Move this rider under :name? The WhatsApp number stays on that account.', ['name' => session('whatsapp_owner_name')])) }});"
+                                        >
+                                            {{ __('Move rider to that account') }}
+                                        </flux:button>
+                                        @if (auth()->user()->canAs('user.read'))
+                                            <a href="{{ route('users.show', session('whatsapp_owner_id')) }}" class="inline-flex items-center text-sm font-medium text-amber-900 underline underline-offset-2 dark:text-amber-200">
+                                                {{ __('Open that user') }}
+                                            </a>
+                                        @endif
+                                    </div>
+                                    <p class="mt-2 text-xs text-amber-800/80 dark:text-amber-200/70">
+                                        {{ __('To fully combine duplicate parent accounts, use Users Management → Merge.') }}
+                                    </p>
+                                </div>
+                            @endif
                             <div class="flex justify-end gap-2">
                                 <flux:modal.close>
                                     <flux:button type="button" variant="ghost" size="sm">{{ __('Cancel') }}</flux:button>

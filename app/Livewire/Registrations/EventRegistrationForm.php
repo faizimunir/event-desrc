@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\MediaService;
 use App\Services\QuotaReservationService;
 use App\Services\RegistrationEligibilityService;
+use App\Services\RegistrationParentClaim;
 use App\Services\RiderSimilarityService;
 use App\Services\WhacenterService;
 use Illuminate\Validation\Rule;
@@ -65,6 +66,22 @@ class EventRegistrationForm extends Component
 
     public bool $skipSimilarityCheck = false;
 
+    public bool $showParentClaimModal = false;
+
+    /** confirm | otp */
+    public string $parentClaimStep = 'confirm';
+
+    public string $claimedParentMaskedName = '';
+
+    public ?int $claimedParentUserId = null;
+
+    public string $otp = '';
+
+    public bool $whatsappIdentityVerified = false;
+
+    /** Rider id yang sudah dipilih dari modal similar, ditunda jika claim WA masih diperlukan. */
+    public ?int $pendingExistingRiderId = null;
+
     public function mount(Event $event, array $packageIdsWithJersey = []): void
     {
         Order::enforceExpiredDraftsForEvent($event->id);
@@ -75,6 +92,31 @@ class EventRegistrationForm extends Component
             'packages',
         ]);
         $this->packageIdsWithJersey = array_map('intval', $packageIdsWithJersey);
+
+        $prefill = RegistrationParentClaim::prefill($event->id);
+        if ($prefill) {
+            $this->whatsapp = $prefill['whatsapp'];
+            if ($prefill['parent_name'] !== '') {
+                $this->parent_name = $prefill['parent_name'];
+            }
+            if (RegistrationParentClaim::isVerified(WhacenterService::normalizeWhatsApp($prefill['whatsapp']))) {
+                $this->whatsappIdentityVerified = true;
+            }
+        }
+    }
+
+    public function updatedWhatsapp(): void
+    {
+        $normalized = trim($this->whatsapp) === ''
+            ? ''
+            : WhacenterService::normalizeWhatsApp($this->whatsapp);
+
+        if ($normalized === '' || ! RegistrationParentClaim::isVerified($normalized)) {
+            $this->whatsappIdentityVerified = false;
+            $this->resetParentClaimUi();
+        } else {
+            $this->whatsappIdentityVerified = true;
+        }
     }
 
     public function getTeamsProperty()
@@ -147,6 +189,8 @@ class EventRegistrationForm extends Component
 
     public function submit(RiderSimilarityService $similarity, RegistrationEligibilityService $eligibility, MediaService $mediaService): mixed
     {
+        $this->pendingExistingRiderId = null;
+
         if (! $this->validateBracketAndPackage()) {
             return null;
         }
@@ -161,36 +205,11 @@ class EventRegistrationForm extends Component
             return null;
         }
 
-        if (! $this->skipSimilarityCheck) {
-            $similar = $similarity->findSimilarRiders(
-                $validated['whatsapp'],
-                $validated['name'],
-                $validated['nickname'] ?? null,
-                $validated['pob'] ?? null,
-                $validated['dob'],
-                $validated['gender'],
-                $validated['number_plate'] ?? null
-            );
-
-            if ($similar->isNotEmpty()) {
-                $this->similarRiders = $similar->map(fn (array $item) => [
-                    'id' => $item['rider']->id,
-                    'score' => $item['score'],
-                    'name' => $item['rider']->name,
-                    'nickname' => $item['rider']->nickname,
-                    'pob' => $item['rider']->pob,
-                    'dob' => $item['rider']->dob?->format('Y-m-d') ?? '',
-                    'gender_label' => $item['rider']->gender_label ?? $item['rider']->gender,
-                    'number_plate' => $item['rider']->number_plate,
-                ])->all();
-                $this->showSimilarChoice = true;
-                $this->dispatch('modal-show', name: 'duplicate-rider-modal');
-
-                return null;
-            }
+        if ($this->requiresParentClaim($validated['whatsapp'])) {
+            return null;
         }
 
-        return $this->createRegistration(null, $validated, $eligibility, $mediaService);
+        return $this->continueAfterParentClaim($validated, $similarity, $eligibility, $mediaService);
     }
 
     public function submitConfirm(int $riderId, RegistrationEligibilityService $eligibility, MediaService $mediaService): mixed
@@ -212,6 +231,14 @@ class EventRegistrationForm extends Component
             return null;
         }
 
+        $this->pendingExistingRiderId = $riderId;
+
+        if ($this->requiresParentClaim($validated['whatsapp'])) {
+            return null;
+        }
+
+        $this->pendingExistingRiderId = null;
+
         return $this->createRegistration($riderId, $validated, $eligibility, $mediaService);
     }
 
@@ -220,7 +247,114 @@ class EventRegistrationForm extends Component
         $this->showSimilarChoice = false;
         $this->similarRiders = [];
         $this->skipSimilarityCheck = true;
+        $this->pendingExistingRiderId = null;
         $this->dispatch('modal-close', name: 'duplicate-rider-modal');
+    }
+
+    public function confirmParentClaim(WhacenterService $whacenter): void
+    {
+        $user = $this->claimedParentUserId
+            ? User::query()->find($this->claimedParentUserId)
+            : null;
+
+        if (! $user || ! $user->whatsapp) {
+            $this->rejectParentClaim();
+            $this->toastError(__('That account is no longer available. Please use a different WhatsApp number.'));
+
+            return;
+        }
+
+        if ($this->sendParentClaimOtp($whacenter, $user)) {
+            $this->parentClaimStep = 'otp';
+            $this->reset('otp');
+            $this->resetErrorBag('otp');
+        }
+    }
+
+    public function rejectParentClaim(): void
+    {
+        $this->pendingExistingRiderId = null;
+        $this->resetParentClaimUi();
+        $this->whatsappIdentityVerified = false;
+        $this->dispatch('modal-close', name: 'parent-claim-modal');
+    }
+
+    public function verifyParentClaimOtp(
+        WhacenterService $whacenter,
+        RiderSimilarityService $similarity,
+        RegistrationEligibilityService $eligibility,
+        MediaService $mediaService
+    ): mixed {
+        $this->validate([
+            'otp' => ['required', 'string', 'size:6'],
+        ]);
+
+        $user = $this->claimedParentUserId
+            ? User::query()->find($this->claimedParentUserId)
+            : null;
+
+        if (! $user || ! $user->whatsapp) {
+            $this->rejectParentClaim();
+            $this->toastError(__('That account is no longer available. Please use a different WhatsApp number.'));
+
+            return null;
+        }
+
+        if (! $whacenter->verifyOtp($user->whatsapp, $this->otp)) {
+            $this->addError('otp', __('Invalid or expired code. Please try again or request a new code.'));
+
+            return null;
+        }
+
+        $normalized = WhacenterService::normalizeWhatsApp($user->whatsapp);
+        RegistrationParentClaim::markVerified($user, $normalized);
+        $this->whatsappIdentityVerified = true;
+        $this->whatsapp = $normalized;
+        $this->parent_name = $user->name;
+        $this->resetParentClaimUi();
+        $this->dispatch('modal-close', name: 'parent-claim-modal');
+
+        if (! $this->validateBracketAndPackage()) {
+            return null;
+        }
+
+        $this->resolvePendingTeamSearch();
+
+        try {
+            $validated = $this->validateFormData();
+        } catch (ValidationException $e) {
+            $this->handleValidationException($e);
+
+            return null;
+        }
+
+        $existingRiderId = $this->pendingExistingRiderId;
+        $this->pendingExistingRiderId = null;
+
+        if ($existingRiderId) {
+            return $this->createRegistration($existingRiderId, $validated, $eligibility, $mediaService);
+        }
+
+        return $this->continueAfterParentClaim($validated, $similarity, $eligibility, $mediaService);
+    }
+
+    public function resendParentClaimOtp(WhacenterService $whacenter): void
+    {
+        $user = $this->claimedParentUserId
+            ? User::query()->find($this->claimedParentUserId)
+            : null;
+
+        if (! $user || ! $user->whatsapp) {
+            $this->rejectParentClaim();
+
+            return;
+        }
+
+        if ($this->sendParentClaimOtp($whacenter, $user)) {
+            $this->reset('otp');
+            $this->resetErrorBag('otp');
+            session()->flash('parent_claim_otp_resent', __('A new code has been sent to your WhatsApp.'));
+        }
     }
 
     public function render()
@@ -308,6 +442,111 @@ class EventRegistrationForm extends Component
         if ($this->selectedTeamIds === [] && trim($this->teamSearch) !== '') {
             $this->createTeam();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function continueAfterParentClaim(
+        array $validated,
+        RiderSimilarityService $similarity,
+        RegistrationEligibilityService $eligibility,
+        MediaService $mediaService
+    ): mixed {
+        if (! $this->skipSimilarityCheck) {
+            $similar = $similarity->findSimilarRiders(
+                $validated['whatsapp'],
+                $validated['name'],
+                $validated['nickname'] ?? null,
+                $validated['pob'] ?? null,
+                $validated['dob'],
+                $validated['gender'],
+                $validated['number_plate'] ?? null
+            );
+
+            if ($similar->isNotEmpty()) {
+                $this->similarRiders = $similar->map(fn (array $item) => [
+                    'id' => $item['rider']->id,
+                    'score' => $item['score'],
+                    'name' => $item['rider']->name,
+                    'nickname' => $item['rider']->nickname,
+                    'pob' => $item['rider']->pob,
+                    'dob' => $item['rider']->dob?->format('Y-m-d') ?? '',
+                    'gender_label' => $item['rider']->gender_label ?? $item['rider']->gender,
+                    'number_plate' => $item['rider']->number_plate,
+                ])->all();
+                $this->showSimilarChoice = true;
+                $this->dispatch('modal-show', name: 'duplicate-rider-modal');
+
+                return null;
+            }
+        }
+
+        return $this->createRegistration(null, $validated, $eligibility, $mediaService);
+    }
+
+    private function requiresParentClaim(string $whatsappInput): bool
+    {
+        $normalizedWa = WhacenterService::normalizeWhatsApp($whatsappInput);
+
+        if ($this->whatsappIdentityVerified && RegistrationParentClaim::isVerified($normalizedWa)) {
+            return false;
+        }
+
+        if (RegistrationParentClaim::isVerified($normalizedWa)) {
+            $this->whatsappIdentityVerified = true;
+
+            return false;
+        }
+
+        $existing = User::query()->where('whatsapp', $normalizedWa)->first();
+        if (! $existing) {
+            return false;
+        }
+
+        $this->claimedParentUserId = $existing->id;
+        $this->claimedParentMaskedName = $existing->maskedDisplayName();
+        $this->parentClaimStep = 'confirm';
+        $this->showParentClaimModal = true;
+        $this->otp = '';
+        $this->resetErrorBag('otp');
+        $this->dispatch('modal-show', name: 'parent-claim-modal');
+
+        return true;
+    }
+
+    private function sendParentClaimOtp(WhacenterService $whacenter, User $user): bool
+    {
+        $result = $whacenter->requestOtp($user->whatsapp, request()->ip());
+
+        if ($result['sent']) {
+            return true;
+        }
+
+        $this->addError('otp', match ($result['reason']) {
+            'throttled' => __('Please wait :seconds seconds before requesting a new code.', [
+                'seconds' => max(1, $result['retry_after']),
+            ]),
+            default => __('WhatsApp service is temporarily unavailable. Please try again in a few minutes.'),
+        });
+
+        // Keep modal open on OTP step if we already moved there, otherwise stay on confirm with error.
+        if ($this->parentClaimStep !== 'otp') {
+            $this->parentClaimStep = 'otp';
+        }
+
+        return false;
+    }
+
+    private function resetParentClaimUi(): void
+    {
+        $this->showParentClaimModal = false;
+        $this->parentClaimStep = 'confirm';
+        $this->claimedParentMaskedName = '';
+        $this->claimedParentUserId = null;
+        $this->otp = '';
+        $this->resetErrorBag('otp');
+        // pendingExistingRiderId sengaja tidak di-reset di sini agar resume setelah OTP tetap jalan.
     }
 
     private function createRegistration(
@@ -454,6 +693,9 @@ class EventRegistrationForm extends Component
 
             return null;
         }
+
+        RegistrationParentClaim::rememberPrefill($user, $this->event, $normalizedWa);
+        $this->whatsappIdentityVerified = true;
 
         return redirect()->route('orders.show', $order);
     }

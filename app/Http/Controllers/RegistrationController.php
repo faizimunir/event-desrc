@@ -564,17 +564,91 @@ class RegistrationController extends Controller
         }
 
         $validated = $request->validate([
-            'whatsapp' => ['nullable', 'string', 'max:50'],
+            'whatsapp' => ['nullable', 'string', 'max:20'],
         ]);
 
+        $raw = $validated['whatsapp'] ?? null;
+        $normalized = ($raw !== null && trim($raw) !== '')
+            ? WhacenterService::normalizeWhatsApp($raw)
+            : null;
+
+        if ($normalized !== null && strlen($normalized) > 20) {
+            throw ValidationException::withMessages([
+                'whatsapp' => __('The WhatsApp number may not be greater than :max characters.', ['max' => 20]),
+            ]);
+        }
+
+        if ($normalized !== null) {
+            $owner = User::query()
+                ->where('whatsapp', $normalized)
+                ->where('id', '!=', $user->id)
+                ->first();
+
+            if ($owner) {
+                return redirect()
+                    ->route('events.registrations.show', [$event, $registration])
+                    ->withInput()
+                    ->withErrors([
+                        'whatsapp' => __('This WhatsApp number is already registered to :name. You can move this rider under that account, or merge accounts in Users Management.', [
+                            'name' => $owner->name,
+                        ]),
+                    ])
+                    ->with('whatsapp_owner_id', $owner->id)
+                    ->with('whatsapp_owner_name', $owner->name)
+                    ->with('whatsapp_claimed_number', $normalized);
+            }
+        }
+
         $user->forceFill([
-            'whatsapp' => $validated['whatsapp'] !== null && $validated['whatsapp'] !== ''
-                ? $validated['whatsapp']
-                : null,
+            'whatsapp' => $normalized,
         ])->save();
 
         return redirect()->route('events.registrations.show', [$event, $registration])
             ->with('status', __('WhatsApp number updated.'));
+    }
+
+    /**
+     * Admin: pindahkan rider registrasi ini ke akun user yang sudah punya nomor WhatsApp tersebut.
+     * Akun parent lama tidak dihapus (bisa di-merge terpisah jika kosong).
+     */
+    public function reassignRiderToWhatsappOwner(Request $request, Event $event, Registration $registration)
+    {
+        abort_unless(auth()->user()->canAs('event.update'), 403);
+        if ($registration->event_id !== $event->id) {
+            abort(404);
+        }
+
+        $rider = $registration->rider;
+        if (! $rider) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('error', __('This registration has no rider.'));
+        }
+
+        $validated = $request->validate([
+            'whatsapp' => ['required', 'string', 'max:20'],
+        ]);
+
+        $normalized = WhacenterService::normalizeWhatsApp($validated['whatsapp']);
+        $owner = User::query()->where('whatsapp', $normalized)->first();
+
+        if (! $owner) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->withInput()
+                ->withErrors(['whatsapp' => __('No account found for this WhatsApp number.')]);
+        }
+
+        if ((int) $rider->user_id === (int) $owner->id) {
+            return redirect()->route('events.registrations.show', [$event, $registration])
+                ->with('status', __('This rider is already linked to that account.'));
+        }
+
+        $rider->forceFill(['user_id' => $owner->id])->save();
+
+        return redirect()->route('events.registrations.show', [$event, $registration])
+            ->with('status', __('Rider moved under :name (:whatsapp).', [
+                'name' => $owner->name,
+                'whatsapp' => $owner->whatsapp,
+            ]));
     }
 
     /**
